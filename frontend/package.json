@@ -1,0 +1,50 @@
+{
+  "name": "frontend-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server/generated/server/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Corey Kosak",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/storage": "^6.11.0",
+    "@types/argparse": "^2.0.10",
+    "@types/bcrypt": "^5.0.0",
+    "@types/body-parser": "^1.19.2",
+    "@types/bootstrap": "^5.2.2",
+    "@types/express-session": "^1.17.5",
+    "@types/express-ws": "^3.0.1",
+    "@types/jquery": "^3.5.14",
+    "@types/passport-google-oauth": "^1.0.42",
+    "@types/passport-local": "^1.0.34",
+    "@types/random-seed": "^0.3.3",
+    "@types/urijs": "^1.19.19",
+    "@vue/cli": "^5.0.8",
+    "@vueuse/core": "^10.1.2",
+    "argparse": "^2.0.1",
+    "bcrypt": "^5.1.0",
+    "body-parser": "^1.20.0",
+    "express": "^4.18.1",
+    "express-session": "^1.17.3",
+    "express-ws": "^5.0.2",
+    "moment": "^2.29.4",
+    "passport": "^0.6.0",
+    "passport-google-oauth": "^2.0.0",
+    "passport-local": "^1.0.0",
+    "random-seed": "^0.3.0",
+    "session-file-store": "^1.5.0",
+    "source-map": "^0.7.4",
+    "source-map-loader": "^4.0.0",
+    "ts-loader": "^9.3.1",
+    "typescript": "^4.7.4",
+    "urijs": "^1.19.11",
+    "vue": "^3.2.39",
+    "webpack": "^5.75.0",
+    "ws": "^8.9.0"
+  },
+  "devDependencies": {
+    "webpack-cli": "^5.0.1"
+  }
+}

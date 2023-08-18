@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "removeComments": true,
+    "sourceMap": true,
+    "target": "ES6",
+    "outDir": "./generated/",
+    "moduleResolution": "node",
+    "strictNullChecks": true
+  },
+  "include": [
+    "**/*.ts"
+  ]
+}

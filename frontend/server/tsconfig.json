@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "removeComments": true,
+    "sourceMap": true,
+    "target": "ES6",
+    "outDir": "./generated/",
+    "strictNullChecks": true,
+    "module": "commonjs"
+  },
+  "include": [
+    "**/*.ts",
+    "../shared/**/*.ts"
+  ]
+}

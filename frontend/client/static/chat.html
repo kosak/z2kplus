@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>Z2K Plus+</title>
+    <meta charset="utf-8"/>
+
+    <!-- Bootstrap wants this -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+            crossorigin="anonymous"></script>
+
+    <!-- vue.js -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- VueUse -->
+    <script src="https://unpkg.com/@vueuse/shared"></script>
+    <script src="https://unpkg.com/@vueuse/core"></script>
+
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/4aab01538f.js"></script>
+    <!-- Google fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:600" rel="stylesheet">
+
+    <!-- Markdeep -->
+    <script>window.markdeepOptions = {mode: 'script'};</script>
+    <script src="https://morgan3d.github.io/markdeep/latest/markdeep.min.js"></script>
+    <link rel="stylesheet" href="/static/markdeep.other.css">
+
+    <!-- MathJax -->
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-MML-AM_CHTML'></script>
+
+    <!-- padding-top because fixed navbar is overlapping my content.
+    http://stackoverflow.com/questions/11124777/twitter-bootstrap-navbar-fixed-top-overlapping-site -->
+    <style>
+        body {
+            padding-top: 60px;
+        }
+
+        .kosak-font-mono {
+            font-family: monospace;
+        }
+
+        /* This allows us to fix the problem that happens when a float element (created by MarkDeep)
+        overflows its container */
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        .emphasized {
+            font-size: 2.0em;
+        }
+
+        .zgramHeader {
+            background-color: #e8e8ff;
+            margin-top: 1.5ex;
+            margin-bottom: 1.5ex;
+        }
+
+        .zgramUnloggedBody {
+            background-color: #ffe0e0;
+        }
+
+        .zgramUnreadBody {
+            background-color: #fff1a8;
+        }
+
+        .zgramActions {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.85em;
+        }
+
+        .sourceSans {
+            font-family: 'Source Sans Pro', sans-serif;
+        }
+
+        .plusplus-count-button {
+            background: #c6e2c6;
+            display:inline-block;
+            padding:.1em .5em;
+            transform: skew(-20deg);
+        }
+
+        .plusplus-count-button-inner {
+            display:inline-block;
+            transform: skew(20deg);
+        }
+    </style>
+</head>
+
+<body>
+<div id="z2kApp">
+    <!--------------------------------------------------------------------------------------------------
+    A pretty navbar, fixed to the top. It uses the viewmodel Z2kState.
+    --------------------------------------------------------------------------------------------------->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top"
+         :class="{'bg-dark': status.online, 'bg-warning': !status.online}">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarNavAltMarkup"
+                    aria-controls="navbarNavAltMarkup"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Aligned to left -->
+            <div class="navbar-collapse collapse" id="navbarNavAltMarkup">
+                <a class="navbar-brand" href="javascript:" @click="state.loadNewPageWithDefaultQuery()">Z2K <i>Plus</i>+</a>
+                <div class="navbar-nav">
+                    <a class="nav-item nav-link" href="javascript:" @click="state.toggleComposeViewModel()">compose</a>
+                    <a class="nav-item nav-link" href="javascript:" data-bs-toggle="modal" data-bs-target="#queryDialog">query</a>
+                    <a class="nav-item nav-link" href="javascript:" data-bs-toggle="modal" data-bs-target="#filtersDialog">filters</a>
+                    <a class="nav-item nav-link" href="javascript:" data-bs-toggle="modal" data-bs-target="#zmojisEditorDialog">zmojis</a>
+                    <a class="nav-item nav-link" href="javascript:" data-bs-toggle="modal" data-bs-target="#speechDialog">speech</a>
+                    <a class="nav-item nav-link" href="javascript:" @click="state.fakePost()">fakemessage</a>
+                </div>
+            </div>
+
+            <!-- Aligned to right -->
+            <div class="navbar-nav ms-auto">
+                <a v-if="status.queryOutstanding" class="nav-item nav-link" href="#">
+                    SENDING QUERY
+                </a>
+                <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="#">
+                    FETCHING MORE
+                </a>
+                <a class="nav-item nav-link" href="#">
+                    <i class="fa fa-user"></i>
+                    {{ status.profile.userId }}
+                </a>
+                <a class="nav-item nav-link" href="#" :style="{color: status.online ? 'green' :'red'}">
+                    {{ status.online ? "ONLINE" : `OFFLINE (${state.numPendingRequests} pending)` }}
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!--------------------------------------------------------------------------------------------------
+    Our query dialog (modal). Does not render until the user clicks on query in the top menu.
+    --------------------------------------------------------------------------------------------------->
+    <query-dialog-component :self="state.queryViewModel"></query-dialog-component>
+
+    <!--------------------------------------------------------------------------------------------------
+    Our filters dialog (modal). Does not render until the user clicks on filters in the top menu.
+    --------------------------------------------------------------------------------------------------->
+    <filters-dialog-component :self="state.filtersViewModel"></filters-dialog-component>
+
+    <!--------------------------------------------------------------------------------------------------
+    Our zmojis dialog (modal). Does not render until the user clicks on zmojis in the top menu.
+    --------------------------------------------------------------------------------------------------->
+    <zmojis-editor-dialog-component :self="state.zmojisEditorViewModel"></zmojis-editor-dialog-component>
+
+    <!--------------------------------------------------------------------------------------------------
+    Our speech dialog (modal). Does not render until the user clicks on speech in the top menu.
+    --------------------------------------------------------------------------------------------------->
+    <speech-dialog-component :self="state.speechViewModel"></speech-dialog-component>
+
+    <!--------------------------------------------------------------------------------------------------
+    The zgrams section. Shows previous zgrams, then the zgrams, then a (usually-absent) compose area,
+    then the subsequent zgrams.
+    --------------------------------------------------------------------------------------------------->
+    <div class="container-fluid">
+        <stream-status-component :self="state.frontStreamStatus">
+        </stream-status-component>
+        <hr>
+        <zgram-component v-for="zg in state.zgrams" :key="zg.zgramId.raw" :zg="zg">
+        </zgram-component>
+
+        <template v-if="state.composeViewModel !== undefined">
+            <hr>
+            <zgram-editor-component :self="state.composeViewModel">
+            </zgram-editor-component>
+        </template>
+
+        <hr>
+        <stream-status-component :self="state.backStreamStatus">
+        </stream-status-component>
+    </div>
+</div>
+
+<!-- Our own libraries, including the reactive "view model" for this page -->
+<script src="/dist/everything.js"></script>
+
+</body>
+</html>
