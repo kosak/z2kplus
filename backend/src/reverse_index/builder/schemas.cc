@@ -40,6 +40,10 @@ auto ZgramRevisions::createTuple(const ZgramRevision &zgRev) -> tuple_t {
   return {zgRev.zgramId(), zgc.instance(), zgc.body(), (int)zgc.renderStyle()};
 }
 
+auto ZgramRefersTos::createTuple(const ZgramRefersTo &refersTo) -> tuple_t {
+  return {refersTo.zgramId(), refersTo.refersTo(), refersTo.value()};
+}
+
 auto ZmojisRevisions::createTuple(const Zmojis &isLoggedRevision) -> tuple_t {
   return {isLoggedRevision.userId(), isLoggedRevision.zmojis()};
 }

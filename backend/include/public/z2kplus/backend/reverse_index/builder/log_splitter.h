@@ -23,12 +23,20 @@
 namespace z2kplus::backend::reverse_index::builder {
 struct LogSplitterResult {
   typedef z2kplus::backend::files::FileKey FileKey;
+  LogSplitterResult();
+  LogSplitterResult(std::vector<std::string> loggedZgrams, std::vector<std::string> unloggedZgrams,
+      std::string reactionsByZgramId, std::string reactionsByReaction, std::string zgramRevisions,
+      std::string zgramRefersTo, std::string zmojis);
+  DISALLOW_COPY_AND_ASSIGN(LogSplitterResult);
+  DECLARE_MOVE_COPY_AND_ASSIGN(LogSplitterResult);
+  ~LogSplitterResult();
 
   std::vector<std::string> loggedZgrams_;
   std::vector<std::string> unloggedZgrams_;
   std::string reactionsByZgramId_;
   std::string reactionsByReaction_;
   std::string zgramRevisions_;
+  std::string zgramRefersTo_;
   std::string zmojis_;
 };
 

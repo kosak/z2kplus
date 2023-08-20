@@ -25,7 +25,7 @@ import {
   assertNumber,
   assertString
 } from "../json_util";
-import {staticFail} from "../utility";
+import {staticFail, tryParseWholeNumber} from "../utility";
 import {Unit} from "./misc";
 
 export class ZgramId {
@@ -221,7 +221,24 @@ export namespace zgMetadata {
     }
 
     toString() {
-      return `InstanceRevision(${this.zgramId}, ${this.zgc})`;
+      return `ZgramRevision(${this.zgramId}, ${this.zgc})`;
+    }
+  }
+
+  export class ZgramRefersTo {
+    constructor(readonly zgramId: ZgramId, readonly refersTo: ZgramId, readonly value: boolean) {}
+
+    toJson() {
+      return [this.zgramId.toJson(), this.refersTo.toJson(), this.value];
+    }
+
+    static tryParseJson(src: object) {
+      const [id, rt, v] = assertAndDestructure3(src, ZgramId.tryParseJson, ZgramId.tryParseJson, assertBoolean);
+      return new ZgramRefersTo(id, rt, v);
+    }
+
+    toString() {
+      return `ZgramRefersTo(${this.zgramId}, ${this.refersTo}, ${this.value})`;
     }
   }
 }  // namespace zgMetadata
@@ -249,12 +266,14 @@ export namespace metadataRecordInfo {
   export const enum Tag {
     Reaction = "rx",
     ZgramRevision = "zgrev",
+    ZgramRefersTo = "ref",
     Zmojis = "zmojis"
   }
 
   export type payload_t =
       zgMetadata.Reaction |
       zgMetadata.ZgramRevision |
+      zgMetadata.ZgramRefersTo |
       userMetadata.Zmojis;
 
   // This drama is to support the discriminated union pattern.
@@ -266,6 +285,10 @@ export namespace metadataRecordInfo {
     readonly tag: Tag.ZgramRevision;
     readonly payload: zgMetadata.ZgramRevision;
   }
+  export interface IZgramRefersTo {
+    readonly tag: Tag.ZgramRefersTo;
+    readonly payload: zgMetadata.ZgramRefersTo;
+  }
   export interface IZmojis {
      readonly tag: Tag.Zmojis;
      readonly payload: userMetadata.Zmojis;
@@ -276,6 +299,8 @@ export namespace metadataRecordInfo {
 
     visitZgramRevision(payload: zgMetadata.ZgramRevision): TResult;
 
+    visitZgramRefersTo(payload: zgMetadata.ZgramRefersTo): TResult;
+
     visitZmojis(payload: userMetadata.Zmojis): TResult;
   }
 }
@@ -283,6 +308,7 @@ export namespace metadataRecordInfo {
 export type IMetadataRecord =
     metadataRecordInfo.IReaction |
     metadataRecordInfo.IZgramRevision |
+    metadataRecordInfo.IZgramRefersTo |
     metadataRecordInfo.IZmojis;
 
 export class MetadataRecord {
@@ -294,6 +320,11 @@ export class MetadataRecord {
   static createZgramRevision(zgramId: ZgramId, zgc: ZgramCore) {
     const payload = new zgMetadata.ZgramRevision(zgramId, zgc);
     return new MetadataRecord(metadataRecordInfo.Tag.ZgramRevision, payload);
+  }
+
+  static createZgramRefersTo(zgramId: ZgramId, refersTo: ZgramId, value: boolean) {
+    const payload = new zgMetadata.ZgramRefersTo(zgramId, refersTo, value);
+    return new MetadataRecord(metadataRecordInfo.Tag.ZgramRefersTo, payload);
   }
 
   static createZmojis(userId: string, zmojis: string) {
@@ -311,6 +342,8 @@ export class MetadataRecord {
         return visitor.visitReaction(idresp.payload);
       case metadataRecordInfo.Tag.ZgramRevision:
         return visitor.visitZgramRevision(idresp.payload);
+      case metadataRecordInfo.Tag.ZgramRefersTo:
+        return visitor.visitZgramRefersTo(idresp.payload);
       case metadataRecordInfo.Tag.Zmojis:
         return visitor.visitZmojis(idresp.payload);
       default:
@@ -331,6 +364,8 @@ export class MetadataRecord {
         return new MetadataRecord(tag, zgMetadata.Reaction.tryParseJson(item));
       case metadataRecordInfo.Tag.ZgramRevision:
         return new MetadataRecord(tag, zgMetadata.ZgramRevision.tryParseJson(item));
+      case metadataRecordInfo.Tag.ZgramRefersTo:
+        return new MetadataRecord(tag, zgMetadata.ZgramRefersTo.tryParseJson(item));
       case metadataRecordInfo.Tag.Zmojis:
         return new MetadataRecord(tag, userMetadata.Zmojis.tryParseJson(item));
       default: throw staticFail(tag);

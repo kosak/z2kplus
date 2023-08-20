@@ -1,0 +1,7 @@
+**/.idea/workspace.xml
+*.o
+*.exe
+cmake-build-debug
+cmake-build-release
+node_modules/
+*~

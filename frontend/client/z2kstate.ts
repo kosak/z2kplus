@@ -362,6 +362,10 @@ export class Z2kState {
         zvm.addRevision(zgRev.zgc);
     }
 
+    visitZgramRefersTo(zgRefersTo: zgMetadata.ZgramRefersTo) {
+        // TODO(kosak): handle refers to
+    }
+
     visitZmojis(zmojis: userMetadata.Zmojis) {
         this.zmojisEditorViewModel.setFromServer(zmojis.zmojis);
     }

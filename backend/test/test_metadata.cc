@@ -106,14 +106,20 @@ TEST_CASE("metadata: perZgram","[metadata]") {
   {
     std::vector<MetadataRecord> mdrs;
     ci.getMetadataFor(ZgramId(42), &mdrs);
-    REQUIRE(mdrs.size() == 1);
-    auto ip = mdrs.begin();
-    const auto *item0 = std::get_if<zgMetadata::Reaction>(&ip++->payload());
-    CHECK(item0->zgramId().raw() == 42);
+    REQUIRE(mdrs.size() == 2);
 
-    CHECK(item0->creator() == "spock");
-
-    CHECK(item0->reaction() == "👎");
+    size_t numRecords = 0;
+    for (const auto &mdr : mdrs) {
+      const auto *rx = std::get_if<zgMetadata::Reaction>(&mdr.payload());
+      if (rx == nullptr) {
+        continue;
+      }
+      CHECK(rx->zgramId().raw() == 42);
+      CHECK(rx->creator() == "spock");
+      CHECK(rx->reaction() == "👎");
+      ++numRecords;
+    }
+    CHECK(numRecords == 1);
   }
 }
 
@@ -209,6 +215,25 @@ TEST_CASE("metadata: reactionsIndex","[metadata]") {
   for (size_t i = 0; i < reactions.size(); ++i) {
     testReactionsIndex(ci, reactions[i], expectedZgramIds[i]);
   }
+}
+
+TEST_CASE("metadata: refersTo","[metadata]") {
+  FailRoot fr;
+  std::shared_ptr<PathMaster> pm;
+  ConsolidatedIndex ci;
+  if (!getPathMaster(&pm, fr.nest(HERE)) ||
+      !TestUtil::trySetupConsolidatedIndex(pm, &ci, fr.nest(HERE))) {
+    FAIL(fr);
+  }
+
+  std::vector<zgMetadata::ZgramRefersTo> actual;
+  ci.getRefersToFor(ZgramId(42), &actual);
+
+  REQUIRE(actual.size() == 1);
+  const auto &a0 = actual[0];
+  CHECK(a0.value());
+  CHECK(a0.zgramId().raw() == 42);
+  CHECK(a0.refersTo().raw() == 41);
 }
 
 namespace {

@@ -55,6 +55,8 @@ public:
   bool tryAddHelper(const FrozenIndex &lhs,
       const z2kplus::backend::shared::zgMetadata::ZgramRevision &o, const FailFrame &ff);
   bool tryAddHelper(const FrozenIndex &lhs,
+      const z2kplus::backend::shared::zgMetadata::ZgramRefersTo &o, const FailFrame &ff);
+  bool tryAddHelper(const FrozenIndex &lhs,
       const z2kplus::backend::shared::userMetadata::Zmojis &o, const FailFrame &ff);
 
   // zgramId -> reaction -> creator -> {add, remove}
@@ -63,6 +65,8 @@ public:
   typedef lessMap_t<std::string, std::map<ZgramId, int32_t>> reactionCounts_t;
   // zgramId -> ZgramCore revisions.
   typedef std::map<ZgramId, std::vector<ZgramCore>> zgramRevisions_t;
+  // zgramId -> map<ZgramId, valid> referred-to zgrams. Set to false to hide a frozen reference
+  typedef std::map<ZgramId, std::map<ZgramId, bool>> zgramRefersTo_t;
   // userId -> zmojis
   typedef lessMap_t<std::string, std::string> zmojis_t;
   // key -> vector<ZgramIds> containing "key++". We can figure out the net ++ by doing a rank
@@ -76,6 +80,7 @@ public:
   const reactions_t &reactions() const { return reactions_; }
   const reactionCounts_t &reactionCounts() const { return reactionCounts_; }
   const zgramRevisions_t &zgramRevisions() const { return zgramRevisions_; }
+  const zgramRefersTo_t &zgramRefersTo() const { return zgramRefersTo_; }
   const zmojis_t &zmojis() const { return zmojis_; }
   plusPluses_t &plusPluses() { return plusPluses_; }
   const plusPluses_t &plusPluses() const { return plusPluses_; }
@@ -88,6 +93,7 @@ private:
   reactions_t reactions_;
   reactionCounts_t reactionCounts_;
   zgramRevisions_t zgramRevisions_;
+  zgramRefersTo_t zgramRefersTo_;
   zmojis_t zmojis_;
   plusPluses_t plusPluses_;
   minusMinuses_t minusMinuses_;

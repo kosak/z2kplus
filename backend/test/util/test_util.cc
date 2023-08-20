@@ -131,6 +131,7 @@ const char zgrams20000102_1[] =
     R"([["m",[["zgrev",[[13],["feelings.Unicode","🙀Cιηη🔥вση🙀","d"]]]]]])" "\n"
     R"([["m",[["zgrev",[[12],["feelings.Unicode","I ❤ to eat π and 𝐂𝐈𝐍𝐍𝐀𝐁𝐎𝐍 at the café","d"]]]]]])" "\n";
 
+// Reactions day. Plus a refers-to
 auto key20000103_0 = FileKey::createUnsafe(2000, 1, 3, 0, true);
 const char zgrams20000103_0[] =
     R"xxx([["z",[[40],946857600,"simon","Simon Eriksson",true,["tv.wilhelm.delayed","I'm going to change my vote on Battlestar Galactica™","d"]]]])xxx" "\n"
@@ -139,6 +140,8 @@ const char zgrams20000103_0[] =
     R"([["m",[["rx",[[30],"👍","simon",true]]]]])" "\n"
     R"xxx([["z",[[41],946857603,"spock","Spock (Unpronounceable)",true,["logic","The next zgram is true.","d"]]]])xxx" "\n"
     R"xxx([["z",[[42],946857604,"spock","Spock (Unpronounceable)",true,["logic","The previous zgram is false.","d"]]]])xxx" "\n"
+    // 42 refers to 41
+    R"([["m",[["ref",[[42],[41],true]]]]])" "\n"
     // kosak and spock like 41
     R"([["m",[["rx",[[41],"👍","kosak",true]]]]])" "\n"
     R"([["m",[["rx",[[41],"👍","spock",true]]]]])" "\n"

@@ -144,6 +144,7 @@ public:
 
   void getReactionsFor(ZgramId zgramId, std::vector<shared::zgMetadata::Reaction> *result) const;
   void getZgramRevsFor(ZgramId zgramId, std::vector<shared::zgMetadata::ZgramRevision> *result) const;
+  void getRefersToFor(ZgramId zgramId, std::vector<shared::zgMetadata::ZgramRefersTo> *result) const;
 
   size_t zgramInfoSize() const {
     return frozenIndex_.get()->zgramInfos().size() + dynamicIndex_.zgramInfos().size();

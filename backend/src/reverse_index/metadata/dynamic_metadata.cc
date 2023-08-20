@@ -53,6 +53,16 @@ bool DynamicMetadata::tryAddHelper(const FrozenIndex &/*lhs*/,
   return true;
 }
 
+bool DynamicMetadata::tryAddHelper(const FrozenIndex &/*lhs*/, const zgMetadata::ZgramRefersTo &o,
+    const FailFrame &/*ff*/) {
+  if (o.value()) {
+    zgramRevisions_.try_emplace(o.refersTo());
+  } else {
+    zgramRevisions_.erase(o.refersTo());
+  }
+  return true;
+}
+
 bool DynamicMetadata::tryAddHelper(const FrozenIndex &/*lhs*/,
     const userMetadata::Zmojis &o, const FailFrame &/*ff*/) {
   zmojis_.insert_or_assign(o.userId(), o.zmojis());

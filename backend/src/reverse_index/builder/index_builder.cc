@@ -45,7 +45,6 @@ using kosak::coding::nsunix::FileCloser;
 using kosak::coding::memory::BufferedWriter;
 using kosak::coding::sorting::KeyOptions;
 using kosak::coding::sorting::SortOptions;
-using kosak::coding::sorting::SortManager;
 using z2kplus::backend::files::DateAndPartKey;
 using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::Location;

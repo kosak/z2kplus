@@ -419,6 +419,10 @@ struct SanitizeAnalyzer {
     defer(o.zgramId());
   }
 
+  void operator()(const zgMetadata::ZgramRefersTo &o) {
+    defer(o.zgramId());
+  }
+
   void operator()(const userMetadata::Zmojis &/*o*/) {
     accept();
   }

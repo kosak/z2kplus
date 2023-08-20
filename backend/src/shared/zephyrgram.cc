@@ -98,6 +98,21 @@ DEFINE_TYPICAL_JSON(ZgramRevision, zgramId_, zgc_);
 std::ostream &operator<<(std::ostream &s, const ZgramRevision &o) {
   return streamf(s, "[zgId=%o, zgc=%o]", o.zgramId_, o.zgc_);
 }
+
+ZgramRefersTo::ZgramRefersTo() = default;
+ZgramRefersTo::ZgramRefersTo(ZgramId zgramId, ZgramId refersTo, bool value) : zgramId_(zgramId), refersTo_(refersTo),
+  value_(value) {}
+ZgramRefersTo::ZgramRefersTo(ZgramRefersTo &&) noexcept = default;
+ZgramRefersTo &ZgramRefersTo::operator=(ZgramRefersTo &&) noexcept = default;
+ZgramRefersTo::~ZgramRefersTo() = default;
+
+DEFINE_TYPICAL_JSON(ZgramRefersTo, zgramId_, refersTo_, value_);
+
+std::ostream &operator<<(std::ostream &s, const ZgramRefersTo &o) {
+  return streamf(s, "[zgId=%o, refersTo=%o, valid=%o]", o.zgramId_, o.refersTo_, o.value_);
+}
+
+
 }  // namespace zgMetadata
 
 namespace userMetadata {
@@ -119,6 +134,7 @@ std::ostream &operator<<(std::ostream &s, const Zmojis &o) {
 MetadataRecord::MetadataRecord() = default;
 MetadataRecord::MetadataRecord(zgMetadata::Reaction &&o) : payload_(std::move(o)) {}
 MetadataRecord::MetadataRecord(zgMetadata::ZgramRevision &&o) : payload_(std::move(o)) {}
+MetadataRecord::MetadataRecord(zgMetadata::ZgramRefersTo &&o) : payload_(std::move(o)) {}
 MetadataRecord::MetadataRecord(userMetadata::Zmojis &&o) : payload_(std::move(o)) {}
 MetadataRecord::MetadataRecord(MetadataRecord &&other) noexcept = default;
 MetadataRecord &MetadataRecord::operator=(MetadataRecord &&other) noexcept = default;

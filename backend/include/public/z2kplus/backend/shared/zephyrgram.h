@@ -198,7 +198,7 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(ZgramRevision);
   ~ZgramRevision();
 
-  const ZgramId &zgramId() const { return zgramId_; }
+  ZgramId zgramId() const { return zgramId_; }
   const ZgramCore &zgc() const { return zgc_; }
   ZgramCore &zgc() { return zgc_; }
 
@@ -210,6 +210,26 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const ZgramRevision &o);
   DECLARE_TYPICAL_JSON(ZgramRevision);
+};
+
+class ZgramRefersTo {
+public:
+  ZgramRefersTo();
+  ZgramRefersTo(ZgramId zgramId, ZgramId refersTo, bool value);
+  DECLARE_MOVE_COPY_AND_ASSIGN(ZgramRefersTo);
+  ~ZgramRefersTo();
+
+  ZgramId zgramId() const { return zgramId_; }
+  ZgramId refersTo() const { return refersTo_; }
+  bool value() const { return value_; }
+
+private:
+  ZgramId zgramId_;
+  ZgramId refersTo_;
+  bool value_ = false;
+
+  friend std::ostream &operator<<(std::ostream &s, const ZgramRefersTo &o);
+  DECLARE_TYPICAL_JSON(ZgramRefersTo);
 };
 }  // namespace zgMetadata
 
@@ -238,9 +258,9 @@ private:
 };
 
 // ADL: this needs to be in the namespace of one of the variant component types
-typedef std::variant<zgMetadata::Reaction, zgMetadata::ZgramRevision, userMetadata::Zmojis>
+typedef std::variant<zgMetadata::Reaction, zgMetadata::ZgramRevision, zgMetadata::ZgramRefersTo, userMetadata::Zmojis>
     metadataRecordPayload_t;
-DECLARE_VARIANT_JSON(MetadataRecordPayloadHolder, metadataRecordPayload_t, ("rx", "zgrev", "zmojis"));
+DECLARE_VARIANT_JSON(MetadataRecordPayloadHolder, metadataRecordPayload_t, ("rx", "zgrev", "ref", "zmojis"));
 }  // namespace userMetadata
 
 
@@ -249,6 +269,7 @@ public:
   MetadataRecord();
   explicit MetadataRecord(zgMetadata::Reaction &&o);
   explicit MetadataRecord(zgMetadata::ZgramRevision &&o);
+  explicit MetadataRecord(zgMetadata::ZgramRefersTo &&o);
   explicit MetadataRecord(userMetadata::Zmojis &&o);
   DISALLOW_COPY_AND_ASSIGN(MetadataRecord);
   DECLARE_MOVE_COPY_AND_ASSIGN(MetadataRecord);

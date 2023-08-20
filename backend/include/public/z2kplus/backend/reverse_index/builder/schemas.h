@@ -155,6 +155,32 @@ private:
   const tuple_t &tuple_;
 };
 
+class ZgramRefersTos {
+  typedef kosak::coding::sorting::KeyOptions KeyOptions;
+  typedef z2kplus::backend::shared::ZgramId ZgramId;
+  typedef z2kplus::backend::shared::zgMetadata::ZgramRefersTo ZgramRefersTo;
+public:
+  // zgramId, refersTo, valid
+  typedef std::tuple<ZgramId, ZgramId, bool> tuple_t;
+  static constexpr bool keyIsUnique = false;
+  static constexpr size_t keySize = 2;
+
+  static tuple_t createTuple(const ZgramRefersTo &refersTo);
+
+  static std::vector<KeyOptions> keyOptions() {
+    return KeyOptions ::createVector({true, true});
+  }
+
+  explicit ZgramRefersTos(const tuple_t &tuple) : tuple_(tuple) {}
+
+  ZgramId zgramId() const { return std::get<0>(tuple_); }
+  ZgramId refersTo() const { return std::get<1>(tuple_); }
+  bool valid() const { return std::get<2>(tuple_); }
+
+private:
+  const tuple_t &tuple_;
+};
+
 class ZmojisRevisions {
   typedef kosak::coding::sorting::KeyOptions KeyOptions;
   typedef z2kplus::backend::shared::userMetadata::Zmojis Zmojis;

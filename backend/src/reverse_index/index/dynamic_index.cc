@@ -159,6 +159,10 @@ bool DynamicIndex::tryAddMetadata(const FrozenIndex &frozenSide,
       return dynamicMetadata_->tryAddHelper(frozen_, o, f2_->nest(HERE));
     }
 
+    bool operator()(const zgMetadata::ZgramRefersTo &o) const {
+      return dynamicMetadata_->tryAddHelper(frozen_, o, f2_->nest(HERE));
+    }
+
     bool operator()(const userMetadata::Zmojis &o) const {
       return dynamicMetadata_->tryAddHelper(frozen_, o, f2_->nest(HERE));
     }

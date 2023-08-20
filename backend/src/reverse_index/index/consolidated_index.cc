@@ -553,13 +553,18 @@ ZgramId ConsolidatedIndex::zgramEnd() const {
 void ConsolidatedIndex::getMetadataFor(ZgramId zgramId, std::vector<MetadataRecord> *result) const {
   std::vector<zgMetadata::Reaction> reactions;
   std::vector<zgMetadata::ZgramRevision> zgRevisions;
+  std::vector<zgMetadata::ZgramRefersTo> zgRefersTo;
   getReactionsFor(zgramId, &reactions);
   getZgramRevsFor(zgramId, &zgRevisions);
+  getRefersToFor(zgramId, &zgRefersTo);
   for (auto &rx : reactions) {
     result->emplace_back(std::move(rx));
   }
   for (auto &rev : zgRevisions) {
     result->emplace_back(std::move(rev));
+  }
+  for (auto &rt : zgRefersTo) {
+    result->emplace_back(std::move(rt));
   }
 }
 
@@ -609,8 +614,8 @@ void ConsolidatedIndex::getReactionsFor(ZgramId zgramId, std::vector<zgMetadata:
   typedef FrozenMetadata::reactions_t::mapped_type fInner_t;
   typedef DynamicMetadata::reactions_t::mapped_type dInner_t;
 
-  dInner_t emptyDinner;
   fInner_t emptyFinner;
+  dInner_t emptyDinner;
 
   const fInner_t *fInner;
   const dInner_t *dInner;
@@ -684,6 +689,59 @@ void ConsolidatedIndex::getZgramRevsFor(ZgramId zgramId, std::vector<zgMetadata:
       ZgramCore zgCopy(item);
       result->emplace_back(zgramId, std::move(zgCopy));
     }
+  }
+}
+
+void ConsolidatedIndex::getRefersToFor(ZgramId zgramId, std::vector<zgMetadata::ZgramRefersTo> *result) const {
+  // Push frozen items not overridden by dynamic items
+  typedef FrozenMetadata::zgramRefersTo_t::mapped_type fInner_t;
+  typedef DynamicMetadata::zgramRefersTo_t::mapped_type dInner_t;
+
+  fInner_t emptyFinner;
+  dInner_t emptyDinner;
+
+  const fInner_t *fInner;
+  const dInner_t *dInner;
+  if (!frozenIndex_.get()->metadata().zgramRefersTo().tryFind(zgramId, &fInner)) {
+    fInner = &emptyFinner;
+  }
+  if (!kosak::coding::maputils::tryFind(dynamicIndex_.metadata().zgramRefersTo(), zgramId, &dInner)) {
+    dInner = &emptyDinner;
+  }
+
+  auto fp = fInner->begin();
+  auto dp = dInner->begin();
+
+  while (fp != fInner->end() || dp != dInner->end()) {
+    int diff;
+    if (dp == dInner->end()) {
+      // Only in frozen
+      diff = -1;
+    } else if (fp == fInner->end()) {
+      // Only in dynamic
+      diff = 1;
+    } else {
+      // In both
+      diff = 0;
+    }
+
+    ZgramId refersTo;
+    bool value;
+    if (diff <= 0) {
+      refersTo = *fp;
+      value = true;
+      ++fp;
+    }
+    if (diff >= 0) {
+      refersTo = dp->first;
+      value = dp->second;
+      ++dp;
+    }
+
+    if (!value) {
+      continue;
+    }
+    result->emplace_back(zgramId, refersTo, true);
   }
 }
 

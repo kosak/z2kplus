@@ -23,6 +23,9 @@ struct MetadataRecordVisitor {
   void operator()(const zgMetadata::ZgramRevision &r) {
     zgramId_ = r.zgramId();
   }
+  void operator()(const zgMetadata::ZgramRefersTo &r) {
+    zgramId_ = r.zgramId();
+  }
   void operator()(const userMetadata::Zmojis &r) {
     userId_ = &r.userId();
   }

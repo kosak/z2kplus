@@ -78,6 +78,8 @@ bool tryMakeReactionCounts(const std::string &tempName, const std::string &filen
 bool tryMakeZgramRevisions(const std::string &tempName, const std::string &filename,
     const FrozenStringPool &stringPool, SimpleAllocator *alloc, FrozenMetadata::zgramRevisions_t *result,
     const FailFrame &ff);
+bool tryMakeZgramRefersTos(const std::string &tempName, const std::string &filename,
+    SimpleAllocator *alloc, FrozenMetadata::zgramRefersTo_t *result, const FailFrame &ff);
 bool tryMakeZmojis(const std::string &tempName, const std::string &filename,
     const FrozenStringPool &stringPool, SimpleAllocator *alloc, FrozenMetadata::zmojis_t *result,
     const FailFrame &ff);
@@ -98,6 +100,7 @@ bool MetadataBuilder::tryMakeMetadata(const LogSplitterResult &lsr, const ZgramD
   FrozenMetadata::reactions_t reactions;
   FrozenMetadata::reactionCounts_t reactionCounts;
   FrozenMetadata::zgramRevisions_t zgramRevisions;
+  FrozenMetadata::zgramRefersTo_t zgramRefersTo;
   FrozenMetadata::zmojis_t zmojis;
   FrozenMetadata::plusPluses_t plusPluses;
   FrozenMetadata::minusMinuses_t minusMinuses;
@@ -105,6 +108,7 @@ bool MetadataBuilder::tryMakeMetadata(const LogSplitterResult &lsr, const ZgramD
   if (!tryMakeReactions(tempFile, lsr.reactionsByZgramId_, stringPool, alloc, &reactions, ff.nest(HERE)) ||
       !tryMakeReactionCounts(tempFile, lsr.reactionsByReaction_, stringPool, alloc, &reactionCounts, ff.nest(HERE)) ||
       !tryMakeZgramRevisions(tempFile, lsr.zgramRevisions_, stringPool, alloc, &zgramRevisions, ff.nest(HERE)) ||
+      !tryMakeZgramRefersTos(tempFile, lsr.zgramRefersTo_, alloc, &zgramRefersTo, ff.nest(HERE)) ||
       !tryMakeZmojis(tempFile, lsr.zmojis_, stringPool, alloc, &zmojis, ff.nest(HERE)) ||
       !tryMakePlusPluses(tempFile, zgdr.plusPlusEntriesName(), stringPool, alloc, &plusPluses,
           ff.nest(HERE))  ||
@@ -115,7 +119,8 @@ bool MetadataBuilder::tryMakeMetadata(const LogSplitterResult &lsr, const ZgramD
     return false;
   }
   *result = FrozenMetadata(std::move(reactions), std::move(reactionCounts), std::move(zgramRevisions),
-      std::move(zmojis), std::move(plusPluses), std::move(minusMinuses), std::move(plusPlusKeys));
+      std::move(zgramRefersTo), std::move(zmojis), std::move(plusPluses), std::move(minusMinuses),
+      std::move(plusPlusKeys));
   return true;
 }
 
@@ -224,6 +229,24 @@ bool tryMakeZgramRevisions(const std::string &tempName, const std::string &filen
   constexpr auto treeDepth = CalcTreeDepth<FrozenMetadata::zgramRevisions_t>::value;
   static_assert(treeDepth == 2);
   return tryInflate(tempName, &frozen, treeDepth, result, alloc, ff.nest(HERE));
+}
+
+bool tryMakeZgramRefersTos(const std::string &tempName, const std::string &filename,
+    SimpleAllocator *alloc, FrozenMetadata::zgramRefersTo_t *result,
+    const FailFrame &ff) {
+  MappedFile<char> mf;
+  if (!mf.tryMap(filename, false, ff.nest(HERE))) {
+    return false;
+  }
+  RowIterator<schemas::ZgramRefersTos::tuple_t> iter(std::move(mf));  // zgramId, refersTo, value
+  constexpr auto keySize = schemas::ZgramRefersTos::keySize;
+  auto lastKeeper = makeLastKeeper<keySize>(&iter);  // zgramId, refersTo, value
+  auto trueKeeper = makeTrueKeeper<keySize>(&lastKeeper); // zgramId, refersTo, true
+  auto refersTo = makePrefixGrabber<keySize>(&trueKeeper);  // zgramId, reaction
+
+  constexpr auto treeDepth = CalcTreeDepth<FrozenMetadata::zgramRefersTo_t>::value;
+  static_assert(treeDepth == 2);
+  return tryInflate(tempName, &refersTo, treeDepth, result, alloc, ff.nest(HERE));
 }
 
 bool tryMakeZmojis(const std::string &tempName, const std::string &filename,

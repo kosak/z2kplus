@@ -63,10 +63,12 @@ namespace zgMetadata = z2kplus::backend::shared::zgMetadata;
 
 #define HERE KOSAK_CODING_HERE
 
+// uh oh hack job
+
 namespace {
 class Converter {
 public:
-  static bool tryConvertDir(const std::string &srcDir, const std::string &desDir,
+  static bool tryConvertDir(const std::string &srcDir, const std::string &destDir,
       const FailFrame &ff);
 
 private:
@@ -97,6 +99,8 @@ void convertEmotionalReactions(const ZgramId &zgramId,
     const LegacyPerZgramMetadataCore::reactions_t &reactions, std::vector<LogRecord> *dest);
 void convertHashtags(const ZgramId &zgramId,
     const LegacyPerZgramMetadataCore::hashtags_t &hashtags, std::vector<LogRecord> *dest);
+void convertRefersTo(const ZgramId &zgramId,
+    const LegacyPerZgramMetadataCore::refersTo_t &refersTo, std::vector<LogRecord> *dest);
 void convertZmojis(const std::string &user, LegacyPerUseridMetadataCore::zmojis_t *zmojis,
     std::vector<LogRecord> *dest);
 
@@ -327,7 +331,8 @@ bool Converter::tryConvertPerZgramMetadata(const LegacyZgramId &zgId,
   ZgramId zgramId(zgId.id());
   convertEmotionalReactions(zgramId, pzmdc->reactions(), dest);
   convertHashtags(zgramId, pzmdc->hashtags(), dest);
-  // skip bookmarks, refersTo, referredFrom, threads
+  convertRefersTo(zgramId, pzmdc->refersTo(), dest);
+  // skip bookmarks, referredFrom, threads
   return tryConvertEdits(zgramId, pzmdc->edits(), dest, ff.nest(HERE));
   // skip pluspluses, watches
 }
@@ -374,6 +379,16 @@ void convertHashtags(const ZgramId &zgramId,
     }
   }
 }
+
+void convertRefersTo(const ZgramId &zgramId,
+    const LegacyPerZgramMetadataCore::refersTo_t &refersTo, std::vector<LogRecord> *dest) {
+  for (const auto &[target, valid]: refersTo) {
+    ZgramId newTarget(target.id());
+    zgMetadata::ZgramRefersTo rt(zgramId, newTarget, valid);
+    dest->push_back(LogRecord(MetadataRecord(std::move(rt))));
+  }
+}
+
 
 bool Converter::tryConvertEdits(const ZgramId &zgramId,
     const LegacyPerZgramMetadataCore::edits_t &edits, std::vector<LogRecord> *result,

@@ -60,11 +60,18 @@ namespace z2kplus::backend::reverse_index::builder {
 namespace {
 
 struct SplitterInputs {
+  SplitterInputs(std::string loggedZgrams, std::string unloggedZgrams, std::string reactionsByZgramId,
+      std::string reactionsByReaction, std::string zgramRevisions, std::string zgramRefersTo,
+      std::string zmojis) : loggedZgrams_(std::move(loggedZgrams)), unloggedZgrams_(std::move(unloggedZgrams)),
+      reactionsByZgramId_(std::move(reactionsByZgramId)), reactionsByReaction_(std::move(reactionsByReaction)),
+      zgramRevisions_(std::move(zgramRevisions)), zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)) {}
+
   std::string loggedZgrams_;
   std::string unloggedZgrams_;
   std::string reactionsByZgramId_;
   std::string reactionsByReaction_;
   std::string zgramRevisions_;
+  std::string zgramRefersTo_;
   std::string zmojis_;
 };
 
@@ -80,7 +87,8 @@ struct SplitterThread {
 
   SplitterThread(size_t shard, const PathMaster *pm, const FileKey *startKey, const FileKey *endKey,
       NameAndWriter logged, NameAndWriter unlogged, NameAndWriter reactionsByZgramId,
-      NameAndWriter reactionsByReaction, NameAndWriter zgramRevs, NameAndWriter zmojis);
+      NameAndWriter reactionsByReaction, NameAndWriter zgramRevs, NameAndWriter zgramRefersTo,
+      NameAndWriter zmojis);
   DISALLOW_COPY_AND_ASSIGN(SplitterThread);
   DISALLOW_MOVE_COPY_AND_ASSIGN(SplitterThread);
   ~SplitterThread();
@@ -100,6 +108,7 @@ struct SplitterThread {
   NameAndWriter reactionsByZgramId_;
   NameAndWriter reactionsByReaction_;
   NameAndWriter zgramRevs_;
+  NameAndWriter zgramRefersTo_;
   NameAndWriter zmojis_;
 
   std::optional<ZgramId> prevLoggedZgramId_;
@@ -120,6 +129,7 @@ public:
   bool operator()(const MetadataRecord &o);
   bool operator()(const zgMetadata::Reaction &o);
   bool operator()(const zgMetadata::ZgramRevision &o);
+  bool operator()(const zgMetadata::ZgramRefersTo &o);
   bool operator()(const userMetadata::Zmojis &o);
 
 private:
@@ -141,10 +151,11 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
   auto reactionsByZgramId = pm.getScratchPathFor(filenames::reactionsByZgramId);
   auto reactionsByReaction = pm.getScratchPathFor(filenames::reactionsByReaction);
   auto zgramRevisions = pm.getScratchPathFor(filenames::zgramRevisions);
+  auto zgramRefersTo = pm.getScratchPathFor(filenames::zgramRefersTo);
   auto zmojis = pm.getScratchPathFor(filenames::zmojis);
-  SplitterInputs sis{std::move(loggedZgrams), std::move(unloggedZgrams),
+  SplitterInputs sis(std::move(loggedZgrams), std::move(unloggedZgrams),
       std::move(reactionsByZgramId), std::move(reactionsByReaction), std::move(zgramRevisions),
-      std::move(zmojis)};
+      std::move(zgramRefersTo), std::move(zmojis));
 
   std::sort(fileKeys.begin(), fileKeys.end());
 
@@ -181,6 +192,7 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
   auto rxByZInputs = gatherAndMoveInputs(&SplitterThread::reactionsByZgramId_);
   auto rxByRInputs = gatherAndMoveInputs(&SplitterThread::reactionsByReaction_);
   auto zgRevInputs = gatherAndMoveInputs(&SplitterThread::zgramRevs_);
+  auto zgRefersToInputs = gatherAndMoveInputs(&SplitterThread::zgramRefersTo_);
   auto zmojiInputs = gatherAndMoveInputs(&SplitterThread::zmojis_);
   // These are kept separate so they can be processed in separate threads in a later stage.
   auto loggedZgramInputs = gatherAndMoveInputs(&SplitterThread::logged_);
@@ -190,6 +202,7 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
   SortManager rxByZSorter;
   SortManager rxByRSorter;
   SortManager zgRevSorter;
+  SortManager zgRefersToSorter;
   SortManager zmojiSorter;
 
   // Start all the sorts (in parallel)
@@ -199,6 +212,8 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
           rxByRInputs, sis.reactionsByReaction_, &rxByRSorter, ff.nest(HERE)) ||
       !SortManager::tryCreate(sortOptions, schemas::ZgramRevisions::keyOptions(),
           zgRevInputs, sis.zgramRevisions_, &zgRevSorter, ff.nest(HERE)) ||
+      !SortManager::tryCreate(sortOptions, schemas::ZgramRefersTos::keyOptions(),
+          zgRefersToInputs, sis.zgramRefersTo_, &zgRefersToSorter, ff.nest(HERE)) ||
       !SortManager::tryCreate(sortOptions, schemas::ZmojisRevisions::keyOptions(),
           zmojiInputs, sis.zmojis_, &zmojiSorter, ff.nest(HERE))) {
     return false;
@@ -208,14 +223,15 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
   if (!rxByZSorter.tryFinish(ff.nest(HERE)) ||
       !rxByRSorter.tryFinish(ff.nest(HERE)) ||
       !zgRevSorter.tryFinish(ff.nest(HERE)) ||
+      !zgRefersToSorter.tryFinish(ff.nest(HERE)) ||
       !zmojiSorter.tryFinish(ff.nest(HERE))) {
     return false;
   }
 
-  *result = LogSplitterResult{
+  *result = LogSplitterResult(
       std::move(loggedZgramInputs), std::move(unloggedZgramInputs),
       std::move(sis.reactionsByZgramId_), std::move(sis.reactionsByReaction_),
-      std::move(sis.zgramRevisions_), std::move(sis.zmojis_)};
+      std::move(sis.zgramRevisions_), std::move(sis.zgramRefersTo_), std::move(sis.zmojis_));
   return true;
 }
 
@@ -238,19 +254,22 @@ bool SplitterThread::tryCreate(size_t shard, const PathMaster *pm, const Splitte
   NameAndWriter reactionsByZgramId;
   NameAndWriter reactionsByReaction;
   NameAndWriter zgramRevs;
+  NameAndWriter zgramRefersTo;
   NameAndWriter zmojis;
   if (!createBw(shard, sis.loggedZgrams_, &logged, ff.nest(HERE)) ||
       !createBw(shard, sis.unloggedZgrams_, &unlogged, ff.nest(HERE)) ||
       !createBw(shard, sis.reactionsByZgramId_, &reactionsByZgramId, ff.nest(HERE)) ||
       !createBw(shard, sis.reactionsByReaction_, &reactionsByReaction, ff.nest(HERE)) ||
       !createBw(shard, sis.zgramRevisions_, &zgramRevs, ff.nest(HERE)) ||
+      !createBw(shard, sis.zgramRefersTo_, &zgramRefersTo, ff.nest(HERE)) ||
       !createBw(shard, sis.zmojis_, &zmojis, ff.nest(HERE))) {
     return false;
   }
 
   auto st = std::make_shared<SplitterThread>(shard, pm, startKey, endKey,
       std::move(logged), std::move(unlogged), std::move(reactionsByZgramId),
-      std::move(reactionsByReaction), std::move(zgramRevs), std::move(zmojis));
+      std::move(reactionsByReaction), std::move(zgramRevs), std::move(zgramRefersTo),
+      std::move(zmojis));
   st->thread_ = std::thread(&run, st);
   *result = std::move(st);
   return true;
@@ -268,11 +287,11 @@ void SplitterThread::run(std::shared_ptr<SplitterThread> self) {
 SplitterThread::SplitterThread(size_t shard, const PathMaster *pm, const FileKey *startKey,
     const FileKey *endKey, NameAndWriter logged, NameAndWriter unlogged,
     NameAndWriter reactionsByZgramId, NameAndWriter reactionsByReaction,
-    NameAndWriter zgramRevs, NameAndWriter zmojis) : shard_(shard),
+    NameAndWriter zgramRevs, NameAndWriter zgramRefersTo, NameAndWriter zmojis) : shard_(shard),
     pm_(pm), startKey_(startKey), endKey_(endKey), logged_(std::move(logged)),
     unlogged_(std::move(unlogged)), reactionsByZgramId_(std::move(reactionsByZgramId)),
     reactionsByReaction_(std::move(reactionsByReaction)), zgramRevs_(std::move(zgramRevs)),
-    zmojis_(std::move(zmojis)) {}
+    zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)) {}
 
 SplitterThread::~SplitterThread() = default;
 
@@ -315,6 +334,7 @@ bool SplitterThread::tryFinish(const FailFrame &ff) {
       !reactionsByZgramId_.writer_.tryClose(ff.nest(HERE)) ||
       !reactionsByReaction_.writer_.tryClose(ff.nest(HERE)) ||
       !zgramRevs_.writer_.tryClose(ff.nest(HERE)) ||
+      !zgramRefersTo_.writer_.tryClose(ff.nest(HERE)) ||
       !zmojis_.writer_.tryClose(ff.nest(HERE))) {
     return false;
   }
@@ -370,6 +390,11 @@ bool SplitterVisitor::operator()(const zgMetadata::ZgramRevision &o) {
   return appendHelper(&owner_->zgramRevs_.writer_, row);
 }
 
+bool SplitterVisitor::operator()(const zgMetadata::ZgramRefersTo &o) {
+  auto row = schemas::ZgramRefersTos::createTuple(o);
+  return appendHelper(&owner_->zgramRefersTo_.writer_, row);
+}
+
 bool SplitterVisitor::operator()(const userMetadata::Zmojis &o) {
   auto row = schemas::ZmojisRevisions::createTuple(o);
   return appendHelper(&owner_->zmojis_.writer_, row);
@@ -381,4 +406,15 @@ bool SplitterVisitor::appendHelper(BufferedWriter *bw, const std::tuple<Args...>
       bw->tryWriteByte(defaultRecordSeparator, ff_->nest(HERE));
 }
 }  // namespace
+
+LogSplitterResult::LogSplitterResult() = default;
+LogSplitterResult::LogSplitterResult(std::vector<std::string> loggedZgrams, std::vector<std::string> unloggedZgrams,
+    std::string reactionsByZgramId, std::string reactionsByReaction, std::string zgramRevisions,
+    std::string zgramRefersTo, std::string zmojis) : loggedZgrams_(std::move(loggedZgrams)),
+    unloggedZgrams_(std::move(unloggedZgrams)), reactionsByZgramId_(std::move(reactionsByZgramId)),
+    reactionsByReaction_(std::move(reactionsByReaction)), zgramRevisions_(std::move(zgramRevisions)),
+    zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)) {}
+LogSplitterResult::LogSplitterResult(LogSplitterResult &&) noexcept = default;
+LogSplitterResult &LogSplitterResult::operator=(LogSplitterResult &&) noexcept = default;
+LogSplitterResult::~LogSplitterResult() = default;
 }  // namespace z2kplus::backend::reverse_index::builder

@@ -49,6 +49,8 @@ public:
   typedef FrozenMap<frozenStringRef_t, FrozenMap<ZgramId, int64_t>> reactionCounts_t;
   // zgramId -> [tuple<instance, body, renderstyle>].
   typedef FrozenMap<ZgramId, FrozenVector<FrozenTuple<frozenStringRef_t, frozenStringRef_t, uint32_t>>> zgramRevisions_t;
+  // zgramId -> set<referred to ZgramId>
+  typedef FrozenMap<ZgramId, FrozenSet<ZgramId>> zgramRefersTo_t;
   // userId -> zmojis
   typedef FrozenMap<frozenStringRef_t, frozenStringRef_t> zmojis_t;
   // key -> vector<ZgramIds> containing "key++". We can figure out the net ++ by doing a rank operation
@@ -61,9 +63,9 @@ public:
   FrozenMetadata();
 
   FrozenMetadata(reactions_t reactions, reactionCounts_t reactionCounts, zgramRevisions_t zgramRevisions,
-      zmojis_t zmojis, plusPluses_t plusPluses, minusMinuses_t minusminuses, plusPlusKeys_t plusPlusKeys) :
-      reactions_(std::move(reactions)), reactionCounts_(std::move(reactionCounts)),
-      zgramRevisions_(std::move(zgramRevisions)), zmojis_(std::move(zmojis)),
+      zgramRefersTo_t zgramRefersTo, zmojis_t zmojis, plusPluses_t plusPluses, minusMinuses_t minusminuses,
+      plusPlusKeys_t plusPlusKeys) : reactions_(std::move(reactions)), reactionCounts_(std::move(reactionCounts)),
+      zgramRevisions_(std::move(zgramRevisions)), zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)),
       plusPluses_(std::move(plusPluses)), minusMinuses_(std::move(minusminuses)),
       plusPlusKeys_(std::move(plusPlusKeys)) {}
   DISALLOW_COPY_AND_ASSIGN(FrozenMetadata);
@@ -73,6 +75,7 @@ public:
   const reactions_t &reactions() const { return reactions_; }
   const reactionCounts_t &reactionCounts() const { return reactionCounts_; }
   const zgramRevisions_t &zgramRevisions() const { return zgramRevisions_; }
+  const zgramRefersTo_t &zgramRefersTo() const { return zgramRefersTo_; }
   const zmojis_t &zmojis() const { return zmojis_; }
   const plusPluses_t &plusPluses() const { return plusPluses_; }
   const minusMinuses_t &minusMinuses() const { return minusMinuses_; }
@@ -82,6 +85,7 @@ private:
   reactions_t reactions_;
   reactionCounts_t reactionCounts_;
   zgramRevisions_t zgramRevisions_;
+  zgramRefersTo_t zgramRefersTo_;
   zmojis_t zmojis_;
   plusPluses_t plusPluses_;
   minusMinuses_t minusMinuses_;

@@ -60,6 +60,7 @@ constexpr const char *trieEntries = "trie_entries";
 constexpr const char *wordInfos = "wordInfos";
 constexpr const char *zgramInfos = "zgramInfos";
 constexpr const char *zgramRevisions = "zgram_revisions";
+constexpr const char *zgramRefersTo = "zgram_refers_to";
 constexpr const char *zmojis = "zmojis";
 }  // namespace filenames
 }  // namespace magicConstants
