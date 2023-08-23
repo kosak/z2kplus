@@ -232,8 +232,9 @@ export class ZgramViewModel {
                 this.disableAllInteractions(SelectedInteraction.Reply);
             };
 
-            const selected = this.state.textSelection.text;
-            const body = selected.length === 0 ? "" : `> ${selected}\n\n`;
+            const selected = this.state.textSelection.text.trim();
+            const indented = selected.replaceAll('\n', '\n >');
+            const body = indented.length === 0 ? "" : `> ${indented}\n\n`;
             this.replyViewModel = ZgramEditorViewModel.forReply(this.state, this.instance, body, onSubmit);
         }
 
