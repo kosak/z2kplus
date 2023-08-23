@@ -326,12 +326,10 @@ export class Z2kState {
 
     visitPlusPlusUpdate(resp: dresponses.PlusPlusUpdate) {
         for (const [zgramId, key, value] of resp.entries) {
-            console.log(`hi updating ${zgramId}`);
             const zgv = this.zgramDict[zgramId.raw];
             if (zgv === undefined) {
                 continue;
             }
-            console.log(`hi adding ${key} = ${value}`);
             zgv.plusPlusesViewModel.addPlusPlusCount(key, value);
         }
     }
