@@ -63,7 +63,7 @@ class Client {
     const s = this._socket;
     s.on("message", (data, isBinary) => this.handleMessageFromFrontend(data, isBinary));
     s.on("error", () => this.handleCloseFromFrontend(`error`));
-    s.on("disconnect", () => this.handleCloseFromFrontend(`close`));
+    s.on("close", () => this.handleCloseFromFrontend(`close`));
 
     // Terminate the client after 10 seconds (this is for debugging)
     // setTimeout(() => {
