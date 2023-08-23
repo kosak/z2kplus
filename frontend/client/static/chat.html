@@ -179,7 +179,7 @@
         <zgram-component v-for="zg in state.zgrams" :key="zg.zgramId.raw" :zg="zg">
         </zgram-component>
 
-        <template v-if="state.composeViewModel !== undefined">
+        <template v-if="state.composeVisible">
             <hr>
             <zgram-editor-component :self="state.composeViewModel">
             </zgram-editor-component>
