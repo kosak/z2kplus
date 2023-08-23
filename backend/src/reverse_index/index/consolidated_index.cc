@@ -209,8 +209,8 @@ bool ConsolidatedIndex::tryAdd(std::chrono::system_clock::time_point now, const 
 bool ConsolidatedIndex::tryAddForBootstrap(const std::vector<logRecordAndLocation_t> &records,
     const FailFrame &ff) {
   PlusPlusManager ppm(this);
-  if (!ppm.tryAddLogRecords(records, ff.nest(HERE)) ||
-      !dynamicIndex_.tryAddLogRecords(frozenIndex(), records, ff.nest(HERE)) ||
+  if (!dynamicIndex_.tryAddLogRecords(frozenIndex(), records, ff.nest(HERE)) ||
+      !ppm.tryAddLogRecords(records, ff.nest(HERE)) ||
       !ppm.tryFinish(ff.nest(HERE))) {
     return false;
   }
