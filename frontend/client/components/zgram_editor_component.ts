@@ -45,7 +45,9 @@ export const zgramEditorComponent = {
         <input ref="instance"
                tabindex="1"
                v-model="self.instance"
-               class="form-control" placeholder="Instance" >  
+               class="form-control"
+               :class="{zgramUnloggedBody: !self.logged}"
+               placeholder="Instance">
       </div>
     </div>
     <!-- message field -->
