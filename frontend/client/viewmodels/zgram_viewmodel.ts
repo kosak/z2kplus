@@ -233,8 +233,8 @@ export class ZgramViewModel {
             };
 
             const selected = this.state.textSelection.text.trim();
-            const indented = selected.replaceAll('\n', '\n >');
-            const body = indented.length === 0 ? "" : `> ${indented}\n\n`;
+            const indented = selected.replaceAll('\n', '\n> ');
+            const body = indented.length === 0 ? "" : `> ${indented}\n`;
             this.replyViewModel = ZgramEditorViewModel.forReply(this.state, this.instance, body, onSubmit);
         }
 
