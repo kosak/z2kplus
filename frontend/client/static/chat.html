@@ -104,7 +104,7 @@
     <!--------------------------------------------------------------------------------------------------
     A pretty navbar, fixed to the top. It uses the viewmodel Z2kState.
     --------------------------------------------------------------------------------------------------->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top"
+    <nav class="navbar navbar-expand-lg fixed-top" data-bs-theme="dark"
          :class="{'bg-dark': status.online, 'bg-warning': !status.online}">
         <div class="container-fluid">
             <button class="navbar-toggler" type="button"
@@ -127,26 +127,25 @@
                     <a class="nav-item nav-link" href="javascript:" data-bs-toggle="modal" data-bs-target="#speechDialog">speech</a>
                     <a class="nav-item nav-link" href="javascript:" @click="state.fakePost()">fakemessage</a>
                 </div>
-            </div>
 
-            <!-- Aligned to right -->
-            <div class="navbar-nav ms-auto">
-                <a v-if="status.queryOutstanding" class="nav-item nav-link" href="javascript:">
-                    SENDING QUERY
-                </a>
-                <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="javascript:">
-                    FETCHING MORE
-                </a>
-                <a class="nav-item nav-link" href="javascript:">
-                    <i class="fa fa-user"></i>
-                    {{ status.profile.userId }}
-                </a>
-                <a class="nav-item nav-link" href="javascript:" :style="{color: status.online ? 'green' :'red'}">
-                    {{ status.online ? "ONLINE" : `OFFLINE (${state.numPendingRequests} pending)` }}
-                </a>
-                <a class="nav-item nav-link" href="/logout">
-                    <i class="fa fa-right-from-bracket"></i>
-                </a>
+		<div class="navbar-nav ms-auto">
+                    <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="javascript:">
+                        FETCHING MORE
+                    </a>
+                    <a v-if="status.queryOutstanding" class="nav-item nav-link" href="javascript:">
+                      SENDING QUERY
+                    </a>
+                    <a class="nav-item nav-link" href="javascript:">
+                        <i class="fa fa-user"></i>
+                        {{ status.profile.userId }}
+                    </a>
+                    <a class="nav-item nav-link" href="javascript:" :style="{color: status.online ? 'green' :'red'}">
+                        {{ status.online ? "ONLINE" : `OFFLINE (${state.numPendingRequests} pending)` }}
+                    </a>
+                    <a class="nav-item nav-link" href="/logout">
+                        <i class="fa fa-right-from-bracket"></i>
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
