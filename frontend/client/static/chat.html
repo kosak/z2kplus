@@ -131,18 +131,21 @@
 
             <!-- Aligned to right -->
             <div class="navbar-nav ms-auto">
-                <a v-if="status.queryOutstanding" class="nav-item nav-link" href="#">
+                <a v-if="status.queryOutstanding" class="nav-item nav-link" href="javascript:">
                     SENDING QUERY
                 </a>
-                <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="#">
+                <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="javascript:">
                     FETCHING MORE
                 </a>
-                <a class="nav-item nav-link" href="#">
+                <a class="nav-item nav-link" href="javascript:">
                     <i class="fa fa-user"></i>
                     {{ status.profile.userId }}
                 </a>
-                <a class="nav-item nav-link" href="#" :style="{color: status.online ? 'green' :'red'}">
+                <a class="nav-item nav-link" href="javascript:" :style="{color: status.online ? 'green' :'red'}">
                     {{ status.online ? "ONLINE" : `OFFLINE (${state.numPendingRequests} pending)` }}
+                </a>
+                <a class="nav-item nav-link" href="/logout">
+                    <i class="fa fa-right-from-bracket"></i>
                 </a>
             </div>
         </div>
