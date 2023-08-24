@@ -102,10 +102,10 @@ export class Z2kState {
                 e.preventDefault();
             }
         };
-        const {shift, ctrl, alt} = useMagicKeys();
+        const {shift, ctrl, alt, meta} = useMagicKeys();
 
         const noModifiers = () => {
-            return !shift.value && !ctrl.value && !alt.value;
+            return !shift.value && !ctrl.value && !alt.value && !meta.value;
         };
 
         const {c} = useMagicKeys({
