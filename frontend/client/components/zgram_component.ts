@@ -27,13 +27,24 @@ export const zgramComponent = {
         zg: ZgramViewModel
     },
     template: `
-<div v-if="!zg.stronglyHidden" v-on:mouseenter="zg.mouseenter()" v-on:mouseleave="zg.mouseleave()">
-<zgram-header-component :zg="zg">
-</zgram-header-component>
-<zgram-body-component :zg="zg">
-</zgram-body-component>
-<zgram-footer-component :zg="zg">
-</zgram-footer-component>
-</div>
+      <div class="row">
+      <div class="col-12"
+           v-if="!zg.stronglyHidden" v-on:mouseenter="zg.mouseenter()" v-on:mouseleave="zg.mouseleave()">
+        <zgram-header-component :zg="zg">
+        </zgram-header-component>
+      </div>
+      </div>
+      <div class="row">
+      <div class="col-8">
+        <zgram-body-component :zg="zg">
+        </zgram-body-component>
+      </div>
+      </div>
+      <div class="row">
+      <div class="col-12">
+        <zgram-footer-component :zg="zg">
+        </zgram-footer-component>
+      </div>
+      </div>
     `
 }
