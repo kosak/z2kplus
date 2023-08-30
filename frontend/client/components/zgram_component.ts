@@ -28,7 +28,6 @@ export const zgramComponent = {
     },
     template: `
       <div class="row">
-      annoying
       <div class="col-8"
            v-if="!zg.stronglyHidden" v-on:mouseenter="zg.mouseenter()" v-on:mouseleave="zg.mouseleave()">
         <zgram-header-component :zg="zg">
