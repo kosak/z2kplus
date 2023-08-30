@@ -26,7 +26,7 @@ struct MyState final : public ZgramIteratorState {
   size_t getMore(const IteratorContext &ctx, zgramRel_t *result, size_t capacity);
 
   ZgramStreamer streamer_;
-  std::optional<zgramRel_t> target_;
+  std::optional<zgramRel_t> lastChildHit_;
 };
 }  // namespace
 
@@ -68,21 +68,19 @@ size_t MyState::getMore(const IteratorContext &ctx, zgramRel_t *result, size_t c
   size_t i = 0;
   auto zgEnd = ctx.getIndexZgBoundsRel().second;
   while (true) {
-    if (!target_.has_value()) {
+    if (!lastChildHit_.has_value()) {
       zgramRel_t temp;
       if (streamer_.tryGetOrAdvance(ctx, nextStart_, &temp)) {
-        target_ = temp;
-      } else {
-        target_ = zgEnd;
+        lastChildHit_ = temp;
       }
     }
     while (true) {
       if (i == capacity || nextStart_ == zgEnd) {
         return i;
       }
-      if (nextStart_ == *target_) {
+      if (lastChildHit_.has_value() && nextStart_ == *lastChildHit_) {
         ++nextStart_;
-        target_.reset();
+        lastChildHit_.reset();
         break;
       }
       result[i++] = nextStart_++;

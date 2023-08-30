@@ -101,10 +101,10 @@ void Coordinator::subscribe(std::shared_ptr<Profile> profile, drequests::Subscri
   std::shared_ptr<Subscription> sub;
   {
     FailRoot fr;
-    auto queryRef = trim(req.query());
-    if (!parsing::parse(queryRef, true, &query, fr.nest(HERE)) ||
-        !Subscription::tryCreate(index_, std::move(profile), std::move(query), req.start(), req.pageSize(),
-            req.queryMargin(), &sub, fr.nest(HERE))) {
+    std::string queryText(trim(req.query()));
+    if (!parsing::parse(queryText, true, &query, fr.nest(HERE)) ||
+        !Subscription::tryCreate(index_, std::move(profile), std::move(queryText), std::move(query), req.start(),
+            req.pageSize(), req.queryMargin(), &sub, fr.nest(HERE))) {
       responses->emplace_back(nullptr, dresponses::AckSubscribe(false, toString(fr), Estimates()));
       *possibleNewSub = nullptr;
       return;

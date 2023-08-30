@@ -66,8 +66,8 @@ std::pair<wordRel_t, wordRel_t> IteratorContext::getFieldBoundsRel(const ZgramIn
 
 bool ZgramIteratorState::updateNextStart(const IteratorContext &ctx, zgramRel_t lowerBound,
     size_t capacity) {
-  auto newNextsStart = std::max(nextStart_, lowerBound);
-  nextStart_ = newNextsStart;
+  auto newNextStart = std::max(nextStart_, lowerBound);
+  nextStart_ = newNextStart;
   if (capacity == 0) {
     return false;
   }
