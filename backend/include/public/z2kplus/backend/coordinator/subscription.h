@@ -96,11 +96,11 @@ class Subscription {
 
 public:
   static bool tryCreate(const ConsolidatedIndex &index, std::shared_ptr<Profile> profile,
-      std::unique_ptr<ZgramIterator> &&query, const SearchOrigin &start, size_t pageSize,
+      std::string humanReadableText, std::unique_ptr<ZgramIterator> &&query, const SearchOrigin &start, size_t pageSize,
       size_t queryMargin, std::shared_ptr<Subscription> *result, const FailFrame &ff);
 
   Subscription(Private, subscriptionId_t id, std::shared_ptr<Profile> &&profile,
-      std::unique_ptr<ZgramIterator> &&query, size_t pageSize, size_t queryMargin,
+      std::string humanReadableText, std::unique_ptr<ZgramIterator> &&query, size_t pageSize, size_t queryMargin,
       std::pair<ZgramId, ZgramId> displayed_);
   DISALLOW_COPY_AND_ASSIGN(Subscription);
   DISALLOW_MOVE_COPY_AND_ASSIGN(Subscription);
@@ -114,6 +114,8 @@ public:
 
   subscriptionId_t id() const { return id_; }
   const std::shared_ptr<Profile> &profile() const { return profile_; }
+
+  const std::string &humanReadableText() const { return humanReadableText_; }
 
   const ZgramIterator *query() const { return query_.get(); }
 
@@ -133,6 +135,7 @@ private:
   subscriptionId_t id_;
   // The profile of the logged-in user.
   std::shared_ptr<Profile> profile_;
+  std::string humanReadableText_;
   std::unique_ptr<ZgramIterator> query_;
   size_t pageSize_ = 0;
   size_t queryMargin_ = 0;

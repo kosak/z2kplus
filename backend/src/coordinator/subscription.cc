@@ -91,7 +91,7 @@ std::ostream &operator<<(std::ostream &s, const PerSideStatus &o) {
 }
 
 bool Subscription::tryCreate(const ConsolidatedIndex &index, std::shared_ptr<Profile> profile,
-    std::unique_ptr<ZgramIterator> &&query, const SearchOrigin &start, size_t pageSize,
+    std::string humanReadableText, std::unique_ptr<ZgramIterator> &&query, const SearchOrigin &start, size_t pageSize,
     size_t queryMargin, std::shared_ptr<Subscription> *result,
     const FailFrame &/*ff*/) {
   struct visitor_t {
@@ -122,16 +122,17 @@ bool Subscription::tryCreate(const ConsolidatedIndex &index, std::shared_ptr<Pro
   auto displayed = std::make_pair(v.zgramId_, v.zgramId_);
 
   subscriptionId_t id(nextFreeSubscriptionId++);
-  auto res = std::make_shared<Subscription>(Private(), id, std::move(profile), std::move(query),
-      pageSize, queryMargin, std::move(displayed));
+  auto res = std::make_shared<Subscription>(Private(), id, std::move(profile), std::move(humanReadableText),
+      std::move(query), pageSize, queryMargin, std::move(displayed));
   res->resetIndex(index);
   *result = std::move(res);
   return true;
 }
 
 Subscription::Subscription(Private, subscriptionId_t id, std::shared_ptr<Profile> &&profile,
-    std::unique_ptr<ZgramIterator> &&query, size_t pageSize, size_t queryMargin,
-    std::pair<ZgramId, ZgramId> displayed) : id_(id), profile_(std::move(profile)), query_(std::move(query)),
+    std::string humanReadableText, std::unique_ptr<ZgramIterator> &&query, size_t pageSize, size_t queryMargin,
+    std::pair<ZgramId, ZgramId> displayed) : id_(id), profile_(std::move(profile)),
+    humanReadableText_(std::move(humanReadableText)), query_(std::move(query)),
     pageSize_(pageSize), queryMargin_(queryMargin), displayed_(std::move(displayed)) {
 }
 Subscription::~Subscription() = default;

@@ -26,6 +26,16 @@ public:
   ~Not() final;
 
   std::unique_ptr<ZgramIteratorState> createState(const IteratorContext &ctx) const final;
+  /**
+   * Fills the 'result' buffer with up to 'capacity' zgramRel_t matching items, where the items so added
+   * are beyond both the previously-returned items and >= 'lowerBound'.
+   * @param ctx Global iterator context, like access to the index and whether the iterator is forward or backwards
+   * @param state This iterator's local state
+   * @param lowerBound Lower bound for returned results
+   * @param result The result buffer
+   * @param capacity The capacity of the result buffer
+   * @return Number of items actually found
+   */
   size_t getMore(const IteratorContext &ctx, ZgramIteratorState *state, zgramRel_t lowerBound,
       zgramRel_t *result, size_t capacity) const final;
 
