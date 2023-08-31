@@ -35,7 +35,7 @@ export const zgramComponent = {
         </div>
       </div>
       <div class="row">
-        <div class="col-8">
+        <div class="col-9">
           <zgram-body-component :zg="zg">
           </zgram-body-component>
         </div>
