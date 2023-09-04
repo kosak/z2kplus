@@ -116,22 +116,22 @@ MyState::~MyState() = default;
 bool MyState::getNextResult(const IteratorContext &ctx, zgramRel_t *result) {
   passert(!streamers_.empty());
 
-  // Find the minimum streamer. We fail if any of them are exhausted.
-  zgramRel_t minValue;
-  if (!streamers_[0].tryGetOrAdvance(ctx, nextStart_, &minValue)) {
-    return false;
-  }
-  for (size_t i = 1; i < streamers_.size(); ++i) {
+  // Find the minimum streamer. We fail if all of them are exhausted.
+  std::optional<zgramRel_t> minValue;
+  for (auto &s : streamers_) {
     zgramRel_t thisValue;
-    if (!streamers_[i].tryGetOrAdvance(ctx, nextStart_, &thisValue)) {
-      return false;
+    if (!s.tryGetOrAdvance(ctx, nextStart_, &thisValue)) {
+      continue;
     }
-    if (thisValue < minValue) {
+    if (!minValue.has_value() || thisValue < *minValue) {
       minValue = thisValue;
     }
   }
-  *result = minValue;
-  nextStart_ = minValue.addRaw(1);
+  if (!minValue.has_value()) {
+    return false;
+  }
+  *result = *minValue;
+  nextStart_ = minValue->addRaw(1);
   return true;
 }
 }  // namespace

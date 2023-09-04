@@ -102,10 +102,10 @@ Iterator myLowerBound(Iterator begin, Iterator end, const Key &key) {
     }
     ++begin;
   }
-  // Another common case is that the item will not be found
-  // The element to be found is at the last item or before if end[-1] >= key
-  // Otherwise it is later. So exit if !(end[-1] >= key)
-  // aka: end[-1] < key
+  // Another common case is that the item does not exist.
+  // If end[-1] >= key then the element might be found (somewhere).
+  // Otherwise (if end[-1] < key) the element does not exist.
+  // If the latter is the case, then exit.
   if (begin == end || end[-1] < key) {
     return end;
   }
