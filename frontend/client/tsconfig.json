@@ -3,7 +3,7 @@
     "noImplicitAny": true,
     "removeComments": true,
     "sourceMap": true,
-    "target": "ES6",
+    "target": "ES2021",
     "outDir": "./generated/",
     "moduleResolution": "node",
     "strictNullChecks": true
