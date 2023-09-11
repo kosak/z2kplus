@@ -34,8 +34,8 @@ export const zgramComponent = {
           </zgram-header-component>
         </div>
       </div>
-      <div class="row">
-        <div class="col-9">
+      <div class="row" style="max-width:1024px">
+        <div class="col-12">
           <zgram-body-component :zg="zg">
           </zgram-body-component>
         </div>
