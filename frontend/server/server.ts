@@ -55,10 +55,6 @@ import {FileStructure} from "./config/file_structure";
 import {ServerProfile} from "./config/server_profile";
 import {UploadableMediaUtil} from "../shared/uploadable_media_util";
 
-const prodHost = "z2k.plus";
-const debugHost = "debug.debuggery.com";
-const stagingHost = "staging.debuggery.com";
-
 class Server {
   private readonly authorizationManager: AuthorizationManager;
   private readonly clientManager: ClientManager;
@@ -326,27 +322,17 @@ function main(argv: string[]) {
     description: "Z2KPlus+ front end",
     add_help: true,
   });
-  parser.add_argument("--debug", {help: "Debug", action: "store_true"});
-  parser.add_argument("--staging", {help: "Staging", action: "store_true"});
-  parser.add_argument("--prod", {help: "Production", action: "store_true"});
+  parser.add_argument("--host", {help: "Fully-qualified name of this host"});
   parser.add_argument("--fileroot", {help: "Z2K files root (we need this for the media subdir)"});
   const result = parser.parse_args(argv);
-  let hostToUse: string | undefined = undefined;
-  if (result["debug"]) {
-    hostToUse = debugHost;
-  } else if (result["staging"]) {
-    hostToUse = stagingHost;
-  } else if (result["prod"]) {
-    hostToUse = prodHost;
-  }
+  const hostToUse = result["host"];
   const fileRoot = result["fileroot"];
   if (hostToUse === undefined || fileRoot === undefined) {
-    throw new Error("Please provide one of {--debug, --staging, --prod} and also --fileroot");
+    throw new Error("Please provide --host and --fileroot");
   }
   const profile = new ServerProfile(80, 443, "localhost", 8001, hostToUse, fileRoot);
   console.log(`Profile: `, profile);
   new Server(profile, fileRoot);
 }
-// test
 
 main(process.argv.slice(2));
