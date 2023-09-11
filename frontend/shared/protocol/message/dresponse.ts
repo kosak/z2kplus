@@ -111,6 +111,26 @@ export namespace dresponses {
     }
   }
 
+  export class AckSpecificZgrams {
+    constructor(readonly zgrams: Zephyrgram[]) {
+    }
+
+    toJson() {
+      const zgJson = this.zgrams.map(i => i.toJson());
+      return [zgJson];
+    }
+
+    static tryParseJson(item: any) {
+      const [zgItems] = assertAndDestructure1(item, assertArray);
+      const zgs = zgItems.map(Zephyrgram.tryParseJson);
+      return new AckSpecificZgrams(zgs);
+    }
+
+    toString() {
+      return `AckSpecificZgrams(${this.zgrams})`;
+    }
+  }
+
   export class PlusPlusUpdate {
     constructor(readonly entries: [ZgramId, string, number][]) {
     }
@@ -184,6 +204,8 @@ export namespace dresponseInfo {
     EstimatesUpdate = "EstimatesUpdate",
     // Metadata.
     MetadataUpdate = "MetadataUpdate",
+    // The response to Request.GetSpecificZgrams
+    AckSpecificZgrams = "AckSpecificZgrams",
     // Plusplus values
     PlusPlusUpdate = "PlusPlusUpdate",
     // For debugging. An acknowledgement of a Ping.
@@ -194,8 +216,8 @@ export namespace dresponseInfo {
 
   export type payload_t =
       dresponses.AckSyntaxCheck | dresponses.AckSubscribe | dresponses.EstimatesUpdate |
-      dresponses.AckMoreZgrams | dresponses.MetadataUpdate | dresponses.PlusPlusUpdate |
-      dresponses.AckPing | dresponses.GeneralError;
+      dresponses.AckMoreZgrams | dresponses.MetadataUpdate | dresponses.AckSpecificZgrams |
+      dresponses.PlusPlusUpdate | dresponses.AckPing | dresponses.GeneralError;
 
   export interface IAckSyntaxCheck {
     readonly tag: Tag.AckSyntaxCheck;
@@ -222,6 +244,11 @@ export namespace dresponseInfo {
     readonly payload: dresponses.MetadataUpdate;
   }
 
+  export interface IAckSpecificZgrams {
+    readonly tag: Tag.AckSpecificZgrams;
+    readonly payload: dresponses.AckSpecificZgrams;
+  }
+
   export interface IPlusPlusUpdate {
     readonly tag: Tag.PlusPlusUpdate;
     readonly payload: dresponses.PlusPlusUpdate;
@@ -244,6 +271,8 @@ export namespace dresponseInfo {
 
     visitAckMoreZgrams(payload: dresponses.AckMoreZgrams): TResult;
 
+    visitAckSpecificZgrams(payload: dresponses.AckSpecificZgrams): TResult;
+
     visitEstimatesUpdate(payload: dresponses.EstimatesUpdate): TResult;
 
     visitMetadataUpdate(payload: dresponses.MetadataUpdate): TResult;
@@ -259,6 +288,7 @@ export namespace dresponseInfo {
 export type IDResponse =
     dresponseInfo.IAckSyntaxCheck | dresponseInfo.IAckSubscribe |
     dresponseInfo.IEstimatesUpdate | dresponseInfo.IAckMoreZgrams |
+    dresponseInfo.IAckSpecificZgrams |
     dresponseInfo.IMetadataUpdate | dresponseInfo.IPlusPlusUpdate |
     dresponseInfo.IAckPing | dresponseInfo.IGeneralError;
 
@@ -306,6 +336,8 @@ export class DResponse {
         return visitor.visitAckMoreZgrams(idresp.payload);
       case dresponseInfo.Tag.MetadataUpdate:
         return visitor.visitMetadataUpdate(idresp.payload);
+      case dresponseInfo.Tag.AckSpecificZgrams:
+        return visitor.visitAckSpecificZgrams(idresp.payload);
       case dresponseInfo.Tag.PlusPlusUpdate:
         return visitor.visitPlusPlusUpdate(idresp.payload);
       case dresponseInfo.Tag.AckPing:
@@ -332,6 +364,7 @@ export class DResponse {
       case dresponseInfo.Tag.EstimatesUpdate: payload = dresponses.EstimatesUpdate.tryParseJson(item1); break;
       case dresponseInfo.Tag.AckMoreZgrams: payload = dresponses.AckMoreZgrams.tryParseJson(item1); break;
       case dresponseInfo.Tag.MetadataUpdate: payload = dresponses.MetadataUpdate.tryParseJson(item1); break;
+      case dresponseInfo.Tag.AckSpecificZgrams: payload = dresponses.AckSpecificZgrams.tryParseJson(item1); break;
       case dresponseInfo.Tag.PlusPlusUpdate: payload = dresponses.PlusPlusUpdate.tryParseJson(item1); break;
       case dresponseInfo.Tag.AckPing: payload = dresponses.AckPing.tryParseJson(item1); break;
       case dresponseInfo.Tag.GeneralError: payload = dresponses.GeneralError.tryParseJson(item1); break;

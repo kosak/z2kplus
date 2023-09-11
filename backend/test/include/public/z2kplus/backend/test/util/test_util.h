@@ -40,6 +40,7 @@ struct TestUtil {
   typedef z2kplus::backend::shared::protocol::message::DResponse DResponse;
   typedef z2kplus::backend::shared::MetadataRecord MetadataRecord;
   typedef z2kplus::backend::shared::ZgramCore ZgramCore;
+  typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::automaton::FiniteAutomaton FiniteAutomaton;
 
   static std::u32string_view friendlyReset(kosak::coding::text::ReusableString32 *rs, std::string_view s);
@@ -66,8 +67,8 @@ struct TestUtil {
   static bool tryPopulateFile(const PathMaster &pm, const FileKey &fileKey, std::string_view text,
       const FailFrame &ff);
 
-  static bool tryParseDynamicZgrams(const std::string_view &records, std::vector<ZgramCore> *result,
-      const FailFrame &ff);
+  static bool tryParseDynamicZgrams(const std::string_view &records,
+      std::vector<ZgramCore> *result, const FailFrame &ff);
   static bool tryParseDynamicMetadata(const std::string_view &records,
       std::vector<MetadataRecord> *result, const FailFrame &ff);
 

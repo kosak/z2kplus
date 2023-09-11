@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {RenderStyle, SearchOrigin, Zephyrgram, ZgramCore} from "../../shared/protocol/zephyrgram";
+import {RenderStyle, SearchOrigin, Zephyrgram, ZgramCore, ZgramId} from "../../shared/protocol/zephyrgram";
 import {Z2kState} from "../z2kstate";
 import {ZgramEditorResult, ZgramEditorViewModel} from "./zgram_editor_viewmodel";
 import {escapeQuotes, isQDecodable, qDecode, staticFail} from "../../shared/utility";
@@ -40,6 +40,8 @@ export class ZgramViewModel {
     editZgramViewModel: ZgramEditorViewModel | undefined;
     readonly reactionsViewModel: ReactionsViewModel;
     readonly plusPlusesViewModel: PlusPlusesViewModel;
+    refersTo: ZgramId | undefined;
+    referLookupRequested: boolean;
 
     constructor(private state: Z2kState, private readonly zgram: Zephyrgram) {
         this.zgramVersions = [zgram.zgramCore];
@@ -55,6 +57,8 @@ export class ZgramViewModel {
         this.editZgramViewModel = undefined;
         this.reactionsViewModel = new ReactionsViewModel(this, state);
         this.plusPlusesViewModel = new PlusPlusesViewModel(this, state);
+        this.refersTo = undefined;
+        this.referLookupRequested = false;
     }
 
     get zgramId() {
@@ -91,6 +95,10 @@ export class ZgramViewModel {
             result = qDecode(result);
         }
         return result;
+    }
+
+    get abbreviatedBody() {
+        return this.thisBodyVersion.substring(0, 60);
     }
 
     get rawRenderStyle() {
@@ -226,13 +234,14 @@ export class ZgramViewModel {
             const onSubmit = (result: ZgramEditorResult | undefined) => {
                 if (result !== undefined) {
                     const zgc = new ZgramCore(result.instance, result.body, result.renderStyle);
-                    this.state.postZgram(zgc);
+                    this.state.postZgram(zgc, this.zgramId);
                     this.replyViewModel = undefined;
                 }
                 this.disableAllInteractions(SelectedInteraction.Reply);
             };
 
-            const selected = this.state.textSelection.text.trim();
+            // TODO(kosak): get the typing right on textSelection
+            const selected = (this.state.textSelection.text as string).trim();
             const indented = selected.replaceAll('\n', '\n> ');
             const body = indented.length === 0 ? "" : `> ${indented}\n`;
             this.replyViewModel = ZgramEditorViewModel.forReply(this.state, this.instance, body, onSubmit);
@@ -257,8 +266,7 @@ export class ZgramViewModel {
                         // Shouldn't get here
                         return;
                     }
-                    const post = DRequest.createPost([], mds);
-                    this.state.sessionManager.sendDRequest(post);
+                    this.state.postMetadata(mds);
                     this.editZgramViewModel = undefined;
                 }
                 this.disableAllInteractions(SelectedInteraction.Reply);
@@ -290,6 +298,31 @@ export class ZgramViewModel {
             this.editZgramViewModel = undefined;
         }
         return wasSet;
+    }
+
+    get referredToZgram() : ZgramViewModel | undefined {
+        if (this.refersTo === undefined) {
+            // No refers-to
+            return undefined;
+        }
+
+        const zvm = this.state.zgramDict[this.refersTo.raw];
+        if (zvm !== undefined) {
+            // Have refers-to and the definition of the referred-to zgram. All set
+            console.log("returning");
+            console.log(zvm);
+            return zvm;
+        }
+
+        if (!this.referLookupRequested) {
+            this.state.requestZgram(this.refersTo);
+            this.referLookupRequested = true;
+        }
+        return undefined;
+    }
+
+    get haveReferredToZgram() {
+        return this.referredToZgram !== undefined;
     }
 
     // Used for href links

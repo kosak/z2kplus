@@ -111,10 +111,12 @@ public:
   ConsolidatedIndex &operator=(ConsolidatedIndex &&other) noexcept;
   ~ConsolidatedIndex();
 
-  bool tryAdd(std::chrono::system_clock::time_point now, const Profile &profile,
-      std::vector<ZgramCore> zgcs, std::vector<MetadataRecord> mdrs,
-      ppDeltaMap_t *deltaMap, std::vector<Zephyrgram> *zgrams,
-      std::vector<MetadataRecord> *movedMetadata, const FailFrame &ff);
+  bool tryAddZgrams(std::chrono::system_clock::time_point now, const Profile &profile,
+      std::vector<ZgramCore> &&zgcs, ppDeltaMap_t *deltaMap, std::vector<Zephyrgram> *zgrams,
+      const FailFrame &ff);
+
+  bool tryAddMetadata(std::vector<MetadataRecord> &&records, ppDeltaMap_t *deltaMap,
+      std::vector<MetadataRecord> *movedRecords, const FailFrame &ff);
 
   bool tryAddForBootstrap(const std::vector<logRecordAndLocation_t> &records, const FailFrame &ff);
 
@@ -166,13 +168,10 @@ private:
       MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
       internal::DynamicFileState &&unloggedState);
 
-  bool tryAddZgrams(std::chrono::system_clock::time_point now, const Profile &profile,
-      std::vector<ZgramCore> &&src, std::vector<Zephyrgram> *zgrams,
+  bool tryAddZgramsHelper(std::chrono::system_clock::time_point now, const Profile &profile,
+      std::vector<ZgramCore> &&zgcs, std::vector<Zephyrgram> *zgrams, const FailFrame &ff);
+  bool tryAddMetadataHelper(std::vector<MetadataRecord> &&records, std::vector<MetadataRecord> *movedRecords,
       const FailFrame &ff);
-  // This vector is mutable because we borrow the records in order to serialize them, but then we
-  // return them unmodified.
-  bool tryAddMetadata(std::vector<MetadataRecord> &&records,
-      std::vector<MetadataRecord> *movedRecords, const FailFrame &ff);
 
   bool tryDetermineLogged(const MetadataRecord &mr, bool *isLogged, const FailFrame &ff);
   bool tryAppendAndFlush(std::string_view logged, std::string_view unlogged, const FailFrame &ff);

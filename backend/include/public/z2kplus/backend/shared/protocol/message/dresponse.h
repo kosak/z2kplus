@@ -136,6 +136,24 @@ private:
   DECLARE_TYPICAL_JSON(MetadataUpdate);
 };
 
+class AckSpecificZgrams {
+public:
+  AckSpecificZgrams();
+  explicit AckSpecificZgrams(std::vector<std::shared_ptr<const Zephyrgram>> zgrams);
+  DISALLOW_COPY_AND_ASSIGN(AckSpecificZgrams);
+  DECLARE_MOVE_COPY_AND_ASSIGN(AckSpecificZgrams);
+  ~AckSpecificZgrams();
+
+  std::vector<std::shared_ptr<const Zephyrgram>> &zgrams() { return zgrams_; }
+  const std::vector<std::shared_ptr<const Zephyrgram>> &zgrams() const { return zgrams_; }
+
+private:
+  std::vector<std::shared_ptr<const Zephyrgram>> zgrams_;
+
+  friend std::ostream &operator<<(std::ostream &s, const AckSpecificZgrams &o);
+  DECLARE_TYPICAL_JSON(AckSpecificZgrams);
+};
+
 class PlusPlusUpdate {
 public:
   typedef std::tuple<ZgramId, std::string, int64_t> entry_t;
@@ -191,11 +209,13 @@ private:
 };
 
 typedef std::variant<AckSyntaxCheck, AckSubscribe, AckMoreZgrams,
-    EstimatesUpdate, MetadataUpdate, PlusPlusUpdate, AckPing, GeneralError> payload_t;
+    EstimatesUpdate, MetadataUpdate, AckSpecificZgrams, PlusPlusUpdate,
+    AckPing, GeneralError> payload_t;
 
 DECLARE_VARIANT_JSON(PayloadHolder, payload_t,
     ("AckSyntaxCheck", "AckSubscribe", "AckMoreZgrams",
-        "EstimatesUpdate", "MetadataUpdate", "PlusPlusUpdate", "AckPing", "GeneralError"));
+        "EstimatesUpdate", "MetadataUpdate", "AckSpecificZgrams", "PlusPlusUpdate",
+        "AckPing", "GeneralError"));
 }  // namespace dresponses
 
 class DResponse {
@@ -206,6 +226,7 @@ public:
   explicit DResponse(dresponses::AckMoreZgrams o);
   explicit DResponse(dresponses::EstimatesUpdate o);
   explicit DResponse(dresponses::MetadataUpdate o);
+  explicit DResponse(dresponses::AckSpecificZgrams o);
   explicit DResponse(dresponses::PlusPlusUpdate o);
   explicit DResponse(dresponses::AckPing o);
   explicit DResponse(dresponses::GeneralError o);

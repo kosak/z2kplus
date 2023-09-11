@@ -13,13 +13,15 @@
 // limitations under the License.
 
 import {ZgramViewModel} from "../viewmodels/zgram_viewmodel";
-import {zgramHeaderComponent} from "./zgram_header_component";
 import {zgramBodyComponent} from "./zgram_body_component";
 import {zgramFooterComponent} from "./zgram_footer_component";
+import {zgramHeaderComponent} from "./zgram_header_component";
+import {zgramRefersToComponent} from "./zgram_refers_to_component";
 
 export const zgramComponent = {
     components: {
         zgramHeaderComponent,
+        zgramRefersToComponent,
         zgramBodyComponent,
         zgramFooterComponent
     },
@@ -32,6 +34,12 @@ export const zgramComponent = {
         <div class="col-12">
           <zgram-header-component :zg="zg">
           </zgram-header-component>
+        </div>
+      </div>
+      <div class="row" v-if="zg.controlsEnabled && zg.haveReferredToZgram">
+        <div class="col-12">
+          <zgram-refers-to-component :zg="zg.referredToZgram">
+          </zgram-refers-to-component>
         </div>
       </div>
       <div class="row" style="max-width:1024px">

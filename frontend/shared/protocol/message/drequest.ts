@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {MetadataRecord, SearchOrigin, ZgramCore} from "../zephyrgram";
+import {MetadataRecord, SearchOrigin, ZgramCore, ZgramId} from "../zephyrgram";
 import {
   assertAndDestructure1,
   assertAndDestructure2,
@@ -24,7 +24,7 @@ import {
   assertString
 }
   from "../../json_util";
-import {makeCommaSeparatedList, staticFail} from "../../utility";
+import {makeCommaSeparatedList, Optional, Pair, staticFail} from "../../utility";
 
 export namespace drequests {
   export class CheckSyntax {
@@ -83,25 +83,68 @@ export namespace drequests {
     }
   }
 
-  export class Post {
-    constructor(readonly zgrams: ZgramCore[], readonly metadata: MetadataRecord[]) {
+  export class PostZgrams {
+    constructor(readonly zgramsAndRefersTo: Pair<ZgramCore, Optional<ZgramId>>[]) {
     }
 
     toJson() {
-      const zgJson = this.zgrams.map(o => o.toJson());
-      const mdJson = this.metadata.map(o => o.toJson());
-      return [zgJson, mdJson];
+      const zgJson = this.zgramsAndRefersTo.map(zgPair => zgPair.toJson());
+      return [zgJson];
     }
 
     static tryParseJson(item: any) {
-      const [zgArray, mdArray] = assertAndDestructure2(item, assertArray, assertArray);
-      const zgs = zgArray.map(ZgramCore.tryParseJson);
-      const mds = mdArray.map(MetadataRecord.tryParseJson);
-      return new Post(zgs, mds);
+      const array = assertAndDestructure1(item, assertArray);
+      const pairs = array.map(
+          pair => Pair.tryParseJson(
+              pair,
+              first => ZgramCore.tryParseJson(first),
+              second => Optional.tryParseJson(second, ZgramId.tryParseJson))
+      );
+      return new PostZgrams(pairs);
     }
 
     toString() {
-      return `Post(${makeCommaSeparatedList(this.zgrams)}, ${makeCommaSeparatedList(this.metadata)})`;
+      return `Post(${makeCommaSeparatedList(this.zgramsAndRefersTo)})`;
+    }
+  }
+
+  export class GetSpecificZgrams {
+    constructor(readonly zgramIds: ZgramId[]) {
+    }
+
+    toJson() {
+      const zgJson = this.zgramIds.map(zgId => zgId.toJson());
+      return [zgJson];
+    }
+
+    static tryParseJson(item: any) {
+      const array = assertAndDestructure1(item, assertArray);
+      const zgIds = array.map(ZgramId.tryParseJson);
+      return new GetSpecificZgrams(zgIds);
+    }
+
+    toString() {
+      return `Post(${makeCommaSeparatedList(this.zgramIds)})`;
+    }
+  }
+
+  export class PostMetadata {
+    constructor(readonly metadata: MetadataRecord[]) {
+    }
+
+    toJson() {
+      const mdJson = this.metadata.map(o => o.toJson());
+      return [mdJson];
+    }
+
+    static tryParseJson(item: any) {
+      const [mdArray] = assertAndDestructure1(item, assertArray);
+      const mds = mdArray.map(MetadataRecord.tryParseJson);
+      return new PostMetadata(mds);
+    }
+
+    toString() {
+      return `Post(${makeCommaSeparatedList(this.metadata)})`;
     }
   }
 
@@ -133,14 +176,19 @@ namespace drequestInfo {
     // Request (up to) N more zgrams from the front or back side.
     GetMoreZgrams = "GetMoreZgrams",
     // Post new zgrams
-    Post = "Post",
+    PostZgrams = "PostZgrams",
+    // Get specific zgrams that you happen to care about (e.g. those that appear in a refers-to)
+    GetSpecificZgrams = "GetSpecificZgrams",
+    // Post new metadata
+    PostMetadata = "PostMetadata",
     // For debugging. A round-trip to the server. When you get the Ack back, you know that the
     // server has processed all your requests up through the Ack.
     Ping = "Ping",
   }
 
   export type payload_t = drequests.CheckSyntax | drequests.Subscribe |
-      drequests.GetMoreZgrams | drequests.Post | drequests.Ping;
+      drequests.GetMoreZgrams | drequests.PostZgrams | drequests.PostMetadata |
+      drequests.GetSpecificZgrams | drequests.Ping;
 
   export interface ICheckSyntax {
     readonly tag: Tag.CheckSyntax;
@@ -157,9 +205,19 @@ namespace drequestInfo {
     readonly payload: drequests.GetMoreZgrams;
   }
 
-  export interface IPost {
-    readonly tag: Tag.Post;
-    readonly payload: drequests.Post;
+  export interface IPostZgrams {
+    readonly tag: Tag.PostZgrams;
+    readonly payload: drequests.PostZgrams;
+  }
+
+  export interface IGetSpecificZgrams {
+    readonly tag: Tag.GetSpecificZgrams;
+    readonly payload: drequests.GetSpecificZgrams;
+  }
+
+  export interface IPostMetadata {
+    readonly tag: Tag.PostMetadata;
+    readonly payload: drequests.PostMetadata;
   }
 
   export interface IPing {
@@ -174,14 +232,19 @@ namespace drequestInfo {
 
     visitGetMoreZgrams(o: drequests.GetMoreZgrams): TResult;
 
-    visitPost(o: drequests.Post): TResult;
+    visitPostZgrams(o: drequests.PostZgrams): TResult;
+
+    visitGetSpecificZgrams(o: drequests.GetSpecificZgrams): TResult;
+
+    visitPostMetadata(o: drequests.PostMetadata): TResult;
 
     visitPing(o: drequests.Ping): TResult;
   }
 }  // namespace drequestInfo
 
 export type IDRequest = drequestInfo.ICheckSyntax | drequestInfo.ISubscribe |
-    drequestInfo.IGetMoreZgrams | drequestInfo.IPost | drequestInfo.IPing;
+    drequestInfo.IGetMoreZgrams | drequestInfo.IPostZgrams | drequestInfo.IGetSpecificZgrams |
+    drequestInfo.IPostMetadata | drequestInfo.IPing;
 
 export class DRequest {
   static createCheckSyntax(query: string) {
@@ -195,8 +258,14 @@ export class DRequest {
   static createGetMoreZgrams(forBackSide: boolean, count: number) {
     return new DRequest(drequestInfo.Tag.GetMoreZgrams, new drequests.GetMoreZgrams(forBackSide, count));
   }
-  static createPost(zgs: ZgramCore[], mds: MetadataRecord[]) {
-    return new DRequest(drequestInfo.Tag.Post, new drequests.Post(zgs, mds));
+  static createPostZgrams(zgPairs: Pair<ZgramCore, Optional<ZgramId>>[]) {
+    return new DRequest(drequestInfo.Tag.PostZgrams, new drequests.PostZgrams(zgPairs));
+  }
+  static createPostMetadata(metadata: MetadataRecord[]) {
+    return new DRequest(drequestInfo.Tag.PostMetadata, new drequests.PostMetadata(metadata));
+  }
+  static createGetSpecificZgrams(zgramIds: ZgramId[]) {
+    return new DRequest(drequestInfo.Tag.GetSpecificZgrams, new drequests.GetSpecificZgrams(zgramIds));
   }
   static createPing(cookie: number) {
     return new DRequest(drequestInfo.Tag.Ping, new drequests.Ping(cookie));
@@ -211,7 +280,9 @@ export class DRequest {
       case drequestInfo.Tag.CheckSyntax: return visitor.visitCheckSyntax(idreq.payload);
       case drequestInfo.Tag.Subscribe: return visitor.visitSubscribe(idreq.payload);
       case drequestInfo.Tag.GetMoreZgrams: return visitor.visitGetMoreZgrams(idreq.payload);
-      case drequestInfo.Tag.Post: return visitor.visitPost(idreq.payload);
+      case drequestInfo.Tag.PostZgrams: return visitor.visitPostZgrams(idreq.payload);
+      case drequestInfo.Tag.PostMetadata: return visitor.visitPostMetadata(idreq.payload);
+      case drequestInfo.Tag.GetSpecificZgrams: return visitor.visitGetSpecificZgrams(idreq.payload);
       case drequestInfo.Tag.Ping: return visitor.visitPing(idreq.payload);
       default: staticFail(idreq);
     }
@@ -235,7 +306,9 @@ export class DRequest {
       case drequestInfo.Tag.CheckSyntax: payload = drequests.CheckSyntax.tryParseJson(item1); break;
       case drequestInfo.Tag.Subscribe: payload = drequests.Subscribe.tryParseJson(item1); break;
       case drequestInfo.Tag.GetMoreZgrams: payload = drequests.GetMoreZgrams.tryParseJson(item1); break;
-      case drequestInfo.Tag.Post: payload = drequests.Post.tryParseJson(item1); break;
+      case drequestInfo.Tag.PostZgrams: payload = drequests.PostZgrams.tryParseJson(item1); break;
+      case drequestInfo.Tag.PostMetadata: payload = drequests.PostMetadata.tryParseJson(item1); break;
+      case drequestInfo.Tag.GetSpecificZgrams: payload = drequests.GetSpecificZgrams.tryParseJson(item1); break;
       case drequestInfo.Tag.Ping: payload = drequests.Ping.tryParseJson(item1); break;
       default: throw staticFail(tag);
     }

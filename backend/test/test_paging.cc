@@ -33,6 +33,7 @@
 
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
+using kosak::coding::makeReservedVector;
 using z2kplus::backend::coordinator::Coordinator;
 using z2kplus::backend::coordinator::Subscription;
 using z2kplus::backend::factories::LogParser;
@@ -124,6 +125,7 @@ struct Pager {
   void operator()(dresponses::AckMoreZgrams &&o);
   void operator()(dresponses::EstimatesUpdate &&o);
   void operator()(dresponses::MetadataUpdate &&) {}
+  void operator()(dresponses::AckSpecificZgrams &&) {}
   void operator()(dresponses::PlusPlusUpdate &&) {}
   void operator()(dresponses::AckPing &&) {}
   void operator()(dresponses::GeneralError &&o);
@@ -162,10 +164,16 @@ bool pageTest(ZgramId start, std::vector<ZgramCore> newRecords,
 
   p.newIds_.clear();
 
-  drequests::Post post(std::move(newRecords), {});
+  using entry_t = drequests::PostZgrams::entry_t;
+  auto recordsWithRefers = makeReservedVector<entry_t>(newRecords.size());
+  for (auto &rec : newRecords) {
+    recordsWithRefers.push_back(entry_t(std::move(rec), {}));
+  }
+
+  drequests::PostZgrams post(std::move(recordsWithRefers));
   auto now = std::chrono::system_clock::now();
   std::vector<Coordinator::response_t> responses;
-  p.c_.post(p.sub_.get(), now, std::move(post), &responses);
+  p.c_.postZgrams(p.sub_.get(), now, std::move(post), &responses);
   if (!p.tryDrain(&responses, ff.nest(HERE)) ||
       !p.tryCompareExpected("dynamic", expectedDynamic, ff.nest(HERE))) {
     return false;
@@ -243,7 +251,7 @@ bool Pager::tryCompareExpected(const char *what, const std::vector<uint64_t> &ex
     expectedIds.emplace_back(rawId);
   }
   if (expectedIds != newIds_) {
-    return ff.failf(HERE, "static: expected %o, actual %o", expectedIds, newIds_);
+    return ff.failf(HERE, "%o: expected %o, actual %o", what, expectedIds, newIds_);
   }
   return true;
 }

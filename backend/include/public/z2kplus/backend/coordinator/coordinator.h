@@ -70,8 +70,10 @@ public:
   typedef z2kplus::backend::reverse_index::zgramOff_t zgramOff_t;
   typedef z2kplus::backend::shared::protocol::message::drequests::CheckSyntax CheckSyntax;
   typedef z2kplus::backend::shared::protocol::message::drequests::GetMoreZgrams GetMoreZgrams;
+  typedef z2kplus::backend::shared::protocol::message::drequests::GetSpecificZgrams GetSpecificZgrams;
   typedef z2kplus::backend::shared::protocol::message::drequests::Ping Ping;
-  typedef z2kplus::backend::shared::protocol::message::drequests::Post Post;
+  typedef z2kplus::backend::shared::protocol::message::drequests::PostMetadata PostMetadata;
+  typedef z2kplus::backend::shared::protocol::message::drequests::PostZgrams PostZgrams;
   typedef z2kplus::backend::shared::protocol::message::drequests::Subscribe Subscribe;
   typedef z2kplus::backend::shared::LogRecord LogRecord;
   typedef z2kplus::backend::shared::MetadataRecord MetadataRecord;
@@ -114,10 +116,17 @@ public:
   void checkSyntax(Subscription *sub, CheckSyntax &&cs, std::vector<response_t> *responses);
   void getMoreZgrams(Subscription *sub, GetMoreZgrams &&o, std::vector<response_t> *responses);
 
-  void post(Subscription *sub, std::chrono::system_clock::time_point now, Post &&o,
+  void postZgrams(Subscription *sub, std::chrono::system_clock::time_point now, PostZgrams &&o,
       std::vector<response_t> *responses);
-  bool tryPostNoSub(const Profile &profile, std::chrono::system_clock::time_point now,
-      Post &&o, std::vector<response_t> *responses, const FailFrame &ff);
+  void postMetadata(Subscription *sub, PostMetadata &&o, std::vector<response_t> *responses);
+
+  bool tryPostZgramsNoSub(const Profile &profile, std::chrono::system_clock::time_point now,
+      PostZgrams &&o, std::vector<response_t> *responses, const FailFrame &ff);
+  bool tryPostMetadataNoSub(const Profile &profile, PostMetadata &&o, std::vector<response_t> *responses,
+      const FailFrame &ff);
+
+  void getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o, std::vector<response_t> *responses);
+
   void ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses);
 
   bool tryCheckpoint(std::chrono::system_clock::time_point now, DateAndPartKey *endKey,
@@ -136,7 +145,7 @@ private:
       std::vector<response_t> *responses);
   void notifySubscribersAboutPpChanges(const ConsolidatedIndex::ppDeltaMap_t &deltaMap,
       std::vector<response_t> *responses);
-  void notifySubscribersAboutEstimates(bool hasNewZgrams, std::vector<response_t> *responses);
+  void notifySubscribersAboutEstimates(std::vector<response_t> *responses);
 
   bool trySanitize(const Profile &profile, std::vector<MetadataRecord> *records,
       const FailFrame &ff);

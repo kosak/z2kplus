@@ -85,7 +85,6 @@ export const zgramHeaderComponent = {
                 data-bind="click: toggleHelpInteraction">
           <i class="fa fa-question-circle"></i>
         </button>
-        
       </template>
       </div>
     `

@@ -243,8 +243,8 @@ bool TestUtil::trySetupConsolidatedIndex(std::shared_ptr<PathMaster> pm, Consoli
           ff.nest(HERE)) &&
       tryParseDynamicZgrams(dynamicZgrams, &zgramCores, ff.nest(HERE)) &&
       tryParseDynamicMetadata(dynamicMetadata, &metadataRecords, ff.nest(HERE)) &&
-      ci->tryAdd(now, profile, std::move(zgramCores), std::move(metadataRecords), &deltaMap,
-          &zgrams, &movedMetadata, ff.nest(HERE));
+      ci->tryAddZgrams(now, profile, std::move(zgramCores), &deltaMap, &zgrams, ff.nest(HERE)) &&
+      ci->tryAddMetadata(std::move(metadataRecords), &deltaMap, &movedMetadata, ff.nest(HERE));
 }
 
 bool TestUtil::searchTest(const std::string_view &callerInfo, const ConsolidatedIndex &ci,

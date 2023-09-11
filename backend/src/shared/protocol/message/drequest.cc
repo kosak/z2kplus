@@ -64,17 +64,38 @@ std::ostream &operator<<(std::ostream &s, const GetMoreZgrams &o) {
 
 DEFINE_TYPICAL_JSON(GetMoreZgrams, forBackSide_, count_);
 
-Post::Post() = default;
-Post::Post(std::vector<ZgramCore> zgrams, std::vector<MetadataRecord> metadata) :
-    zgrams_(std::move(zgrams)), metadata_(std::move(metadata)) {}
-Post::Post(Post &&) noexcept = default;
-Post &Post::operator=(Post &&) noexcept = default;
-Post::~Post() = default;
+PostZgrams::PostZgrams() = default;
+PostZgrams::PostZgrams(std::vector<entry_t> entries) : entries_(std::move(entries)) {}
+PostZgrams::PostZgrams(PostZgrams &&) noexcept = default;
+PostZgrams &PostZgrams::operator=(PostZgrams &&) noexcept = default;
+PostZgrams::~PostZgrams() = default;
 
-std::ostream &operator<<(std::ostream &s, const Post &o) {
-  return streamf(s, "Post(zgrams=%o\nmetadata=%o)", o.zgrams_, o.metadata_);
+std::ostream &operator<<(std::ostream &s, const PostZgrams &o) {
+  return streamf(s, "PostZgrams(entries=%o)", o.entries_);
 }
-DEFINE_TYPICAL_JSON(Post, zgrams_, metadata_);
+DEFINE_TYPICAL_JSON(PostZgrams, entries_);
+
+PostMetadata::PostMetadata() = default;
+PostMetadata::PostMetadata(std::vector<MetadataRecord> metadata) : metadata_(std::move(metadata)) {}
+PostMetadata::PostMetadata(PostMetadata &&) noexcept = default;
+PostMetadata &PostMetadata::operator=(PostMetadata &&) noexcept = default;
+PostMetadata::~PostMetadata() = default;
+
+std::ostream &operator<<(std::ostream &s, const PostMetadata &o) {
+  return streamf(s, "PostMetadata(md=%o)", o.metadata_);
+}
+DEFINE_TYPICAL_JSON(PostMetadata, metadata_);
+
+GetSpecificZgrams::GetSpecificZgrams() = default;
+GetSpecificZgrams::GetSpecificZgrams(std::vector<ZgramId> zgramIds) : zgramIds_(std::move(zgramIds)) {}
+GetSpecificZgrams::GetSpecificZgrams(GetSpecificZgrams &&) noexcept = default;
+GetSpecificZgrams &GetSpecificZgrams::operator=(GetSpecificZgrams &&) noexcept = default;
+GetSpecificZgrams::~GetSpecificZgrams() = default;
+
+std::ostream &operator<<(std::ostream &s, const GetSpecificZgrams &o) {
+  return streamf(s, "GetSpecificZgrams(zgramIds=%o)", o.zgramIds_);
+}
+DEFINE_TYPICAL_JSON(GetSpecificZgrams, zgramIds_);
 
 std::ostream &operator<<(std::ostream &s, const Ping &o) {
   return streamf(s, "Ping(%o)", o.cookie_);
@@ -88,7 +109,9 @@ DRequest::DRequest() = default;
 DRequest::DRequest(drequests::CheckSyntax &&o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::Subscribe &&o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::GetMoreZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::Post &&o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostZgrams &&o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostMetadata &&o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::GetSpecificZgrams &&o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::Ping &&o) : payload_(std::move(o)) {}
 DRequest::DRequest(DRequest &&) noexcept = default;
 DRequest &DRequest::operator=(DRequest &&) noexcept = default;
