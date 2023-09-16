@@ -95,26 +95,61 @@ private:
   DECLARE_TYPICAL_JSON(GetMoreZgrams);
 };
 
-class Post {
+class PostZgrams {
 public:
-  Post();
-  Post(std::vector<ZgramCore> zgrams, std::vector<MetadataRecord> metadata);
-  DISALLOW_COPY_AND_ASSIGN(Post);
-  DECLARE_MOVE_COPY_AND_ASSIGN(Post);
-  ~Post();
+  // The zgram, and optionally the zgram it refers to.
+  using entry_t = std::pair<ZgramCore, std::optional<ZgramId>>;
 
-  std::vector<ZgramCore> &zgrams() { return zgrams_; }
-  const std::vector<ZgramCore> &zgrams() const { return zgrams_; }
+  PostZgrams();
+  explicit PostZgrams(std::vector<entry_t> entries);
+  DISALLOW_COPY_AND_ASSIGN(PostZgrams);
+  DECLARE_MOVE_COPY_AND_ASSIGN(PostZgrams);
+  ~PostZgrams();
+
+  std::vector<entry_t> &entries() { return entries_; }
+  const std::vector<entry_t> &entries() const { return entries_; }
+
+private:
+  std::vector<entry_t> entries_;
+
+  friend std::ostream &operator<<(std::ostream &s, const PostZgrams &o);
+  DECLARE_TYPICAL_JSON(PostZgrams);
+};
+
+class PostMetadata {
+public:
+  PostMetadata();
+  explicit PostMetadata(std::vector<MetadataRecord> metadata);
+  DISALLOW_COPY_AND_ASSIGN(PostMetadata);
+  DECLARE_MOVE_COPY_AND_ASSIGN(PostMetadata);
+  ~PostMetadata();
 
   std::vector<MetadataRecord> &metadata() { return metadata_; }
   const std::vector<MetadataRecord> &metadata() const { return metadata_; }
 
 private:
-  std::vector<ZgramCore> zgrams_;
   std::vector<MetadataRecord> metadata_;
 
-  friend std::ostream &operator<<(std::ostream &s, const Post &o);
-  DECLARE_TYPICAL_JSON(Post);
+  friend std::ostream &operator<<(std::ostream &s, const PostMetadata &o);
+  DECLARE_TYPICAL_JSON(PostMetadata);
+};
+
+class GetSpecificZgrams {
+public:
+  GetSpecificZgrams();
+  GetSpecificZgrams(std::vector<ZgramId> zgramIds);
+  DISALLOW_COPY_AND_ASSIGN(GetSpecificZgrams);
+  DECLARE_MOVE_COPY_AND_ASSIGN(GetSpecificZgrams);
+  ~GetSpecificZgrams();
+
+  std::vector<ZgramId> &zgramIds() { return zgramIds_; }
+  const std::vector<ZgramId> &zgramIds() const { return zgramIds_; }
+
+private:
+  std::vector<ZgramId> zgramIds_;
+
+  friend std::ostream &operator<<(std::ostream &s, const GetSpecificZgrams &o);
+  DECLARE_TYPICAL_JSON(GetSpecificZgrams);
 };
 
 class Ping {
@@ -134,10 +169,10 @@ private:
   DECLARE_TYPICAL_JSON(Ping);
 };
 
-typedef std::variant<CheckSyntax, Subscribe, GetMoreZgrams, Post, Ping> payload_t;
+typedef std::variant<CheckSyntax, Subscribe, GetMoreZgrams, PostZgrams, PostMetadata, GetSpecificZgrams, Ping> payload_t;
 
 DECLARE_VARIANT_JSON(DRequestPayloadHolder, payload_t,
-    ("CheckSyntax", "Subscribe", "GetMoreZgrams", "Post", "Ping"));
+    ("CheckSyntax", "Subscribe", "GetMoreZgrams", "PostZgrams", "PostMetadata", "GetSpecificZgrams", "Ping"));
 }  // namespace drequests
 
 class DRequest {
@@ -148,7 +183,9 @@ public:
   explicit DRequest(drequests::CheckSyntax &&o);
   explicit DRequest(drequests::Subscribe &&o);
   explicit DRequest(drequests::GetMoreZgrams &&o);
-  explicit DRequest(drequests::Post &&o);
+  explicit DRequest(drequests::PostZgrams &&o);
+  explicit DRequest(drequests::PostMetadata &&o);
+  explicit DRequest(drequests::GetSpecificZgrams &&o);
   explicit DRequest(drequests::Ping &&o);
   DISALLOW_COPY_AND_ASSIGN(DRequest);
   DECLARE_MOVE_COPY_AND_ASSIGN(DRequest);

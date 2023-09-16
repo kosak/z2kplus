@@ -48,6 +48,7 @@ using z2kplus::backend::shared::Profile;
 using z2kplus::backend::shared::RenderStyle;
 using z2kplus::backend::shared::SearchOrigin;
 using z2kplus::backend::shared::ZgramCore;
+using z2kplus::backend::shared::ZgramId;
 using z2kplus::backend::shared::protocol::Estimates;
 using z2kplus::backend::shared::protocol::message::DRequest;
 using z2kplus::backend::shared::protocol::message::DResponse;
@@ -162,13 +163,15 @@ bool Server::tryRunForever(const FailFrame &ff) {
 
     // Let's disable status messages for now. They are distracting.
     if (false) {
-      auto zgs = makeReservedVector<ZgramCore>(statusMessages.size());
+      using entry_t = drequests::PostZgrams::entry_t;
+      auto zgs = makeReservedVector<entry_t>(statusMessages.size());
       for (auto &sm: statusMessages) {
-        zgs.emplace_back("graffiti.ZSTATUS", std::move(sm), RenderStyle::Default);
+        ZgramCore zgc("graffiti.ZSTATUS", std::move(sm), RenderStyle::Default);
+        zgs.push_back(entry_t(std::move(zgc), {}));
       }
-      drequests::Post post(std::move(zgs), {});
+      drequests::PostZgrams req(std::move(zgs));
       std::vector<coordinatorResponse_t> responses;
-      if (!coordinator_.tryPostNoSub(*adminProfile_, now, std::move(post), &responses,
+      if (!coordinator_.tryPostZgramsNoSub(*adminProfile_, now, std::move(req), &responses,
           ff.nest(HERE)) ||
           !tryProcessResponses(std::move(responses), nullptr, ff.nest(HERE))) {
         return false;
@@ -326,8 +329,14 @@ void Server::handleNonSubRequest(DRequest &&req, Subscription *sub,
     void operator()(drequests::GetMoreZgrams &&o) const {
       coordinator_->getMoreZgrams(sub_, std::move(o), responses_);
     }
-    void operator()(drequests::Post &&o) const {
-      coordinator_->post(sub_, now_, std::move(o), responses_);
+    void operator()(drequests::PostZgrams &&o) const {
+      coordinator_->postZgrams(sub_, now_, std::move(o), responses_);
+    }
+    void operator()(drequests::PostMetadata &&o) const {
+      coordinator_->postMetadata(sub_, std::move(o), responses_);
+    }
+    void operator()(drequests::GetSpecificZgrams &&o) const {
+      coordinator_->getSpecificZgrams(sub_, std::move(o), responses_);
     }
     void operator()(drequests::Ping &&o) const {
       coordinator_->ping(sub_, std::move(o), responses_);

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // This is used e.g. to detect missing case statments at compile time
-import {anyToJson, assertAndDestructure2} from "./json_util";
+import {anyToJson, assertAndDestructure1, assertAndDestructure2, assertArray} from "./json_util";
 
 export function operatorToDelta(operator: string) {
   switch (operator) {
@@ -156,12 +156,52 @@ export class Pair<First, Second> {
     return new Pair<First, Second>(first, second);
   }
 
-  toJson() {
-    return [anyToJson(this.first), anyToJson(this.second)];
+  toJson(firstToJson?: (f: First) => any, secondToJson?: (s: Second) => any) {
+    if (firstToJson === undefined) {
+      firstToJson = anyToJson;
+    }
+    if (secondToJson === undefined) {
+      secondToJson = anyToJson;
+    }
+    return [firstToJson(this.first), secondToJson(this.second)];
   }
 
   toString() {
     return `[${this.first}, ${this.second}]`;
+  }
+}
+
+// Does this work? Do I want it?
+export class Optional<T> {
+  static empty<T>() {
+    return new Optional<T>(undefined);
+  }
+
+  static create<T>(item: T | undefined) {
+    return new Optional<T>(item);
+  }
+
+  constructor(public readonly item?: T) {
+  }
+
+  static tryParseJson<T>(item: any, ij: (i: any) => T) : Optional<T> {
+    const [array] = assertAndDestructure1(item, assertArray);
+    if (array.length === 0) {
+      return Optional.empty();
+    }
+    const element = ij(array[0]);
+    return Optional.create(element);
+  }
+
+  toJson() {
+    if (this.item === undefined) {
+      return [];
+    }
+    return [anyToJson(this.item)];
+  }
+
+  toString() {
+    return `[${this.item}]`;
   }
 }
 

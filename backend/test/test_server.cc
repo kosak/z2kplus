@@ -210,10 +210,12 @@ TEST_CASE("server: a new matching message arrives", "[server]") {
     FAIL(fr);
   }
 
-  std::vector<ZgramCore> zgrams;
-  zgrams.emplace_back("so hungry", "WHERE is my Cinnabon?", RenderStyle::Default);
+  using entry_t = drequests::PostZgrams::entry_t;
+  std::vector<entry_t> zgrams;
+  ZgramCore zgc("so hungry", "WHERE is my Cinnabon?", RenderStyle::Default);
+  zgrams.push_back(entry_t(std::move(zgc), {}));
 
-  DRequest secondRequest(drequests::Post(std::move(zgrams), {}));
+  DRequest secondRequest(drequests::PostZgrams(std::move(zgrams)));
   if (!fe.trySend(std::move(secondRequest), fr.nest(HERE)) ||
       !TestUtil::tryDrainZgrams(&fe, 1000, 1000, true, timeout, &responses, fr.nest(HERE))) {
     FAIL(fr);

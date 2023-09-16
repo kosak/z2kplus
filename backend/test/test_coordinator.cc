@@ -32,6 +32,7 @@
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::ParseContext;
+using kosak::coding::Unit;
 using z2kplus::backend::coordinator::Coordinator;
 using z2kplus::backend::server::Server;
 using z2kplus::backend::coordinator::Subscription;
@@ -42,6 +43,7 @@ using z2kplus::backend::shared::protocol::message::DRequest;
 using z2kplus::backend::shared::protocol::message::DResponse;
 using z2kplus::backend::shared::MetadataRecord;
 using z2kplus::backend::shared::Profile;
+using z2kplus::backend::shared::RenderStyle;
 using z2kplus::backend::shared::SearchOrigin;
 using z2kplus::backend::shared::ZgramCore;
 using z2kplus::backend::shared::ZgramId;
@@ -89,7 +91,6 @@ struct Reactor {
 }  // namespace
 
 TEST_CASE("coordinator: a metadata change happens", "[coordinator]") {
-  auto now = std::chrono::system_clock::now();
   FailRoot fr;
   drequests::Subscribe subReq(R"(hasreaction("👍"))", SearchOrigin(ZgramId(30)), 10, 25);
 
@@ -118,15 +119,55 @@ TEST_CASE("coordinator: a metadata change happens", "[coordinator]") {
     std::vector<MetadataRecord> metadata;
     metadata.push_back(std::move(mdr0));
     metadata.push_back(std::move(mdr1));
-    drequests::Post newPost({}, std::move(metadata));
+    drequests::PostMetadata newPost(std::move(metadata));
 
     std::vector<Coordinator::response_t> responses;
-    rx.c_.post(rx.sub_.get(), now, std::move(newPost), &responses);
+    rx.c_.postMetadata(rx.sub_.get(), std::move(newPost), &responses);
     rx.processResponses(&responses);
     if (!rx.tryExpect({30, 41}, true, 1, 0, fr.nest(HERE)) ||
         !rx.tryExpect({0}, false, 0, 0, fr.nest(HERE))) {
       FAIL(fr);
     }
+  }
+}
+
+TEST_CASE("coordinator: post a zgram with a reply-to", "[coordinator]") {
+  FailRoot fr;
+  drequests::Subscribe subReq("", SearchOrigin(Unit()), 10, 25);
+
+  ConsolidatedIndex ci;
+  Reactor rx;
+  auto profile = std::make_shared<Profile>("kosak", "Corey Kosak");
+  if (!tryGetPathMaster(&rx.pm_, fr.nest(HERE)) ||
+      !TestUtil::trySetupConsolidatedIndex(rx.pm_, &ci, fr.nest(HERE)) ||
+      !Coordinator::tryCreate(rx.pm_, std::move(ci), &rx.c_, fr.nest(HERE))) {
+    FAIL(fr);
+  }
+  {
+    std::vector<Coordinator::response_t> responses;
+    rx.c_.subscribe(std::move(profile), std::move(subReq), &responses, &rx.sub_);
+    rx.processResponses(&responses);
+  }
+
+  if (!rx.valid_) {
+    FAIL("Subscription failed apparently (probably a bad query)");
+  }
+
+  {
+    // We post a reply to zgram 71
+    ZgramCore zgc("appreciation.anti.t", "tpnn", RenderStyle::Default);
+    drequests::PostZgrams::entry_t entry(std::move(zgc), ZgramId(71));
+    drequests::PostZgrams newPost({std::move(entry)});
+    std::vector<Coordinator::response_t> responses;
+    auto now = std::chrono::system_clock::now();
+    rx.c_.postZgrams(rx.sub_.get(), now, std::move(newPost), &responses);
+    rx.processResponses(&responses);
+    std::vector<zgMetadata::ZgramRefersTo> refersTo;
+    rx.c_.index().getRefersToFor(ZgramId(73), &refersTo);
+    REQUIRE(refersTo.size() == 1);
+    const auto &r0 = refersTo[0];
+    CHECK(r0.zgramId().raw() == 73);
+    CHECK(r0.refersTo().raw() == 71);
   }
 }
 

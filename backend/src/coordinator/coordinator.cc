@@ -209,38 +209,103 @@ void Coordinator::getMoreZgrams(Subscription *sub, GetMoreZgrams &&o, std::vecto
 }
 
 // Take the records in the Post message and send them to the index.
-void Coordinator::post(Subscription *sub, std::chrono::system_clock::time_point now, Post &&o,
+void Coordinator::postZgrams(Subscription *sub, std::chrono::system_clock::time_point now, PostZgrams &&o,
     std::vector<response_t> *responses) {
   FailRoot fr;
-  if (!tryPostNoSub(*sub->profile(), now, std::move(o), responses, fr.nest(HERE))) {
+  if (!tryPostZgramsNoSub(*sub->profile(), now, std::move(o), responses, fr.nest(HERE))) {
     auto failure = dresponses::GeneralError(toString(fr));
     responses->emplace_back(sub, std::move(failure));
   }
 }
 
-bool Coordinator::tryPostNoSub(const Profile &profile, std::chrono::system_clock::time_point now,
-    Post &&o, std::vector<response_t> *responses, const FailFrame &ff) {
-  if (o.zgrams().empty() && o.metadata().empty()) {
+void Coordinator::postMetadata(Subscription *sub, PostMetadata &&o, std::vector<response_t> *responses) {
+  FailRoot fr;
+  if (!tryPostMetadataNoSub(*sub->profile(), std::move(o), responses, fr.nest(HERE))) {
+    auto failure = dresponses::GeneralError(toString(fr));
+    responses->emplace_back(sub, std::move(failure));
+  }
+}
+
+bool Coordinator::tryPostZgramsNoSub(const Profile &profile, std::chrono::system_clock::time_point now,
+    PostZgrams &&o, std::vector<response_t> *responses, const FailFrame &ff) {
+  if (o.entries().empty()) {
+    return true;
+  }
+
+  ConsolidatedIndex::ppDeltaMap_t deltaMap;
+  auto inReplyToMetadata = makeReservedVector<MetadataRecord>(o.entries().size());
+  auto zgramCores = makeReservedVector<ZgramCore>(o.entries().size());
+  auto refersToIds = makeReservedVector<std::optional<ZgramId>>(o.entries().size());
+  for (auto &entry: o.entries()) {
+    zgramCores.push_back(std::move(entry.first));
+    refersToIds.push_back(entry.second);
+  }
+  std::vector<Zephyrgram> zgrams;
+  if (!index_.tryAddZgrams(now, profile, std::move(zgramCores), &deltaMap, &zgrams, ff.nest(HERE))) {
+    return false;
+  }
+
+  for (size_t i = 0; i != o.entries().size(); ++i) {
+    const auto &zg = zgrams[i];
+    const auto &refersTo = refersToIds[i];
+    if (!refersTo.has_value()) {
+      continue;
+    }
+    auto irt = zgMetadata::ZgramRefersTo(zg.zgramId(), *refersTo, true);
+    inReplyToMetadata.emplace_back(std::move(irt));
+  }
+  notifySubscribersAboutEstimates(responses);
+  notifySubscribersAboutPpChanges(deltaMap, responses);
+  PostMetadata req(std::move(inReplyToMetadata));
+  return tryPostMetadataNoSub(profile, std::move(req), responses, ff.nest(HERE));
+}
+
+bool Coordinator::tryPostMetadataNoSub(const Profile &profile, PostMetadata &&o, std::vector<response_t> *responses,
+    const FailFrame &ff) {
+  if (o.metadata().empty()) {
     return true;
   }
 
   ConsolidatedIndex::ppDeltaMap_t deltaMap;
   std::vector<MetadataRecord> movedMetadata;
-  std::vector<Zephyrgram> zgrams;
   if (!trySanitize(profile, &o.metadata(), ff.nest(HERE)) ||
-      !index_.tryAdd(now, profile, std::move(o.zgrams()), std::move(o.metadata()),
-          &deltaMap, &zgrams, &movedMetadata, ff.nest(HERE))) {
+      !index_.tryAddMetadata(std::move(o.metadata()), &deltaMap, &movedMetadata, ff.nest(HERE))) {
     return false;
   }
 
   notifySubscribersAboutMetadata(std::move(movedMetadata), responses);
-  notifySubscribersAboutEstimates(!zgrams.empty(), responses);
   notifySubscribersAboutPpChanges(deltaMap, responses);
   return true;
 }
 
+void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
+    std::vector<response_t> *responses) {
+  auto locators = makeReservedVector<std::pair<ZgramId, Location>>(o.zgramIds().size());
+
+  for (const auto &zgramId : o.zgramIds()) {
+    zgramOff_t off;
+    if (!index_.tryFind(zgramId, &off)) {
+      warn("Failed to find %o", zgramId);
+      // for now, silently ignore.
+      continue;
+    }
+    const auto &info = index_.getZgramInfo(off);
+    locators.emplace_back(zgramId, info.location());
+  }
+
+  auto zgrams = makeReservedVector<std::shared_ptr<const Zephyrgram>>(locators.size());
+  FailRoot fr;
+  if (!index_.zgramCache().tryLookupOrResolve(*pathMaster_, locators, &zgrams, fr.nest(HERE))) {
+    // for now, silently ignore.
+    warn("Lookup failed: %o", fr);
+    return;
+  }
+
+  responses->emplace_back(sub, dresponses::AckSpecificZgrams(std::move(zgrams)));
+}
+
 void Coordinator::ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses) {
-  responses->emplace_back(sub, DResponse(dresponses::AckPing(o.cookie())));
+  responses->emplace_back(sub, dresponses::AckPing(o.cookie()));
 }
 
 bool Coordinator::tryResetIndex(std::chrono::system_clock::time_point now, const FailFrame &ff) {
@@ -373,11 +438,7 @@ void Coordinator::notifySubscribersAboutPpChanges(const ConsolidatedIndex::ppDel
   }
 }
 
-void Coordinator::notifySubscribersAboutEstimates(bool hasNewZgrams,
-    std::vector<response_t> *responses) {
-  if (!hasNewZgrams) {
-    return;
-  }
+void Coordinator::notifySubscribersAboutEstimates(std::vector<response_t> *responses) {
   for (const auto &sub: subscriptions_) {
     updateEstimates(sub.get(), index_, responses);
   }
@@ -394,7 +455,7 @@ void updateEstimates(Subscription *sub, const ConsolidatedIndex &index, std::vec
     return;
   }
   dresponses::EstimatesUpdate eu(std::move(ests));
-  responses->emplace_back(sub, DResponse(std::move(eu)));
+  responses->emplace_back(sub, std::move(eu));
 }
 
 enum class Disposition {Accept, Reject, Defer};

@@ -188,15 +188,26 @@ private:
   bool finished_ = false;
 };
 
-bool ConsolidatedIndex::tryAdd(std::chrono::system_clock::time_point now, const Profile &profile,
-    std::vector<ZgramCore> zgcs, std::vector<MetadataRecord> metadata, ppDeltaMap_t *deltaMap,
-    std::vector<Zephyrgram> *zgrams, std::vector<MetadataRecord> *movedMetadata,
+bool ConsolidatedIndex::tryAddZgrams(std::chrono::system_clock::time_point now, const Profile &profile,
+    std::vector<ZgramCore> &&zgcs, ppDeltaMap_t *deltaMap, std::vector<Zephyrgram> *zgrams,
     const FailFrame &ff) {
   PlusPlusManager ppm(this);
-  if (!tryAddZgrams(now, profile, std::move(zgcs), zgrams, ff.nest(HERE)) ||
+  if (!tryAddZgramsHelper(now, profile, std::move(zgcs), zgrams, ff.nest(HERE)) ||
       !ppm.tryAddZgrams(*zgrams, ff.nest(HERE)) ||
-      !ppm.tryAddMetadataRecords(metadata, ff.nest(HERE)) ||
-      !tryAddMetadata(std::move(metadata), movedMetadata, ff.nest(HERE)) ||
+      !ppm.tryFinish(ff.nest(HERE))) {
+    return false;
+  }
+
+  dynamicIndex_.batchUpdatePlusPlusCounts(ppm.deltaMap());
+  *deltaMap = std::move(ppm.deltaMap());
+  return true;
+}
+
+bool ConsolidatedIndex::tryAddMetadata(std::vector<MetadataRecord> &&records, ppDeltaMap_t *deltaMap,
+    std::vector<MetadataRecord> *movedRecords, const FailFrame &ff) {
+  PlusPlusManager ppm(this);
+  if (!ppm.tryAddMetadataRecords(records, ff.nest(HERE)) ||
+      !tryAddMetadataHelper(std::move(records), movedRecords, ff.nest(HERE)) ||
       !ppm.tryFinish(ff.nest(HERE))) {
     return false;
   }
@@ -220,10 +231,9 @@ bool ConsolidatedIndex::tryAddForBootstrap(const std::vector<logRecordAndLocatio
 }
 
 bool
-ConsolidatedIndex::tryAddZgrams(std::chrono::system_clock::time_point now, const Profile &profile,
-    std::vector<ZgramCore> &&src, std::vector<Zephyrgram> *results,
-    const FailFrame &ff) {
-  if (src.empty()) {
+ConsolidatedIndex::tryAddZgramsHelper(std::chrono::system_clock::time_point now, const Profile &profile,
+    std::vector<ZgramCore> &&zgcs, std::vector<Zephyrgram> *zgrams, const FailFrame &ff) {
+  if (zgcs.empty()) {
     return true;
   }
 
@@ -240,10 +250,10 @@ ConsolidatedIndex::tryAddZgrams(std::chrono::system_clock::time_point now, const
   uint64_t timesecs = std::chrono::duration_cast<std::chrono::seconds>(
       now.time_since_epoch()).count();
 
-  auto cooked = makeReservedVector<std::pair<LogRecord, Location>>(src.size());
+  auto cooked = makeReservedVector<std::pair<LogRecord, Location>>(zgcs.size());
   std::string loggedBuffer;
   std::string unloggedBuffer;
-  for (auto &zgc : src) {
+  for (auto &zgc : zgcs) {
     auto isLogged = LoggingPolicy::isLogged(zgc);
     Zephyrgram zgram(nextZgramId, timesecs, profile.userId(), profile.signature(), isLogged,
         std::move(zgc));
@@ -283,15 +293,15 @@ ConsolidatedIndex::tryAddZgrams(std::chrono::system_clock::time_point now, const
     if (zg == nullptr) {
       crash("Impossible");
     }
-    results->push_back(std::move(*zg));
+    zgrams->push_back(std::move(*zg));
   }
   return true;
 }
 
-bool ConsolidatedIndex::tryAddMetadata(std::vector<MetadataRecord> &&metadata,
-    std::vector<MetadataRecord> *yourMetadata, const FailFrame &ff) {
+bool ConsolidatedIndex::tryAddMetadataHelper(std::vector<MetadataRecord> &&metadata,
+    std::vector<MetadataRecord> *movedMetadata, const FailFrame &ff) {
   if (metadata.empty()) {
-    yourMetadata->clear();
+    movedMetadata->clear();
     return true;
   }
 
@@ -318,7 +328,7 @@ bool ConsolidatedIndex::tryAddMetadata(std::vector<MetadataRecord> &&metadata,
       !dynamicIndex_.tryAddMetadata(frozenIndex(), asSlice(metadata), ff.nest(HERE))) {
     return false;
   }
-  *yourMetadata = std::move(metadata);
+  *movedMetadata = std::move(metadata);
   return true;
 }
 

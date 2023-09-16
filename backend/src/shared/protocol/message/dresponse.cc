@@ -87,6 +87,18 @@ std::ostream &operator<<(std::ostream &s, const MetadataUpdate &o) {
 }
 DEFINE_TYPICAL_JSON(MetadataUpdate, metadata_);
 
+AckSpecificZgrams::AckSpecificZgrams() = default;
+AckSpecificZgrams::AckSpecificZgrams(std::vector<std::shared_ptr<const Zephyrgram>> zgrams) :
+    zgrams_(std::move(zgrams)) {}
+AckSpecificZgrams::AckSpecificZgrams(AckSpecificZgrams &&other) noexcept = default;
+AckSpecificZgrams &AckSpecificZgrams::operator=(AckSpecificZgrams &&other) noexcept = default;
+AckSpecificZgrams::~AckSpecificZgrams() = default;
+
+std::ostream &operator<<(std::ostream &s, const AckSpecificZgrams &o) {
+  return streamf(s, "AckSpecificZgrams(%o)", o.zgrams_);
+}
+DEFINE_TYPICAL_JSON(AckSpecificZgrams, zgrams_);
+
 PlusPlusUpdate::PlusPlusUpdate() = default;
 PlusPlusUpdate::PlusPlusUpdate(std::vector<entry_t> updates) : updates_(std::move(updates)) {}
 PlusPlusUpdate::PlusPlusUpdate(PlusPlusUpdate &&other) noexcept = default;
@@ -116,6 +128,7 @@ DResponse::DResponse(dresponses::AckSubscribe o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckMoreZgrams o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::EstimatesUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::MetadataUpdate o) : payload_(std::move(o)) {}
+DResponse::DResponse(dresponses::AckSpecificZgrams o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::PlusPlusUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckPing o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::GeneralError o) : payload_(std::move(o)) {}

@@ -40,6 +40,7 @@ import {useActiveElement, useMagicKeys, useTextSelection, whenever} from '@vueus
 import {UploadableMediaUtil} from "../shared/uploadable_media_util";
 import {Renderer} from "./util/renderer";
 import {FiltersViewModel} from "./viewmodels/filters_viewmodel";
+import {Optional, Pair} from "../shared/utility";
 
 export class Z2kState {
     readonly host: string;
@@ -56,7 +57,7 @@ export class Z2kState {
     readonly frontStreamStatus: StreamStatusViewModel;
     readonly backStreamStatus: StreamStatusViewModel;
     currentlyHoveringZgram: ZgramViewModel | undefined;
-    private zgramDict: {[rawId: number]: ZgramViewModel};
+    readonly zgramDict: {[rawId: number]: ZgramViewModel};
     private nextFakeId: number;
     readonly uploadableMediaUtil: UploadableMediaUtil;
     readonly renderer: Renderer;
@@ -171,7 +172,7 @@ export class Z2kState {
             const onSubmit = (result: ZgramEditorResult | undefined) => {
                 if (result !== undefined) {
                     const zgc = new ZgramCore(result.instance, result.body, result.renderStyle);
-                    this.postZgram(zgc);
+                    this.postZgram(zgc, undefined);
                     this.composeViewModel = undefined;
                 }
                 this.composeVisible = false;
@@ -184,19 +185,22 @@ export class Z2kState {
     fakePost() {
         const zg = new ZgramCore("graffiti.test", "Test Message " + this.nextFakeId, RenderStyle.Default);
         ++this.nextFakeId;
-        this.postZgram(zg);
+        this.postZgram(zg, undefined);
     }
 
-    postZgram(zgram: ZgramCore) {
-        const zgs = [zgram];
-        const mds: MetadataRecord[] = [];
-        const post = DRequest.createPost(zgs, mds);
+    postZgram(zgram: ZgramCore, refersTo: ZgramId | undefined) {
+        const zgPairs = [Pair.create(zgram, Optional.create(refersTo))];
+        const post = DRequest.createPostZgrams(zgPairs);
         this.sessionManager.sendDRequest(post);
     }
 
-    postMetadata(mds: MetadataRecord[]) {
-        const zgs: ZgramCore[] = [];
-        const post = DRequest.createPost(zgs, mds);
+    requestZgram(zgramId: ZgramId) {
+        const req = DRequest.createGetSpecificZgrams([zgramId]);
+        this.sessionManager.sendDRequest(req);
+    }
+
+    postMetadata(mdrs: MetadataRecord[]) {
+        const post = DRequest.createPostMetadata(mdrs);
         this.sessionManager.sendDRequest(post);
     }
 
@@ -324,6 +328,16 @@ export class Z2kState {
         }
     }
 
+    visitAckSpecificZgrams(resp: dresponses.AckSpecificZgrams) {
+        for (const zg of resp.zgrams) {
+            const raw = zg.zgramId.raw;
+            if (this.zgramDict[raw] !== undefined) {
+                continue;
+            }
+            this.zgramDict[raw] = new ZgramViewModel(this, zg);
+        }
+    }
+
     visitPlusPlusUpdate(resp: dresponses.PlusPlusUpdate) {
         for (const [zgramId, key, value] of resp.entries) {
             const zgv = this.zgramDict[zgramId.raw];
@@ -361,7 +375,12 @@ export class Z2kState {
     }
 
     visitZgramRefersTo(zgRefersTo: zgMetadata.ZgramRefersTo) {
-        // TODO(kosak): handle refers to
+        const zvm = this.zgramDict[zgRefersTo.zgramId.raw];
+        if (zvm === undefined) {
+            // Shouldn't happen.
+            return;
+        }
+        zvm.refersTo = zgRefersTo.refersTo;
     }
 
     visitZmojis(zmojis: userMetadata.Zmojis) {

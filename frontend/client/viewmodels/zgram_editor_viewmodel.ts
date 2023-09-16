@@ -22,19 +22,14 @@ enum Mode {Compose = "Compose", Reply = "Reply", Edit = "Edit"}
 
 export class ZgramEditorViewModel {
     static forCompose(state: Z2kState, onSubmitOrClose: (result: ZgramEditorResult | undefined) => void) {
-        return ZgramEditorViewModel.forComposeOrReply(state, Mode.Compose, "", "", onSubmitOrClose);
+        const okToSubmit = () => true;
+        return new ZgramEditorViewModel(state, Mode.Compose, "", "", false, onSubmitOrClose, okToSubmit);
     }
 
     static forReply(state: Z2kState, initialInstance: string, initialBody: string,
         onSubmitOrClose: (result: ZgramEditorResult | undefined) => void) {
-        return ZgramEditorViewModel.forComposeOrReply(state, Mode.Reply, initialInstance, initialBody, onSubmitOrClose);
-    }
-
-    private static forComposeOrReply(state: Z2kState, mode: Mode, initialInstance: string, initialBody: string,
-        onSubmitOrClose: (result: ZgramEditorResult | undefined) => void) {
         const okToSubmit = () => true;
-        return new ZgramEditorViewModel(state, mode, initialInstance, initialBody,
-            false, onSubmitOrClose, okToSubmit);
+        return new ZgramEditorViewModel(state, Mode.Reply, initialInstance, initialBody, false, onSubmitOrClose, okToSubmit);
     }
 
     static forEdit(state: Z2kState, initialZgram: ZgramViewModel,
@@ -91,11 +86,6 @@ export class ZgramEditorViewModel {
     }
 
     get isDirty() {
-        console.log("dirty wtf");
-        console.log(this.instance, this.initialInstance);
-        console.log(this.body, this.initialBody);
-        console.log(this.wantMarkdeepMathJax, this.initialWantMarkdeepMathJax);
-
         return this.instance !== this.initialInstance ||
             this.body !== this.initialBody ||
             this.wantMarkdeepMathJax !== this.initialWantMarkdeepMathJax;
@@ -189,9 +179,7 @@ export class ZgramEditorViewModel {
 
             this.uploadStatus = "Uploading...";
 
-            console.log("location", window.location);
             const url = `https://${window.location.host}/uploadImage?suffix=${suffix}`;
-            console.log(url);
             const response = await fetch(url, {
                 method: "POST",
                 body: blob

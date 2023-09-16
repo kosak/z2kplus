@@ -55,11 +55,7 @@ bool DynamicMetadata::tryAddHelper(const FrozenIndex &/*lhs*/,
 
 bool DynamicMetadata::tryAddHelper(const FrozenIndex &/*lhs*/, const zgMetadata::ZgramRefersTo &o,
     const FailFrame &/*ff*/) {
-  if (o.value()) {
-    zgramRevisions_.try_emplace(o.refersTo());
-  } else {
-    zgramRevisions_.erase(o.refersTo());
-  }
+  zgramRefersTo_[o.zgramId()][o.refersTo()] = o.value();
   return true;
 }
 
