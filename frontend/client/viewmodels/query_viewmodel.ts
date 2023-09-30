@@ -55,7 +55,8 @@ export class QueryViewModel {
             }
             visitTimestamp(ts: number) {
                 this.owner.startAt = StartAt.Timestamp;
-                this.owner.specifiedTimestamp = ts.toString();
+                const m = moment.unix(ts);
+                this.owner.specifiedTimestamp = m.format("lll");
             }
             visitZgramId(zgId: ZgramId) {
                 this.owner.startAt = StartAt.ZgramId;
@@ -132,7 +133,7 @@ export class QueryViewModel {
             }
 
             case StartAt.Timestamp: {
-                const momentRes = moment.utc(this.specifiedTimestamp.trim());
+                const momentRes = moment(this.specifiedTimestamp.trim());
                 if (!momentRes.isValid()) {
                     return undefined;
                 }
