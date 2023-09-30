@@ -50,40 +50,40 @@ export const zgramHeaderComponent = {
       <template v-if="zg.controlsEnabled">
         <button class="badge text-bg-light" title="Add Filter"
                 @click="zg.toggleAddFilterInteraction()">
-          <i class="fa fa-solid fa-head-side-mask"></i>
+          <i class="fa fa-light fa-head-side-mask"></i>
         </button>
 
         <button class="badge text-bg-light" title="Reactions/Hashtags"
                 :class="{ 'text-muted': zg.reactionsViewModel.numReactions !== 0 }"
                 @click="zg.toggleReactionsInteraction()">
-          <i class="fa fa-hashtag"></i>
+          <i class="fa fa-light fa-hashtag"></i>
         </button>
 
         <button class="badge text-bg-light" title="Edit Zgram"
                 :class="{'fa-bounce': zg.hasHiddenEditDraft, 'bg-warning': zg.hasHiddenEditDraft }"
                 :disabled="!zg.canEdit"
                 @click="zg.toggleEditZgram()">
-          <i class="fa fa-strikethrough"></i>
+          <i class="fa fa-light fa-strikethrough"></i>
         </button>
 
         <button class="badge badge-pill text-bg-light" title="Q-Decode"
                 :disabled="!zg.isQDecodeEnabled" @click="zg.performQDecode()">
-          <i class="fa fa-quora"></i>
+          <i class="fa fa-light fa-quora"></i>
         </button>
 
         <button class="badge badge-pill text-bg-light" title="Show source (3-way toggle)"
                 @click="zg.toggleRendering()">
-          <i class="fa fa-transgender-alt"></i>
+          <i class="fa fa-light fa-transgender-alt"></i>
         </button>
 
         <button class="badge badge-pill text-bg-light" title="Copy link to zgram"
                 @click="zg.copyLinkToZgram()">
-          <i class="fa fa-link"></i>
+          <i class="fa fa-light fa-link"></i>
         </button>
 
         <button class="badge text-bg-light" title="help"
                 data-bind="click: toggleHelpInteraction">
-          <i class="fa fa-question-circle"></i>
+          <i class="fa fa-light fa-question-circle"></i>
         </button>
       </template>
       </div>
