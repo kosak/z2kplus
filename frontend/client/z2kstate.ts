@@ -63,6 +63,7 @@ export class Z2kState {
     readonly renderer: Renderer;
     // TODO: fix type
     readonly textSelection: any;
+    private ackPingTimer: number | undefined;
 
     constructor() {
         this.host = window.location.host;
@@ -84,6 +85,7 @@ export class Z2kState {
         this.uploadableMediaUtil = new UploadableMediaUtil();
         this.renderer = new Renderer(this);
         this.textSelection = useTextSelection();
+        this.ackPingTimer = undefined;
     }
 
     // This stuff runs after this object has been made reactive. Take care to have stuff like callbacks here rather than
@@ -139,7 +141,7 @@ export class Z2kState {
         };
 
         this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
-        this.sessionManager.sendDRequest(DRequest.createPing(1));
+        this.sendPing();
         this.sessionStatus.queryOutstanding = true;
         const iq = InitialQuery.createFromLocationOrDefault(document.location);
         this.queryViewModel.resetToIq(iq);
@@ -183,10 +185,8 @@ export class Z2kState {
         this.composeVisible = true;
     }
 
-    fakePost() {
-        const zg = new ZgramCore("graffiti.test", "Test Message " + this.nextFakeId, RenderStyle.Default);
-        ++this.nextFakeId;
-        this.postZgram(zg, undefined);
+    reconnect() {
+        this.sessionManager.reconnect();
     }
 
     postZgram(zgram: ZgramCore, refersTo: ZgramId | undefined) {
@@ -225,11 +225,11 @@ export class Z2kState {
     }
 
     private handleStateChange(state: SessionManagerState) {
-        this.sessionStatus.online = false;  // Pessimistically assume false.
+        this.sessionStatus.attachedToSession = false;  // Pessimistically assume false.
         switch (state) {
             case SessionManagerState.AttachedToSession:
                 this.sessionStatus.profile = this.sessionManager.profile!;
-                this.sessionStatus.online = true;
+                this.sessionStatus.attachedToSession = true;
                 break;
 
             case SessionManagerState.SessionFailure:
@@ -352,16 +352,16 @@ export class Z2kState {
     private sendPing() {
         console.log("sendPing");
         this.sessionManager.sendDRequest(DRequest.createPing(1));
-        this.ackPingTimer = setTimeout(() => {
+        this.ackPingTimer = window.setTimeout(() => {
             this.sessionStatus.haveRecentPing = false;
         }, magicConstants.maxPingResponseTimeMs);
     }
 
     visitAckPing(resp: dresponses.AckPing) {
         console.log("ackPing");
-        clearTimeout(this.ackPingTimer);
+        window.clearTimeout(this.ackPingTimer);
         this.sessionStatus.haveRecentPing = true;
-        setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
+        window.setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
     }
 
     visitGeneralError(resp: dresponses.GeneralError) {
