@@ -27,7 +27,8 @@
     <script src="https://unpkg.com/@vueuse/core"></script>
 
     <!-- Font Awesome -->
-    <script src="https://kit.fontawesome.com/4aab01538f.js"></script>
+    <script src="https://kit.fontawesome.com/639e4eab45.js" crossorigin="anonymous"></script>
+
     <!-- Google fonts -->
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:600" rel="stylesheet">
 
@@ -137,18 +138,22 @@
                     <a class="nav-item nav-link" href="javascript:" @click="state.reconnect()">reconnect</a>
                 </div>
 
-		<div class="navbar-nav ms-auto">
+                <div class="navbar-nav ms-auto">
                     <a v-if="status.getMoreZgramsRequestOutstanding" class="nav-item nav-link" href="javascript:">
                         FETCHING MORE
                     </a>
                     <a v-if="status.queryOutstanding" class="nav-item nav-link" href="javascript:">
-                      SENDING QUERY
+                        SENDING QUERY
+                    </a>
+                    <a class="nav-item nav-link" href="https://github.com/kosak/z2kplus/issues" target="_blank">
+                        <i class="fa-regular fa-bugs"></i>
                     </a>
                     <a class="nav-item nav-link" href="javascript:">
                         <i class="fa fa-user"></i>
                         {{ status.profile.userId }}
                     </a>
-                    <a class="nav-item nav-link" href="javascript:" :style="{color: status.isSessionHealthy ? 'green' :'red'}">
+                    <a class="nav-item nav-link" href="javascript:"
+                       :style="{color: status.isSessionHealthy ? 'green' :'red'}">
                         {{ status.isSessionHealthy ? "ONLINE" : `OFFLINE (${state.numPendingRequests} pending)` }}
                     </a>
                     <a class="nav-item nav-link" href="/logout">
