@@ -31,11 +31,11 @@ export const zgramHeaderComponent = {
 
       <span><i>{{ zg.signature }}</i></span>
 
-      (<a :href="zg.makeUriForQueryOnSender()">{{ zg.sender }}</a>)
+      (<a :href="zg.makeUriForQueryOnSender()" target="_blank">{{ zg.sender }}</a>)
 
-      <b><a :href="zg.makeUriForQueryOnInstance()">{{ zg.instance }}</a></b>
+      <b><a :href="zg.makeUriForQueryOnInstance()" target="_blank">{{ zg.instance }}</a></b>
 
-      [<a :href="zg.makeUriForQueryOnTimestamp()">{{ zg.customerReadableDate }}</a>]
+      [<a :href="zg.makeUriForQueryOnTimestamp()" target="_blank">{{ zg.customerReadableDate }}</a>]
 
       <button class="badge text-bg-light" title="Show Controls"
               @click="zg.toggleControls()">
