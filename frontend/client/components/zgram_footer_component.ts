@@ -54,14 +54,10 @@ export const zgramFooterComponent = {
               {{ r.count }}
             </span>
         </button>
-        <button class="badge badge-pill text-bg-light position-relative"
+        <button class="badge badge-pill text-bg-light"
                 :class="{ 'text-muted': !r.enabled }"
                 @click="r.doUpvote()">
           <i class="fa-regular fa-thumbs-up"></i>
-          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-white"
-                :class="{'bg-success': r.includesMe, 'bg-info': !r.includesMe }">
-              {{ r.count }}
-          </span>
         </button>
       </span>
       </div>
