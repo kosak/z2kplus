@@ -14,7 +14,7 @@
 
 import * as URI from "urijs";
 
-import {DRequest} from "../shared/protocol/message/drequest";
+import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
@@ -63,6 +63,7 @@ export class Z2kState {
     readonly renderer: Renderer;
     // TODO: fix type
     readonly textSelection: any;
+    private ackPingTimer: number | undefined;
 
     constructor() {
         this.host = window.location.host;
@@ -84,6 +85,7 @@ export class Z2kState {
         this.uploadableMediaUtil = new UploadableMediaUtil();
         this.renderer = new Renderer(this);
         this.textSelection = useTextSelection();
+        this.ackPingTimer = undefined;
     }
 
     // This stuff runs after this object has been made reactive. Take care to have stuff like callbacks here rather than
@@ -153,6 +155,7 @@ export class Z2kState {
         const sub = DRequest.createSubscribe(iq.query, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
+        this.sendPing();
     }
 
     loadNewPageWithDefaultQuery() {
@@ -182,10 +185,8 @@ export class Z2kState {
         this.composeVisible = true;
     }
 
-    fakePost() {
-        const zg = new ZgramCore("graffiti.test", "Test Message " + this.nextFakeId, RenderStyle.Default);
-        ++this.nextFakeId;
-        this.postZgram(zg, undefined);
+    reconnect() {
+        this.sessionManager.reconnect();
     }
 
     postZgram(zgram: ZgramCore, refersTo: ZgramId | undefined) {
@@ -224,11 +225,11 @@ export class Z2kState {
     }
 
     private handleStateChange(state: SessionManagerState) {
-        this.sessionStatus.online = false;  // Pessimistically assume false.
+        this.sessionStatus.attachedToSession = false;  // Pessimistically assume false.
         switch (state) {
             case SessionManagerState.AttachedToSession:
                 this.sessionStatus.profile = this.sessionManager.profile!;
-                this.sessionStatus.online = true;
+                this.sessionStatus.attachedToSession = true;
                 break;
 
             case SessionManagerState.SessionFailure:
@@ -348,8 +349,19 @@ export class Z2kState {
         }
     }
 
+    private sendPing() {
+        console.log("sendPing");
+        this.sessionManager.sendDRequest(DRequest.createPing(1));
+        this.ackPingTimer = window.setTimeout(() => {
+            this.sessionStatus.haveRecentPing = false;
+        }, magicConstants.maxPingResponseTimeMs);
+    }
+
     visitAckPing(resp: dresponses.AckPing) {
-        console.log("AckPing - todo");
+        console.log("ackPing");
+        window.clearTimeout(this.ackPingTimer);
+        this.sessionStatus.haveRecentPing = true;
+        window.setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
     }
 
     visitGeneralError(resp: dresponses.GeneralError) {

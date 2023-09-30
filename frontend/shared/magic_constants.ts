@@ -25,5 +25,8 @@ export namespace magicConstants {
   export const frontendReconnectIntervalMs = 5 * 1000;
   export const backendReconnectIntervalMs = 10 * 1000;
 
+  export const maxPingResponseTimeMs = 10 * 1000;
+  export const pingIntervalMs = 30 * 1000;
+
   export const z2kVirtualMediaPrefix = "z2kplusmedia://";
 }
