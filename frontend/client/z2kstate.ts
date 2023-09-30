@@ -139,6 +139,7 @@ export class Z2kState {
         };
 
         this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
+        this.sessionManager.sendDRequest(DRequest.createPing(1));
         this.sessionStatus.queryOutstanding = true;
         const iq = InitialQuery.createFromLocationOrDefault(document.location);
         this.queryViewModel.resetToIq(iq);
@@ -349,7 +350,8 @@ export class Z2kState {
     }
 
     visitAckPing(resp: dresponses.AckPing) {
-        console.log("AckPing - todo");
+        console.log("AckPing");
+        this.ackPingTime = Date.now();
     }
 
     visitGeneralError(resp: dresponses.GeneralError) {
