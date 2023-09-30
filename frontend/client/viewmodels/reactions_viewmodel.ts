@@ -129,14 +129,16 @@ export class ReactionsViewModel {
         return Object.keys(this.allReactions).length;
     }
 
-    private getReactions(onClick: (rvm: ReactionViewModel) => void) {
+    private getReactions(onClick: (rvm: ReactionViewModel) => void,
+                         onUpvote: (rvm: ReactionViewModel) => void) {
         const result: ReactionViewModel[] = [];
         for (const [reaction, mapAndPosition] of Object.entries(this.allReactions)) {
             const map = mapAndPosition.map;
             const position = mapAndPosition.position;
             const includesMe = map[this.myUserId] !== undefined;
             const mapSize = Object.keys(map).length;
-            result.push(new ReactionViewModel(position, reaction, mapSize, includesMe, onClick));
+            result.push(new ReactionViewModel(position, reaction, mapSize, includesMe,
+                onClick, onUpvote));
         }
         result.sort((a, b) => a.stablePosition - b.stablePosition);
         return result;
@@ -144,12 +146,21 @@ export class ReactionsViewModel {
 }
 
 class ReactionViewModel {
-    constructor(readonly stablePosition: number, readonly text: string, readonly count: number,
-        readonly includesMe: boolean,
-        private readonly onClick: (rvm: ReactionViewModel) => void) {}
+    constructor(private readonly owner: ZgramViewModel, private readonly state: Z2kState,
+        readonly stablePosition: number, readonly text: string, readonly count: number,
+        readonly includesMe: boolean) {
+    }
 
     doClick() {
-        this.onClick(this);
+        const escaped = escapeQuotes(this.text);
+        const queryText = `hasreaction("${escaped}")`;
+        const searchOrigin = SearchOrigin.ofZgramId(this.owner.zgramId);
+        const query = new InitialQuery(queryText, searchOrigin);
+        this.state.openNewQuery(query);
+    }
+
+    doUpvote() {
+        this.onUpvote(this);
     }
 }
 
