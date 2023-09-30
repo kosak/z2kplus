@@ -66,6 +66,9 @@ export class QueryViewModel {
         this.reset();
         this.query = iq.query;
         iq.searchOrigin.acceptVisitor(new MyHandler(this));
+    }
+
+    onFocused() {
         this.onQueryChanged(this.query);
     }
 
