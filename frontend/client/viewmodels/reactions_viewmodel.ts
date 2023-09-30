@@ -67,35 +67,6 @@ export class ReactionsViewModel {
         }
     }
 
-    getReactionsForZgramHeader() {
-        const onClick = (rvm: ReactionViewModel) => {
-            const escaped = escapeQuotes(rvm.text);
-            const queryText = `hasreaction("${escaped}")`;
-            const searchOrigin = SearchOrigin.ofZgramId(this.owner.zgramId);
-            const query = new InitialQuery(queryText, searchOrigin);
-            this.state.openNewQuery(query);
-        }
-        return this.getReactions(onClick);
-    }
-
-    getReactionsForZgramBody() {
-        const onClick = (rvm: ReactionViewModel) => {
-            // If this reaction includes me, then remove me. Otherwise add me.
-            const md = MetadataRecord.createReaction(this.owner.zgramId, rvm.text, this.myUserId, !rvm.includesMe);
-            this.state.postMetadata([md]);
-        }
-        return this.getReactions(onClick);
-    }
-
-    getReactionsForReactionInteraction() {
-        const onClick = (rvm: ReactionViewModel) => {
-            // If this reaction includes me, then remove me. Otherwise add me.
-            const md = MetadataRecord.createReaction(this.owner.zgramId, rvm.text, this.myUserId, !rvm.includesMe);
-            this.state.postMetadata([md]);
-        }
-        return this.getReactions(onClick);
-    }
-
     getZmojisForReactions() {
         const onClick = (text: string) => {
             const md = MetadataRecord.createReaction(this.owner.zgramId, text, this.myUserId, true);
@@ -137,8 +108,7 @@ export class ReactionsViewModel {
             const position = mapAndPosition.position;
             const includesMe = map[this.myUserId] !== undefined;
             const mapSize = Object.keys(map).length;
-            result.push(new ReactionViewModel(position, reaction, mapSize, includesMe,
-                onClick, onUpvote));
+            result.push(new ReactionViewModel(this.owner, this.state, position, reaction, mapSize, includesMe));
         }
         result.sort((a, b) => a.stablePosition - b.stablePosition);
         return result;
@@ -160,7 +130,10 @@ class ReactionViewModel {
     }
 
     doUpvote() {
-        this.onUpvote(this);
+        // If this reaction includes me, then remove me. Otherwise add me.
+        const md = MetadataRecord.createReaction(this.owner.zgramId, this.text,
+            this.state.sessionStatus.profile.userId, !this.includesMe);
+        this.state.postMetadata([md]);
     }
 }
 
