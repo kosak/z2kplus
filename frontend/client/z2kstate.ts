@@ -14,7 +14,7 @@
 
 import * as URI from "urijs";
 
-import {DRequest} from "../shared/protocol/message/drequest";
+import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
@@ -349,9 +349,19 @@ export class Z2kState {
         }
     }
 
+    private sendPing() {
+        console.log("sendPing");
+        this.sessionManager.sendDRequest(DRequest.createPing(1));
+        this.ackPingTimer = setTimeout(() => {
+            this.sessionStatus.haveRecentPing = false;
+        }, magicConstants.maxPingResponseTimeMs);
+    }
+
     visitAckPing(resp: dresponses.AckPing) {
-        console.log("AckPing");
-        this.ackPingTime = Date.now();
+        console.log("ackPing");
+        clearTimeout(this.ackPingTimer);
+        this.sessionStatus.haveRecentPing = true;
+        setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
     }
 
     visitGeneralError(resp: dresponses.GeneralError) {
