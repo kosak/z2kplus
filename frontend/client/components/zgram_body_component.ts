@@ -30,7 +30,7 @@ export const zgramBodyComponent = {
         <button type="button" class="btn btn-warning btn-sm" @click="zg.overrideWeaklyHidden()">Show</button>
       </div>
       <div v-else v-html="zg.bodyAsHtml" @click="zg.doClick()"
-           :class="{zgramUnreadBody: zg.isUnread}">
+           :class="{zgramHoveringBody: zg.isHovering, zgramUnreadBody: !zg.isHovering && zg.isUnread}">
       </div>
     `
 }

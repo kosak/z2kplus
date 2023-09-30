@@ -419,6 +419,10 @@ export class ZgramViewModel {
         return lastRead === undefined || this.zgramId.raw > lastRead.raw;
     }
 
+    get isHovering() {
+        return this.state.currentlyHoveringZgram === this;
+    }
+
     maybeUpdateMathJax(el: any) {
         if (this.isMarkdeepText) {
             this.state.renderer.updateMathJax(this.body, el);
