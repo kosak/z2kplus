@@ -100,8 +100,7 @@ export class ReactionsViewModel {
         return Object.keys(this.allReactions).length;
     }
 
-    private getReactions(onClick: (rvm: ReactionViewModel) => void,
-                         onUpvote: (rvm: ReactionViewModel) => void) {
+    getReactions() {
         const result: ReactionViewModel[] = [];
         for (const [reaction, mapAndPosition] of Object.entries(this.allReactions)) {
             const map = mapAndPosition.map;

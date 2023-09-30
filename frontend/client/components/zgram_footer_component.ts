@@ -44,7 +44,7 @@ export const zgramFooterComponent = {
         <div style="line-height: 25%">
           <br>
         </div>
-        <span v-for="r in zg.reactionsViewModel.getReactionsForZgramBody()">
+        <span v-for="r in zg.reactionsViewModel.getReactions()">
         <button class="badge badge-pill text-bg-light position-relative"
                 :class="{ 'text-muted': !r.enabled }"
                 @click="r.doClick()">
