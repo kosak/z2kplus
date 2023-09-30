@@ -141,7 +141,6 @@ export class Z2kState {
         };
 
         this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
-        this.sendPing();
         this.sessionStatus.queryOutstanding = true;
         const iq = InitialQuery.createFromLocationOrDefault(document.location);
         this.queryViewModel.resetToIq(iq);
@@ -156,6 +155,7 @@ export class Z2kState {
         const sub = DRequest.createSubscribe(iq.query, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
+        this.sendPing();
     }
 
     loadNewPageWithDefaultQuery() {
