@@ -73,6 +73,19 @@ export class SessionManager {
         this.setState(State.AwaitingConnect);
     }
 
+    reconnect() {
+        this.disconnect();
+        this.connect();
+    }
+
+    private disconnect() {
+        if (this.state === State.Disconnected) {
+            return;
+        }
+        this.setState(State.Disconnected);
+        this.ws = undefined;
+    }
+
     private flushAcknowledgedRequestsUpTo(nextExpectedRequestId: number) {
         while (!this.unacknowledged.empty()) {
             const front = this.unacknowledged.front();
@@ -95,11 +108,7 @@ export class SessionManager {
     }
 
     private closeHelper(reason: string) {
-        if (this.state === State.Disconnected) {
-            return;
-        }
-        this.setState(State.Disconnected);
-        this.ws = undefined;
+        this.disconnect();
         // Try to connect again in 5 seconds
         setTimeout(() => this.connect(), 5 * 1000);
     }

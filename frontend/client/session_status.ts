@@ -15,15 +15,13 @@
 import {Profile} from "../shared/protocol/profile";
 
 export class SessionStatus {
-    profile: Profile;
-    online: boolean;
-    queryOutstanding: boolean;
-    getMoreZgramsRequestOutstanding: boolean;
+    profile: Profile = Profile.empty();
+    attachedToSession: boolean = false;
+    haveRecentPing: boolean = false;
+    queryOutstanding: boolean = false;
+    getMoreZgramsRequestOutstanding: boolean = false;
 
-    constructor() {
-        this.profile = Profile.empty();
-        this.online = false;
-        this.queryOutstanding = false;
-        this.getMoreZgramsRequestOutstanding = false;
+    get isSessionHealthy() {
+        return this.attachedToSession && this.haveRecentPing;
     }
 }
