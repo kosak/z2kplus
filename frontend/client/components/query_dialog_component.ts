@@ -20,7 +20,8 @@ export const queryDialogComponent = {
     },
     mounted() {
         this.$refs.modal.addEventListener('shown.bs.modal', () => {
-            this.$refs.query.focus()
+            this.$refs.query.focus();
+            this.self.onFocused();
         });
     },
     watch: {
