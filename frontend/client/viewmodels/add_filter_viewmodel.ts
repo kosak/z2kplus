@@ -41,7 +41,8 @@ export class AddFilterViewModel {
         return [
             new WhichDuration(Duration.OneHour, "One Hour"),
             new WhichDuration(Duration.OneDay, "One Day"),
-            new WhichDuration(Duration.OneWeek, "One Week")
+            new WhichDuration(Duration.OneWeek, "One Week"),
+            new WhichDuration(Duration.FortySevenYears, "Forty Seven Years")
         ];
     }
 
@@ -65,12 +66,14 @@ export class AddFilterViewModel {
         const oneHour = 60 * 60;
         const oneDay = oneHour * 24;
         const oneWeek = oneDay * 7;
+        const fortySevenYears = oneWeek * 52.25 * 47;  // approximate
 
         const nowSecs = Date.now() / 1000;
         switch (this.duration) {
             case Duration.OneHour: return nowSecs + oneHour;
             case Duration.OneDay: return nowSecs + oneDay;
             case Duration.OneWeek: return nowSecs + oneWeek;
+            case Duration.FortySevenYears: return nowSecs + fortySevenYears;
             default: staticFail(this.duration);
         }
     }
@@ -100,7 +103,8 @@ enum Which {
 enum Duration {
     OneHour = "OneHour",
     OneDay = "OneDay",
-    OneWeek = "OneWeek"
+    OneWeek = "OneWeek",
+    FortySevenYears = "FortySevenYears"
 }
 
 class WhichChoice {
