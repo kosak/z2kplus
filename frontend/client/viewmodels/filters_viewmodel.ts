@@ -34,7 +34,9 @@ export class FiltersViewModel {
         console.log("Adding filter: " + filter);
         console.log(filter);
         console.log(delay);
-        setTimeout(() => { delete this.filters[id]; }, delay);
+        if (delay < 2147483647) {
+            setTimeout(() => { delete this.filters[id]; }, delay);
+        }
     }
 
     remove(id: string) {
