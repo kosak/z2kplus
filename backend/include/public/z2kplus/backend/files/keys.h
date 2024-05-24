@@ -43,7 +43,7 @@ public:
     uint32 raw = year;
     raw = raw * 100 + month;
     raw = raw * 100 + day;
-    raw = raw * 100 + (extra ? 1 : 0);
+    raw = raw * 10 + (extra ? 1 : 0);
     return FileKey(raw);
   }
 

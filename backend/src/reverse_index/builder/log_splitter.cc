@@ -82,11 +82,11 @@ struct NameAndWriter {
 };
 
 struct SplitterThread {
-  static bool tryCreate(size_t shard, const PathMaster *pm, const SplitterInputs &sis,
+  static bool tryCreate(size_t shard, const PathMaster &pm, const SplitterInputs &sis,
       std::vector<IntraFileRange> ranges, std::shared_ptr<SplitterThread> *result,
       const FailFrame &ff);
 
-  SplitterThread(size_t shard, const PathMaster *pm, std::vector<IntraFileRange> ranges,
+  SplitterThread(size_t shard, std::shared_ptr<const PathMaster> pm, std::vector<IntraFileRange> ranges,
       NameAndWriter logged, NameAndWriter unlogged, NameAndWriter reactionsByZgramId,
       NameAndWriter reactionsByReaction, NameAndWriter zgramRevs, NameAndWriter zgramRefersTo,
       NameAndWriter zmojis);
@@ -100,7 +100,7 @@ struct SplitterThread {
   bool tryRunHelper(const FailFrame &ff);
 
   size_t shard_;
-  const PathMaster *pm_ = nullptr;
+  std::shared_ptr<const PathMaster> pm_;
   std::vector<IntraFileRange> ranges_;
 
   NameAndWriter logged_;
@@ -167,7 +167,7 @@ bool LogSplitter::split(const PathMaster &pm, const std::vector<IntraFileRange> 
     excess -= bonusWork;
 
     std::vector<IntraFileRange> rangesForShard(lastShardEnd, newShardEnd);
-    if (!SplitterThread::tryCreate(i, &pm, sis, std::move(rangesForShard), &sts[i], ff.nest(HERE))) {
+    if (!SplitterThread::tryCreate(i, pm, sis, std::move(rangesForShard), &sts[i], ff.nest(HERE))) {
       return false;
     }
     lastShardEnd = newShardEnd;
@@ -240,7 +240,7 @@ bool LogSplitter::split(const PathMaster &pm, const std::vector<IntraFileRange> 
 }
 
 namespace {
-bool SplitterThread::tryCreate(size_t shard, const PathMaster *pm, const SplitterInputs &sis,
+bool SplitterThread::tryCreate(size_t shard, const PathMaster &pm, const SplitterInputs &sis,
     std::vector<IntraFileRange> ranges, std::shared_ptr<SplitterThread> *result,
     const FailFrame &ff) {
   auto createBw = [](size_t shard, const std::string &filename, NameAndWriter *result,
@@ -270,7 +270,8 @@ bool SplitterThread::tryCreate(size_t shard, const PathMaster *pm, const Splitte
     return false;
   }
 
-  auto st = std::make_shared<SplitterThread>(shard, pm, std::move(ranges),
+  auto pms = pm.shared_from_this();
+  auto st = std::make_shared<SplitterThread>(shard, std::move(pms), std::move(ranges),
       std::move(logged), std::move(unlogged), std::move(reactionsByZgramId),
       std::move(reactionsByReaction), std::move(zgramRevs), std::move(zgramRefersTo),
       std::move(zmojis));
@@ -288,11 +289,11 @@ void SplitterThread::run(std::shared_ptr<SplitterThread> self) {
   streamf(std::cerr, "Splitter thread %o shutting down\n", self->shard_);
 }
 
-SplitterThread::SplitterThread(size_t shard, const PathMaster *pm, const FileKey *startKey,
-    const FileKey *endKey, NameAndWriter logged, NameAndWriter unlogged,
+SplitterThread::SplitterThread(size_t shard, std::shared_ptr<const PathMaster> pm,
+    std::vector<IntraFileRange> ranges, NameAndWriter logged, NameAndWriter unlogged,
     NameAndWriter reactionsByZgramId, NameAndWriter reactionsByReaction,
     NameAndWriter zgramRevs, NameAndWriter zgramRefersTo, NameAndWriter zmojis) : shard_(shard),
-    pm_(pm), startKey_(startKey), endKey_(endKey), logged_(std::move(logged)),
+    pm_(std::move(pm)), ranges_(std::move(ranges)), logged_(std::move(logged)),
     unlogged_(std::move(unlogged)), reactionsByZgramId_(std::move(reactionsByZgramId)),
     reactionsByReaction_(std::move(reactionsByReaction)), zgramRevs_(std::move(zgramRevs)),
     zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)) {}
@@ -301,15 +302,16 @@ SplitterThread::~SplitterThread() = default;
 
 bool SplitterThread::tryRunHelper(const FailFrame &ff) {
   // Split records into various individual files so they can be sorted and then digested.
-  for (const auto *current = startKey_; current != endKey_; ++current) {
-    const auto &fileKey = *current;
-    auto pathName = pm_->getPlaintextPath(fileKey);
+  for (const auto &range : ranges_) {
+    auto pathName = pm_->getPlaintextPath(range.fileKey());
     MappedFile<char> mf;
     if (!mf.tryMap(pathName, false, ff.nest(HERE))) {
       return false;
     }
-    std::string_view recordText(mf.get(), mf.byteSize());
-    auto splitter = Splitter::ofRecords(recordText, '\n');
+    std::string_view wholeFileText(mf.get(), mf.byteSize());
+    auto selectedText = wholeFileText.substr(range.begin(), range.end() - range.begin());
+
+    auto splitter = Splitter::ofRecords(selectedText, '\n');
     std::string_view record;
     size_t offset = 0;
     while (splitter.moveNext(&record)) {
@@ -321,7 +323,7 @@ bool SplitterThread::tryRunHelper(const FailFrame &ff) {
         return false;
       }
       auto ff2 = ff.nest(HERE);
-      SplitterVisitor visitor(this, fileKey, offset, record.size(), &ff2);
+      SplitterVisitor visitor(this, range.fileKey(), offset, record.size(), &ff2);
       if (!std::visit(visitor, lr.payload())) {
         return false;
       }
