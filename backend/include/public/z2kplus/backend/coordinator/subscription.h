@@ -36,7 +36,6 @@ typedef kosak::coding::StrongInt<size_t, internal::ExhaustVersionTag> exhaustVer
 
 
 struct PerSideStatus {
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::reverse_index::zgramOff_t zgramOff_t;
   typedef z2kplus::backend::reverse_index::index::ConsolidatedIndex ConsolidatedIndex;
   typedef z2kplus::backend::reverse_index::iterators::IteratorContext IteratorContext;

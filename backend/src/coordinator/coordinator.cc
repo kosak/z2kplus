@@ -14,7 +14,6 @@
 
 #include "z2kplus/backend/coordinator/coordinator.h"
 
-#include <ctime>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -42,7 +41,8 @@ using kosak::coding::toString;
 using kosak::coding::Unit;
 using z2kplus::backend::coordinator::Subscription;
 using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::FieldMask;
 using z2kplus::backend::reverse_index::index::ConsolidatedIndex;
@@ -153,7 +153,7 @@ void Coordinator::getMoreZgrams(Subscription *sub, GetMoreZgrams &&o, std::vecto
 
   pss->topUp(index_, sub->query(), zgramRel_t(0), targetResidualSize);
 
-  std::vector<std::pair<ZgramId, Location>> locators;
+  std::vector<std::pair<ZgramId, LogLocation>> locators;
   locators.reserve(resultSize);
   while (locators.size() < resultSize && !residual.empty()) {
     const auto &zgInfo = index_.getZgramInfo(ctx.relToOff(residual.front()));
@@ -280,7 +280,7 @@ bool Coordinator::tryPostMetadataNoSub(const Profile &profile, PostMetadata &&o,
 
 void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
     std::vector<response_t> *responses) {
-  auto locators = makeReservedVector<std::pair<ZgramId, Location>>(o.zgramIds().size());
+  auto locators = makeReservedVector<std::pair<ZgramId, LogLocation>>(o.zgramIds().size());
 
   for (const auto &zgramId : o.zgramIds()) {
     zgramOff_t off;
@@ -510,7 +510,7 @@ struct SanitizeAnalyzer {
   const Profile &profile_;
   const ConsolidatedIndex &ci_;
   std::vector<Disposition> dispositions_;
-  std::vector<std::pair<ZgramId, Location>> locators_;
+  std::vector<std::pair<ZgramId, LogLocation>> locators_;
 };
 }  // namespace
 

@@ -24,7 +24,7 @@
 namespace z2kplus::backend::reverse_index::index {
 class ZgramCache {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::LogLocation LogLocation;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::shared::Zephyrgram Zephyrgram;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
@@ -40,7 +40,7 @@ public:
   ~ZgramCache();
 
   bool tryLookupOrResolve(const PathMaster &pm,
-      const std::vector<std::pair<ZgramId, Location>> &locators,
+      const std::vector<std::pair<ZgramId, LogLocation>> &locators,
       std::vector<std::shared_ptr<const Zephyrgram>> *result, const FailFrame &ff);
 
 private:

@@ -15,59 +15,78 @@
 #include "z2kplus/backend/reverse_index/builder/log_analyzer.h"
 
 #include "kosak/coding/coding.h"
+#include "kosak/coding/unix.h"
+#include "z2kplus/backend/files/keys.h"
 
 #define HERE KOSAK_CODING_HERE
 
+using kosak::coding::FailFrame;
 using kosak::coding::streamf;
+using kosak::coding::nsunix::FileCloser;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::InterFileRange;
+using z2kplus::backend::files::IntraFileRange;
+namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<FileKey> includedKeys) :
-    includedKeys_(std::move(includedKeys)) {}
+LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange<FileKeyKind::Logged>> sortedLoggedRanges,
+    std::vector<IntraFileRange<FileKeyKind::Unlogged>> sortedUnloggedRanges) :
+    sortedLoggedRanges_(std::move(sortedLoggedRanges)),
+    sortedUnloggedRanges_(std::move(sortedUnloggedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
+template<FileKeyKind Kind>
+void processFile(const InterFileRange<Kind> &universe, FileKey<Kind> key,
+    uint32_t begin, uint32_t end, std::vector<IntraFileRange<Kind>> *result) {
+  InterFileRange<Kind> inter(key, begin, key, end);
+  auto intersection = universe.intersectWith(inter);
+  if (!intersection.empty()) {
+    passert(intersection.begin().fileKey().raw() == intersection.end().fileKey().raw());
+    result->emplace_back(key, intersection.begin().position(), intersection.end().position());
+  }
+}
+
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
-    std::optional<FileKey> loggedBegin, std::optional<FileKey> loggedEnd,
-    std::optional<FileKey> unloggedBegin, std::optional<FileKey> unloggedEnd,
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
     LogAnalyzer *result, const FailFrame &ff) {
-  std::vector<FileKey> includedKeys;
-  auto cbKeys = [&loggedBegin, &loggedEnd, &unloggedBegin, &unloggedEnd, &includedKeys](
-      const FileKey &key, const FailFrame &f2) {
-    auto efk = key.asExpandedFileKey();
-    const std::optional<FileKey> *whichBegin, *whichEnd;
-
-    if (efk.isLogged()) {
-      whichBegin = &loggedBegin;
-      whichEnd = &loggedEnd;
-    } else {
-      whichBegin = &unloggedBegin;
-      whichEnd = &unloggedEnd;
-    }
-
-    if ((!whichBegin->has_value() || key >= *whichBegin) &&
-        (!whichEnd->has_value() || key < *whichEnd)) {
-      includedKeys.push_back(key);
-    }
-
-    FileKey bumpedKey;
-    if (!FileKey::tryCreate(efk.year(), efk.month(), efk.day(), efk.part() + 1, efk.isLogged(),
-        &bumpedKey, f2.nest(HERE))) {
+  std::vector<IntraFileRange<FileKeyKind::Logged>> includedLoggedRanges;
+  std::vector<IntraFileRange<FileKeyKind::Unlogged>> includedUnloggedRanges;
+  auto cbKeys = [&](FileKey<FileKeyKind::Either> key, const FailFrame &f2) {
+    auto filename = pm.getPlaintextPath(key);
+    FileCloser fc;
+    struct stat stat = {};
+    if (!nsunix::tryOpen(filename, O_RDONLY, 0, &fc, f2.nest(HERE)) ||
+        !nsunix::tryFstat(fc.get(), &stat, f2.nest(HERE))) {
       return false;
+    }
+
+    auto [loggedKey, unloggedKey] = key.visit();
+    if (loggedKey.has_value()) {
+      processFile(loggedRange, *loggedKey, 0, stat.st_size, &includedLoggedRanges);
+    } else {
+      processFile(unloggedRange, *unloggedKey, 0, stat.st_size, &includedUnloggedRanges);
     }
     return true;
   };
   if (!pm.tryGetPlaintexts(&cbKeys, ff.nest(HERE))) {
     return false;
   }
-  std::sort(includedKeys.begin(), includedKeys.end());
-  *result = LogAnalyzer(std::move(includedKeys));
+  // To make things readable
+  std::sort(includedLoggedRanges.begin(), includedLoggedRanges.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.fileKey().raw() < rhs.fileKey().raw(); });
+  std::sort(includedUnloggedRanges.begin(), includedUnloggedRanges.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.fileKey().raw() < rhs.fileKey().raw(); });
+  *result = LogAnalyzer(std::move(includedLoggedRanges), std::move(includedUnloggedRanges));
   warn("Created a LogAnalyzer: %o", *result);
   return true;
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "includedKeys=%o", o.includedKeys_);
+  return streamf(s, "logged=%o\nunlogged=%o", o.sortedLoggedRanges_, o.sortedUnloggedRanges_);
 }
 }  // namespace z2kplus::backend::reverse_index::builder

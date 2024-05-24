@@ -27,8 +27,6 @@ using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::maputils::tryFind;
 using kosak::coding::toString;
-using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::MetadataRecord;

@@ -29,7 +29,7 @@ constexpr size_t numIndexBuilderShards = 4;
 
 constexpr auto purgeInterval = std::chrono::minutes(5);
 // ideally, more like once an hour?
-constexpr auto reindexingInterval = std::chrono::hours(8);
+constexpr auto reindexingInterval = std::chrono::minutes(3);
 constexpr auto unloggedLifespan = std::chrono::hours(24 * 7);
 constexpr const char *zalexaId = "zalexa";
 constexpr const char *zalexaSignature = "Zalexa";

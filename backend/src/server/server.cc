@@ -40,8 +40,10 @@ using z2kplus::backend::communicator::MessageBuffer;
 using z2kplus::backend::communicator::Session;
 using z2kplus::backend::coordinator::Coordinator;
 using z2kplus::backend::coordinator::Subscription;
-using z2kplus::backend::files::DateAndPartKey;
 using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::FilePosition;
+using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
 using z2kplus::backend::reverse_index::iterators::ZgramIterator;
 using z2kplus::backend::shared::Profile;
@@ -73,8 +75,20 @@ namespace protocol = z2kplus::backend::shared::protocol;
 // When this happens it will also have little events (typically messages back to our subscribers)
 // that it will want us to handle.
 namespace z2kplus::backend::server {
-namespace internal {
-class ServerCallbacks final : public CommunicatorCallbacks {
+struct Server::SessionAndDRequest {
+  typedef z2kplus::backend::communicator::Session Session;
+  typedef z2kplus::backend::shared::protocol::message::DRequest DRequest;
+
+  SessionAndDRequest(std::shared_ptr<Session> session, DRequest request);
+  DISALLOW_COPY_AND_ASSIGN(SessionAndDRequest);
+  DECLARE_MOVE_COPY_AND_ASSIGN(SessionAndDRequest);
+  ~SessionAndDRequest();
+
+  std::shared_ptr<Session> session_;
+  DRequest request_;
+};
+
+class Server::ServerCallbacks final : public CommunicatorCallbacks {
 public:
   explicit ServerCallbacks(std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo) :
       todo_(std::move(todo)) {}
@@ -89,7 +103,38 @@ public:
 private:
   std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo_;
 };
-}  // namespace internal
+
+struct Server::ReindexingState {
+  typedef kosak::coding::FailFrame FailFrame;
+  typedef z2kplus::backend::files::PathMaster PathMaster;
+
+  template<typename T>
+  using MessageBuffer = z2kplus::backend::communicator::MessageBuffer<T>;
+
+  static bool tryCreate(std::shared_ptr<PathMaster> pm,
+      std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
+      std::shared_ptr<ReindexingState> *result, const FailFrame &ff);
+
+  ReindexingState(std::shared_ptr<PathMaster> pm,
+      std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange);
+
+  static void run(std::shared_ptr<ReindexingState> self);
+
+  bool tryRunHelper(const FailFrame &ff);
+  bool tryCleanup(const FailFrame &ff);
+
+  std::shared_ptr<PathMaster> pm_;
+  std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo_;
+  InterFileRange<FileKeyKind::Logged> loggedRange_;
+  InterFileRange<FileKeyKind::Unlogged> unloggedRange_;
+  std::atomic<bool> done_ = false;
+  std::thread activeThread_;
+  std::string error_;
+};
 
 bool Server::tryCreate(Coordinator &&coordinator, int requestedPort, std::shared_ptr<Server> *result,
     const FailFrame &ff) {
@@ -97,8 +142,8 @@ bool Server::tryCreate(Coordinator &&coordinator, int requestedPort, std::shared
   auto adminProfile = std::make_shared<Profile>(magicConstants::zalexaId,
       magicConstants::zalexaSignature);
 
-  auto todo = std::make_shared<MessageBuffer<internal::SessionAndDRequest>>();
-  auto callbacks = std::make_shared<internal::ServerCallbacks>(todo);
+  auto todo = std::make_shared<MessageBuffer<SessionAndDRequest>>();
+  auto callbacks = std::make_shared<ServerCallbacks>(todo);
   std::shared_ptr<Communicator> communicator;
   if (!Communicator::tryCreate(requestedPort, std::move(callbacks), &communicator, ff.nest(HERE))) {
     return false;
@@ -120,7 +165,7 @@ bool Server::tryCreate(Coordinator &&coordinator, int requestedPort, std::shared
 Server::Server() = default;
 Server::Server(Private, std::shared_ptr<Communicator> communicator, Coordinator coordinator,
     std::shared_ptr<Profile> adminProfile,
-    std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo,
+    std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
     std::chrono::system_clock::time_point nextPurgeTime,
     std::chrono::system_clock::time_point nextReindexingTime) :
     communicator_(std::move(communicator)), coordinator_(std::move(coordinator)),
@@ -146,7 +191,7 @@ bool Server::tryRunForever(const FailFrame &ff) {
 
   while (true) {
     bool wantShutdown;
-    std::vector<internal::SessionAndDRequest> incomingBuffer;
+    std::vector<SessionAndDRequest> incomingBuffer;
     todo_->waitForDataAndSwap(timeout, &incomingBuffer, &wantShutdown);
     if (wantShutdown) {
       warn("%o: Shutdown requested", serverName);
@@ -181,7 +226,7 @@ bool Server::tryRunForever(const FailFrame &ff) {
 }
 
 bool Server::tryProcessRequests(std::chrono::system_clock::time_point now,
-    std::vector<internal::SessionAndDRequest> incomingBuffer,
+    std::vector<SessionAndDRequest> incomingBuffer,
     const FailFrame &ff) {
   warn("There are %o items to process", incomingBuffer.size());
 
@@ -235,21 +280,34 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
     streamf(std::cerr, "%o\n", message);
     statusMessages->push_back(message);
 
-    // 1. Tell server to close existing log files and open new ones. Our reindexing process will not
-    //    include the new files.
-    // 2. Calculate the new unlogged start key. Unlogged files before this point will not be indexed
-    //    and will be deleted as soon as we have cut over to the new index.
-    DateAndPartKey filesEndKey;
-    DateAndPartKey newUnloggedBeginKey;
-    if (!coordinator_.tryCheckpoint(now, &filesEndKey, ff.nest(HERE)) ||
-        !DateAndPartKey::tryCreate(now - magicConstants::unloggedLifespan, &newUnloggedBeginKey,
-            ff.nest(HERE))) {
+    // 1. The logged start position is zero.
+    // 2. Checkpoint the server. This will give us the logged end position and the unlogged end position
+    // 3. The unlogged start position is (now - the unlogged lifespan... typically 1 week).
+
+    FilePosition<FileKeyKind::Logged> loggedStartPosition;  // zero
+
+    FileKey<FileKeyKind::Unlogged> unloggedStartKey;
+    if (!FileKey<FileKeyKind::Unlogged>::tryCreateFromTimePoint(now - magicConstants::unloggedLifespan,
+      &unloggedStartKey, ff.nest(HERE))) {
+      return false;
+    }
+    FilePosition<FileKeyKind::Unlogged> unloggedStartPosition(unloggedStartKey, 0);
+
+    FilePosition<FileKeyKind::Logged> loggedEndPosition;
+    FilePosition<FileKeyKind::Unlogged> unloggedEndPosition;
+    if (!coordinator_.tryCheckpoint(now, &loggedEndPosition, &unloggedEndPosition, ff.nest(HERE))) {
       return false;
     }
 
+    InterFileRange<FileKeyKind::Logged> loggedRange(loggedStartPosition, loggedEndPosition);
+    InterFileRange<FileKeyKind::Unlogged> unloggedRange(unloggedStartPosition, unloggedEndPosition);
+
+    warn("OK loggedRange is %o", loggedRange);
+    warn("and unloggedRange is %o", unloggedRange);
+
     // Start the reindexing thread.
-    return internal::ReindexingState::tryCreate(coordinator_.pathMaster(), todo_, filesEndKey,
-        newUnloggedBeginKey, &reindexingState_, ff.nest(HERE));
+    return ReindexingState::tryCreate(coordinator_.pathMaster(), todo_, loggedRange,
+        unloggedRange, &reindexingState_, ff.nest(HERE));
   }
 
   // There is an active reindexing thread.
@@ -280,7 +338,7 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
 
   const char *message = "Reindexing complete! Hopefully nothing broke.";
   warn("%o", message);
-  statusMessages->push_back(message);
+  statusMessages->emplace_back(message);
   return coordinator_.tryResetIndex(now, ff.nest(HERE)) &&
       rs->tryCleanup(ff.nest(HERE));
 }
@@ -392,24 +450,26 @@ void Server::handleSubscribeRequest(drequests::Subscribe &&subReq, Session *sess
 //  return true;
 //}
 
-namespace internal {
-bool ReindexingState::tryCreate(std::shared_ptr<PathMaster> pm,
-    std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo, DateAndPartKey filesEndKey,
-    DateAndPartKey newUnloggedBeginKey, std::shared_ptr<ReindexingState> *result, const FailFrame &/*ff*/) {
-  auto res = std::make_shared<ReindexingState>(std::move(pm), std::move(todo), filesEndKey,
-      newUnloggedBeginKey);
+bool Server::ReindexingState::tryCreate(std::shared_ptr<PathMaster> pm,
+    std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
+    std::shared_ptr<ReindexingState> *result, const FailFrame &/*ff*/) {
+  auto res = std::make_shared<ReindexingState>(std::move(pm), std::move(todo), loggedRange,
+      unloggedRange);
   res->activeThread_ = std::thread(&run, res);
   *result = std::move(res);
   return true;
 }
 
-ReindexingState::ReindexingState(std::shared_ptr<PathMaster> pm,
-    std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo,
-    DateAndPartKey filesEndKey, DateAndPartKey unloggedBeginKeyAfterPurge) : pm_(std::move(pm)),
-    todo_(std::move(todo)), filesEndKey_(filesEndKey),
-    unloggedBeginKeyAfterPurge_(unloggedBeginKeyAfterPurge), done_(false) {}
+Server::ReindexingState::ReindexingState(std::shared_ptr<PathMaster> pm,
+    std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange) : pm_(std::move(pm)),
+    todo_(std::move(todo)), loggedRange_(loggedRange), unloggedRange_(unloggedRange),
+    done_(false) {}
 
-void ReindexingState::run(std::shared_ptr<ReindexingState> self) {
+void Server::ReindexingState::run(std::shared_ptr<ReindexingState> self) {
   std::cerr << "Reindexing thread starting\n";
   FailRoot fr;
   if (!self->tryRunHelper(fr.nest(HERE))) {
@@ -422,22 +482,23 @@ void ReindexingState::run(std::shared_ptr<ReindexingState> self) {
   self->todo_->interrupt();
 }
 
-bool ReindexingState::tryRunHelper(const FailFrame &ff) {
+bool Server::ReindexingState::tryRunHelper(const FailFrame &ff) {
   if (!IndexBuilder::tryClearScratchDirectory(*pm_, ff.nest(HERE)) ||
-      !IndexBuilder::tryBuild(*pm_,
-          {}, filesEndKey_.asFileKey(true),
-          unloggedBeginKeyAfterPurge_.asFileKey(false), filesEndKey_.asFileKey(false),
-          ff.nest(HERE)) ||
+      !IndexBuilder::tryBuild(*pm_, loggedRange_, unloggedRange_, ff.nest(HERE)) ||
       !pm_->tryPublishBuild(ff.nest(HERE))) {
     return false;
   }
   return true;
 }
 
-bool ReindexingState::tryCleanup(const FailFrame &ff) {
-  auto cb = [this](const FileKey &fk, const FailFrame &f2) {
-    auto efk = fk.asExpandedFileKey();
-    if (efk.isLogged() || fk >= unloggedBeginKeyAfterPurge_.asFileKey(false)) {
+bool Server::ReindexingState::tryCleanup(const FailFrame &ff) {
+  auto cb = [this](FileKey<FileKeyKind::Either> fk, const FailFrame &f2) {
+    if (fk.isLogged()) {
+      return true;
+    }
+    auto [_, ufk] = fk.visit();
+    auto beginFk = unloggedRange_.begin().fileKey();
+    if (!(*ufk < beginFk)) {
       return true;
     }
     // file key is unlogged and prior to the 'after purge' point.
@@ -447,11 +508,10 @@ bool ReindexingState::tryCleanup(const FailFrame &ff) {
   return pm_->tryGetPlaintexts(&cb, ff.nest(HERE));
 }
 
-SessionAndDRequest::SessionAndDRequest(std::shared_ptr<Session> session, DRequest request)
+Server::SessionAndDRequest::SessionAndDRequest(std::shared_ptr<Session> session, DRequest request)
     : session_(std::move(session)), request_(std::move(request)) {
 }
-SessionAndDRequest::SessionAndDRequest(SessionAndDRequest &&) noexcept = default;
-SessionAndDRequest &SessionAndDRequest::operator=(SessionAndDRequest &&) noexcept = default;
-SessionAndDRequest::~SessionAndDRequest() = default;
-}  // namespace internal
+Server::SessionAndDRequest::SessionAndDRequest(SessionAndDRequest &&) noexcept = default;
+Server::SessionAndDRequest &Server::SessionAndDRequest::operator=(SessionAndDRequest &&) noexcept = default;
+Server::SessionAndDRequest::~SessionAndDRequest() = default;
 }  // namespace z2kplus::backend::server

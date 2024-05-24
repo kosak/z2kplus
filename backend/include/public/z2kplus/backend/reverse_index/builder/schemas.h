@@ -29,21 +29,25 @@ namespace z2kplus::backend::reverse_index::builder {
 namespace schemas {
 
 class Zephyrgram {
-  typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::shared::Zephyrgram Zgram;
   typedef z2kplus::backend::shared::ZgramCore ZgramCore;
   typedef z2kplus::backend::util::frozen::frozenStringRef_t frozenStringRef_t;
+
+  template<FileKeyKind Kind>
+  using FileKey = z2kplus::backend::files::FileKey<Kind>;
+
 public:
   // zgramId, timesecs, sender, signature, isLogged
   // instance, body
   // fileKey, offset, size
   typedef std::tuple<ZgramId, uint64_t, std::string_view, std::string_view, bool,
       std::string_view, std::string_view,
-      FileKey, uint32_t, uint32_t> tuple_t;
+      FileKey<FileKeyKind::Either>, uint32_t, uint32_t> tuple_t;
 
   static tuple_t createTuple(const Zgram &zgram,
-      const FileKey &fileKey, size_t offset, size_t size);
+      FileKey<FileKeyKind::Either> fileKey, size_t offset, size_t size);
 
   explicit Zephyrgram(const tuple_t &tuple) : tuple_(tuple) {}
 
@@ -54,7 +58,7 @@ public:
   bool isLogged() const { return std::get<4>(tuple_); }
   std::string_view instance() const { return std::get<5>(tuple_); }
   std::string_view body() const { return std::get<6>(tuple_); }
-  FileKey fileKey() const { return std::get<7>(tuple_); }
+  FileKey<FileKeyKind::Either> fileKey() const { return std::get<7>(tuple_); }
   uint32_t offset() const { return std::get<8>(tuple_); }
   uint32_t size() const { return std::get<9>(tuple_); }
 

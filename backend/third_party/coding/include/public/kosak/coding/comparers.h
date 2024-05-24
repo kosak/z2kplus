@@ -22,7 +22,7 @@ constexpr inline int compare(const TYPE *lhs, const TYPE *rhs) { \
   if (*lhs < *rhs) { \
     return -1; \
   } \
-  if (*lhs > *rhs) { \
+  if (*rhs < *lhs) { \
     return 1; \
   } \
   return 0; \
@@ -41,6 +41,8 @@ KOSAK_CREATE_COMPARER(unsigned short);
 KOSAK_CREATE_COMPARER(unsigned int);
 KOSAK_CREATE_COMPARER(unsigned long);
 KOSAK_CREATE_COMPARER(unsigned long long);
+
+KOSAK_CREATE_COMPARER(bool);
 #undef CREATE_COMPARER
 
 }  // namespace kosak::coding

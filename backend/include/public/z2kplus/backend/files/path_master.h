@@ -41,18 +41,20 @@ public:
   DISALLOW_MOVE_COPY_AND_ASSIGN(PathMaster);
   ~PathMaster();
 
-  std::string getPlaintextPath(const FileKey &fileKey) const;
+  std::string getPlaintextPath(FileKey<FileKeyKind::Either> fileKey) const;
   std::string getIndexPath() const;
 
   std::string getScratchIndexPath() const;
   std::string getScratchPathFor(std::string_view name) const;
 
-  bool tryGetPlaintexts(const Delegate<bool, const FileKey &, const FailFrame &> &cb,
+  bool tryGetPlaintexts(const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb,
       const FailFrame &ff) const;
 
   bool tryPublishBuild(const FailFrame &ff) const;
 
   const std::string &scratchRoot() const { return scratchRoot_; }
+  const std::string &loggedRoot() const { return loggedRoot_; }
+  const std::string &unloggedRoot() const { return unloggedRoot_; }
 
 private:
   std::string loggedRoot_;

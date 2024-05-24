@@ -52,7 +52,7 @@ bool TupleItemSerializers::tryAppendItem(const ZgramId *src, std::string *dest, 
   return tryAppendItem(&raw, dest, ff.nest(HERE));
 }
 
-bool TupleItemSerializers::tryAppendItem(const FileKey *src, std::string *dest, const FailFrame &ff) {
+bool TupleItemSerializers::tryAppendItem(const FileKey<FileKeyKind::Either> *src, std::string *dest, const FailFrame &ff) {
   auto raw = src->raw();
   return tryAppendItem(&raw, dest, ff.nest(HERE));
 }
@@ -87,10 +87,13 @@ bool TupleItemSerializers::tryParseItem(std::string_view src, ZgramId *dest, con
   return true;
 }
 
-bool TupleItemSerializers::tryParseItem(std::string_view src, FileKey *dest, const FailFrame &ff) {
+bool TupleItemSerializers::tryParseItem(std::string_view src, FileKey<FileKeyKind::Either> *dest, const FailFrame &ff) {
   decltype(dest->raw()) raw;
-  return tryParseItem(src, &raw, ff.nest(HERE)) &&
-      FileKey::tryCreate(raw, dest, ff.nest(HERE));
+  if (!tryParseItem(src, &raw, ff.nest(HERE))) {
+    return false;
+  }
+  *dest = FileKey<FileKeyKind::Either>::createUnsafe(raw);
+  return true;
 }
 }  // namespace internal
 }  // namespace z2kplus::backend::reverse_index::builder::tuple_iterators::tupleSerializer

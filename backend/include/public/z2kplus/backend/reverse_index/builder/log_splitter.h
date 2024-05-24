@@ -22,7 +22,6 @@
 
 namespace z2kplus::backend::reverse_index::builder {
 struct LogSplitterResult {
-  typedef z2kplus::backend::files::FileKey FileKey;
   LogSplitterResult();
   LogSplitterResult(std::vector<std::string> loggedZgrams, std::vector<std::string> unloggedZgrams,
       std::string reactionsByZgramId, std::string reactionsByReaction, std::string zgramRevisions,
@@ -43,10 +42,14 @@ struct LogSplitterResult {
 class LogSplitter {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::PathMaster PathMaster;
-  typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
+  template<FileKeyKind Kind>
+  using IntraFileRange = z2kplus::backend::files::IntraFileRange<Kind>;
 
 public:
-  static bool split(const PathMaster &pm, std::vector<FileKey> fileKeys,
+  static bool split(const PathMaster &pm,
+      const std::vector<IntraFileRange<FileKeyKind::Logged>> &loggedRanges,
+      const std::vector<IntraFileRange<FileKeyKind::Unlogged>> &unloggedRanges,
       size_t numShards, LogSplitterResult *result, const FailFrame &ff);
 };
 }  // namespace z2kplus::backend::reverse_index::builder

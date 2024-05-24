@@ -69,13 +69,14 @@ struct Reactor {
 
   void processResponses(std::vector<Coordinator::response_t> *responses);
 
-    // other Coordinator::tryXXX callbacks
   void operator()(dresponses::AckSubscribe &&o);
   void operator()(dresponses::AckMoreZgrams &&o);
   void operator()(dresponses::EstimatesUpdate &&o);
 
   template<typename T>
-  void operator()(T &&item) const {}
+  void operator()(T &&item) const {
+    // ignore other responses.
+  }
 
   bool tryExpect(std::initializer_list<uint64_t> newIds, bool forBackSide, size_t front,
       size_t back, const FailFrame &ff);

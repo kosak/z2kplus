@@ -27,7 +27,8 @@
 using kosak::coding::FailFrame;
 using kosak::coding::memory::MappedFile;
 using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::ZgramId;
 using z2kplus::backend::shared::ZgramCore;
@@ -45,13 +46,13 @@ ZgramCache& ZgramCache::operator=(ZgramCache &&) noexcept = default;
 ZgramCache::~ZgramCache() = default;
 
 bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
-  const std::vector<std::pair<ZgramId, Location>> &locators,
+  const std::vector<std::pair<ZgramId, LogLocation>> &locators,
     std::vector<std::shared_ptr<const Zephyrgram>> *result, const FailFrame &ff) {
   // Do a little extra work to make us append to the result rather than overwrite it.
   auto offset = result->size();
   result->resize(offset + locators.size());
 
-  std::vector<std::tuple<ZgramId, Location, size_t>> todo;
+  std::vector<std::tuple<ZgramId, LogLocation, size_t>> todo;
   todo.reserve(locators.size());
 
   // First, populate what we can from the cache.
@@ -66,16 +67,16 @@ bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
     }
     (*result)[offset + i] = cp->second;
   }
-  // sort 'todo' by Location so that file accesses are more efficient.
+  // Sort 'todo' by filekey (to group filekeys together) so that file accesses are more efficient.
   std::sort(todo.begin(), todo.end(), [](const auto &lhs, const auto &rhs) {
-    return std::get<1>(lhs) < std::get<1>(rhs);
+    return std::get<1>(lhs).fileKey().raw() < std::get<1>(rhs).fileKey().raw();
   });
 
   MappedFile<const char> currentFile;
-  FileKey currentFileKey;
+  FileKey<FileKeyKind::Either> currentFileKey;
   for (const auto &[zgramId, location, index] : todo) {
     // If first time, or the file key is different from the file we have open, open a new file.
-    if (currentFile.get() == nullptr || currentFileKey != location.fileKey()) {
+    if (currentFile.get() == nullptr || currentFileKey.raw() != location.fileKey().raw()) {
       currentFileKey = location.fileKey();
       auto fileName = pm.getPlaintextPath(currentFileKey);
       if (!currentFile.tryMap(fileName, false, ff.nest(HERE))) {
@@ -83,11 +84,10 @@ bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
       }
     }
 
-    if (location.position() + location.size() > currentFile.byteSize()) {
-      return ff.failf(HERE, "What happened? pos %o size %o cf.size %o",
-          location.position(), location.size(), currentFile.byteSize());
+    if (location.offset() + location.size() > currentFile.byteSize()) {
+      return ff.failf(HERE, "What happened? %o vs cf.size %o", location, currentFile.byteSize());
     }
-    std::string_view sr(currentFile.get() + location.position(), location.size());
+    std::string_view sr(currentFile.get() + location.offset(), location.size());
     LogRecord lr;
     if (!LogParser::tryParseLogRecord(sr, &lr, ff.nest(HERE))) {
       return false;

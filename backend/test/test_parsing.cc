@@ -25,9 +25,7 @@
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::toString;
-using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::PathMaster;
-using z2kplus::backend::files::Location;
 using z2kplus::backend::queryparsing::parse;
 using z2kplus::backend::shared::Zephyrgram;
 using z2kplus::backend::reverse_index::FieldMask;

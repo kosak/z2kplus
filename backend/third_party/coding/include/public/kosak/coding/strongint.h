@@ -58,15 +58,15 @@ public:
   static StrongInt max() { return StrongInt(std::numeric_limits<ValueType>::max()); }
 
   StrongInt() = default;
-  explicit StrongInt(ValueType value) : value_(value) {}
+  explicit constexpr StrongInt(ValueType value) : value_(value) {}
 
   template<typename U>
-  StrongInt addRaw(U value) const {
+  StrongInt constexpr addRaw(U value) const {
     return StrongInt(raw() + value);
   }
 
   template<typename U>
-  StrongInt subtractRaw(U value) const {
+  StrongInt constexpr subtractRaw(U value) const {
     return StrongInt(raw() - value);
   }
 
@@ -74,7 +74,7 @@ public:
     return kosak::coding::compare(&value_, &other.value_);
   }
 
-  ValueType raw() const { return value_; }
+  constexpr ValueType raw() const { return value_; }
 
 private:
   ValueType value_ = ValueType();

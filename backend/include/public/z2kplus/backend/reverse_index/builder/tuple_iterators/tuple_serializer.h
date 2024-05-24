@@ -26,14 +26,16 @@ struct TupleItemSerializers {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::text::Splitter Splitter;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
-  typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
+  template<FileKeyKind Kind>
+  using FileKey = z2kplus::backend::files::FileKey<Kind>;
 
   static bool tryAppendItem(const bool *src, std::string *dest, const FailFrame &ff);
   static bool tryAppendItem(const uint32_t *src, std::string *dest, const FailFrame &ff);
   static bool tryAppendItem(const uint64_t *src, std::string *dest, const FailFrame &ff);
   static bool tryAppendItem(const std::string_view *src, std::string *dest, const FailFrame &ff);
   static bool tryAppendItem(const ZgramId *src, std::string *dest, const FailFrame &ff);
-  static bool tryAppendItem(const FileKey *src, std::string *dest, const FailFrame &ff);
+  static bool tryAppendItem(const FileKey<FileKeyKind::Either> *src, std::string *dest, const FailFrame &ff);
 
   static bool tryParseItem(std::string_view src, bool *dest, const FailFrame &ff);
   static bool tryParseItem(std::string_view src, uint32_t *dest, const FailFrame &ff);
@@ -41,7 +43,7 @@ struct TupleItemSerializers {
   static bool tryParseItem(std::string_view src, uint64_t *dest, const FailFrame &ff);
   static bool tryParseItem(std::string_view src, std::string_view *dest, const FailFrame &ff);
   static bool tryParseItem(std::string_view src, ZgramId *dest, const FailFrame &ff);
-  static bool tryParseItem(std::string_view src, FileKey *dest, const FailFrame &ff);
+  static bool tryParseItem(std::string_view src, FileKey<FileKeyKind::Either> *dest, const FailFrame &ff);
 
   template<size_t Level, typename ...Args>
   static bool tryAppendTupleRecurse(const std::tuple<Args...> &src, char fieldSeparator,

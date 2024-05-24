@@ -45,9 +45,9 @@ using kosak::coding::nsunix::FileCloser;
 using kosak::coding::memory::BufferedWriter;
 using kosak::coding::sorting::KeyOptions;
 using kosak::coding::sorting::SortOptions;
-using z2kplus::backend::files::DateAndPartKey;
 using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::queryparsing::WordSplitter;
 using z2kplus::backend::reverse_index::builder::CanonicalStringProcessor;
@@ -134,16 +134,13 @@ bool IndexBuilder::tryClearScratchDirectory(const PathMaster &pm, const FailFram
 // 1. Concatenate all the plaintexts and sort by key to make plaintext.sorted
 // 2. Scan this to make canonicalStringPool.unsorted
 // 3. Sort to make
-bool IndexBuilder::tryBuild(const PathMaster &pm,
-    std::optional<FileKey> loggedBeginKey, std::optional<FileKey> loggedEndKey,
-    std::optional<FileKey> unloggedBeginKey, std::optional<FileKey> unloggedEndKey,
-    const FailFrame &ff) {
+bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange, const FailFrame &ff) {
   LogAnalyzer lazr;
   LogSplitterResult lsr;
-  if (!LogAnalyzer::tryAnalyze(pm, loggedBeginKey, loggedEndKey, unloggedBeginKey, unloggedEndKey,
-      &lazr, ff.nest(HERE)) ||
-      !LogSplitter::split(pm, lazr.includedKeys(), magicConstants::numIndexBuilderShards,
-      &lsr, ff.nest(HERE))) {
+  if (!LogAnalyzer::tryAnalyze(pm, loggedRange, unloggedRange, &lazr, ff.nest(HERE)) ||
+      !LogSplitter::split(pm, lazr.sortedLoggedRanges(), lazr.sortedUnloggedRanges(),
+          magicConstants::numIndexBuilderShards, &lsr, ff.nest(HERE))) {
     return false;
   }
 
@@ -173,15 +170,18 @@ bool IndexBuilder::tryBuild(const PathMaster &pm,
   }
 
   // Default to minimum key.
-  DateAndPartKey endKeyToUse;
-  if (!lazr.includedKeys().empty()) {
-    auto dpkey = lazr.includedKeys().back().asDateAndPartKey();
-    if (!dpkey.tryBump(&endKeyToUse, ff.nest(HERE))) {
-      return false;
-    }
+  FilePosition<FileKeyKind::Logged> loggedEnd;
+  FilePosition<FileKeyKind::Unlogged> unloggedEnd;
+  if (!lazr.sortedLoggedRanges().empty()) {
+    const auto &back = lazr.sortedLoggedRanges().back();
+    loggedEnd = FilePosition<FileKeyKind::Logged>(back.fileKey(), back.end());
+  }
+  if (!lazr.sortedUnloggedRanges().empty()) {
+    const auto &back = lazr.sortedUnloggedRanges().back();
+    unloggedEnd = FilePosition<FileKeyKind::Unlogged>(back.fileKey(), back.end());
   }
 
-  new((void*)start) FrozenIndex(endKeyToUse,
+  new((void*)start) FrozenIndex(loggedEnd, unloggedEnd,
       std::move(zgdr.zgramInfos()), std::move(zgdr.wordInfos()), std::move(zgdr.trie()),
       std::move(stringPool), std::move(metadata));
   auto outputSize = alloc.allocatedSize();

@@ -93,8 +93,6 @@ private:
 
   BackendRobustifier rb_;
 
-  bool shutdown_ = false;
-
   // For inactivity timeout
   std::chrono::system_clock::time_point lastActivityTime_ = {};
 };

@@ -30,56 +30,13 @@
 namespace z2kplus::backend::server {
 
 namespace internal {
-class ServerCallbacks;
-
-struct SessionAndDRequest {
-  typedef z2kplus::backend::communicator::Session Session;
-  typedef z2kplus::backend::shared::protocol::message::DRequest DRequest;
-
-  SessionAndDRequest(std::shared_ptr<Session> session, DRequest request);
-  DISALLOW_COPY_AND_ASSIGN(SessionAndDRequest);
-  DECLARE_MOVE_COPY_AND_ASSIGN(SessionAndDRequest);
-  ~SessionAndDRequest();
-
-  std::shared_ptr<Session> session_;
-  DRequest request_;
-};
-
-struct ReindexingState {
-  typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
-  typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::PathMaster PathMaster;
-
-  template<typename T>
-  using MessageBuffer = z2kplus::backend::communicator::MessageBuffer<T>;
-
-  static bool tryCreate(std::shared_ptr<PathMaster> pm,
-      std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo,
-      DateAndPartKey filesEndKey, DateAndPartKey unloggedBeginKeyAfterPurge,
-      std::shared_ptr<ReindexingState> *result, const FailFrame &ff);
-
-  ReindexingState(std::shared_ptr<PathMaster> pm,
-      std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo,
-      DateAndPartKey filesEndKey,
-      DateAndPartKey newUnloggedBeginKey);
-
-  static void run(std::shared_ptr<ReindexingState> self);
-
-  bool tryRunHelper(const FailFrame &ff);
-  bool tryCleanup(const FailFrame &ff);
-
-  std::shared_ptr<PathMaster> pm_;
-  std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo_;
-  DateAndPartKey filesEndKey_;
-  DateAndPartKey unloggedBeginKeyAfterPurge_;
-  std::atomic<bool> done_ = false;
-  std::thread activeThread_;
-  std::string error_;
-};
 }  // namespace internal
 
 class Server {
+  struct SessionAndDRequest;
+  struct ReindexingState;
+  class ServerCallbacks;
+
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::communicator::Channel Channel;
   typedef z2kplus::backend::communicator::Communicator Communicator;
@@ -110,7 +67,7 @@ public:
   Server();
   Server(Private, std::shared_ptr<Communicator> communicator, Coordinator coordinator,
       std::shared_ptr<Profile> adminProfile,
-      std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo,
+      std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
       std::chrono::system_clock::time_point nextPurgeTime,
       std::chrono::system_clock::time_point nextReindexingTime);
   DISALLOW_COPY_AND_ASSIGN(Server);
@@ -134,7 +91,7 @@ private:
       std::vector<std::string> *statusMessages, const FailFrame &ff);
 
   bool tryProcessRequests(std::chrono::system_clock::time_point now,
-      std::vector<internal::SessionAndDRequest> incomingBuffer,
+      std::vector<SessionAndDRequest> incomingBuffer,
       const FailFrame &ff);
   bool tryProcessResponses(std::vector<coordinatorResponse_t> responses,
       Session *optionalSenderSession, const FailFrame &ff);
@@ -149,13 +106,11 @@ private:
   std::shared_ptr<Communicator> communicator_;
   Coordinator coordinator_;
   std::shared_ptr<Profile> adminProfile_;
-  std::shared_ptr<MessageBuffer<internal::SessionAndDRequest>> todo_;
+  std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo_;
   std::chrono::system_clock::time_point nextPurgeTime_;
   std::chrono::system_clock::time_point nextReindexingTime_;
   std::map<sessionId_t, std::shared_ptr<Subscription>> sessionToSubscription_;
   std::map<subscriptionId_t, std::shared_ptr<Session>> subscriptionToSession_;
-  std::shared_ptr<internal::ReindexingState> reindexingState_;
-
-  friend class internal::ServerCallbacks;
+  std::shared_ptr<ReindexingState> reindexingState_;
 };
 }  // namespace z2kplus::backend::server

@@ -26,18 +26,19 @@ using kosak::coding::Delegate;
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::text::tryParseDecimal;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 namespace nsunix = kosak::coding::nsunix;
 
 #define HERE KOSAK_CODING_HERE
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const FileKey &, const FailFrame &> &cb, const FailFrame &ff);
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff);
 bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
     std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
     std::string_view *residual, const FailFrame &ff);
-bool tryConsume(std::string_view src, std::string_view prefix, std::string_view *residual,
-    const FailFrame &ff);
+bool maybeConsume(std::string_view src, std::string_view prefix, std::string_view *residual);
 }  // namespace
 
 const char PathMaster::z2kIndexName[] = "z2k.index";
@@ -83,16 +84,15 @@ PathMaster::PathMaster(Private, std::string loggedRoot, std::string unloggedRoot
     scratchRoot_(std::move(scratchRoot)), mediaRoot_(std::move(mediaRoot)) {}
 PathMaster::~PathMaster() = default;
 
-std::string PathMaster::getPlaintextPath(const FileKey &fileKey) const {
-  auto efk = fileKey.asExpandedFileKey();
-  auto result = efk.isLogged() ? loggedRoot_ : unloggedRoot_;
+std::string PathMaster::getPlaintextPath(FileKey<FileKeyKind::Either> fileKey) const {
+  auto [yyyy, mm, dd, logged] = fileKey.expand();
+  auto result = logged ? loggedRoot_ : unloggedRoot_;
 
-  // yyyy/mm/yyyymmdd.logged.nnn
-  // yyyy/mm/yyyymmdd.unlogged.nnn
+  // yyyy/mm/yyyymmdd.logged
+  // yyyy/mm/yyyymmdd.unlogged
   char buffer[128];
-  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04zu/%02zu/%04zu%02zu%02zu.%s.%03zu",
-      efk.year(), efk.month(), efk.year(), efk.month(), efk.day(),
-      efk.isLogged() ? "logged" : "unlogged", efk.part());
+  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04u/%02u/%04u%02u%02u.%s",
+      yyyy, mm, yyyy, mm, dd, logged ? "logged" : "unlogged");
 
   result.append(buffer);
   return result;
@@ -111,7 +111,7 @@ std::string PathMaster::getScratchPathFor(std::string_view name) const {
 }
 
 bool PathMaster::tryGetPlaintexts(
-    const Delegate<bool, const FileKey &, const FailFrame &> &cb, const FailFrame &ff) const {
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff) const {
   return tryGetPlaintextsHelper(loggedRoot_, true, cb, ff.nest(HERE)) &&
       tryGetPlaintextsHelper(unloggedRoot_, false, cb, ff.nest(HERE));
 }
@@ -124,8 +124,8 @@ bool PathMaster::tryPublishBuild(const FailFrame &ff) const {
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const FileKey &, const FailFrame &> &cb, const FailFrame &ff) {
-  // example: 2000/01/20000104.unlogged.000
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff) {
+  // example: 2000/01/20000104.unlogged
   auto myCallback = [expectLogged, &cb](std::string_view fullName, bool isDir, const FailFrame &f2) {
     if (isDir) {
       return true;
@@ -147,28 +147,22 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
     }
     auto suffix = fullName.substr(pos + 1);
     std::string_view yearRes, monthRes, yyyyMMddRes;
-    size_t year, month, yyyyMMdd, part;
+    size_t year, month, yyyyMMdd;
 
-    using FKC = internal::FileKeyCore;
-    // 19700101
-    auto yyyyMMddBegin = (((FKC::yearBegin) * 100) + FKC::monthBegin) * 100 + FKC::dayBegin;
-    // 21010000
-    auto yyyyMMddEnd = FKC::yearEnd * 100 * 100;
-    if (!tryParseRestrictedDecimal("year", suffix, "", FKC::yearBegin, FKC::yearEnd,
+    if (!tryParseRestrictedDecimal("year", suffix, "", 1970, 2100 + 1,
             &year, &yearRes, f3.nest(HERE)) ||
-        !tryParseRestrictedDecimal("month", yearRes, "/", FKC::monthBegin, FKC::monthEnd,
+        !tryParseRestrictedDecimal("month", yearRes, "/", 1, 12 + 1,
             &month, &monthRes, f3.nest(HERE)) ||
-        !tryParseRestrictedDecimal("yyyyMMdd", monthRes, "/", yyyyMMddBegin, yyyyMMddEnd, &yyyyMMdd,
-            &yyyyMMddRes, f3.nest(HERE))) {
+        !tryParseRestrictedDecimal("yyyyMMdd", monthRes, "/", 19700101, 21001231 + 1,
+            &yyyyMMdd, &yyyyMMddRes, f3.nest(HERE))) {
       return false;
     }
 
     bool logged;
     std::string_view loggedRes;
-    FailRoot ignore(true);
-    if (tryConsume(yyyyMMddRes, ".logged", &loggedRes, ignore.nest(HERE))) {
+    if (maybeConsume(yyyyMMddRes, ".logged", &loggedRes)) {
       logged = true;
-    } else if (tryConsume(yyyyMMddRes, ".unlogged", &loggedRes, ignore.nest(HERE))) {
+    } else if (maybeConsume(yyyyMMddRes, ".unlogged", &loggedRes)) {
       logged = false;
     } else {
       return f3.failf(HERE, "Can't find logged/unlogged indicator in %o", fullName);
@@ -178,14 +172,8 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
       return f3.failf(HERE, "Expected this directory to have logged=%o. Got logged=%o", expectLogged, logged);
     }
 
-    std::string_view expectedEmpty;
-    if (!tryParseRestrictedDecimal("part", loggedRes, ".", FKC::partBegin, FKC::partEnd, &part,
-        &expectedEmpty, f3.nest(HERE))) {
-      return false;
-    }
-
-    if (!expectedEmpty.empty()) {
-      return f3.failf(HERE, R"(Trailing matter "%o" found, was supposed to be empty)", expectedEmpty);
+    if (!loggedRes.empty()) {
+      return f3.failf(HERE, R"(Trailing matter "%o" found, was supposed to be empty)", loggedRes);
     }
 
     auto day = yyyyMMdd % 100;
@@ -194,8 +182,9 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
       return f3.failf(HERE, "Subdir parts inconsistent; got %o vs %o in %o", yyyyMMdd, reconstructed,
           fullName);
     }
-    FileKey fk;
-    if (!FileKey::tryCreate(year, month, day, part, logged, &fk, f3.nest(HERE))) {
+
+    FileKey<FileKeyKind::Either> fk;
+    if (!FileKey<FileKeyKind::Either>::tryCreate(year, month, day, logged, &fk, f3.nest(HERE))) {
       return false;
     }
     return cb(fk, f3.nest(HERE));
@@ -207,8 +196,10 @@ bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
     std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
     std::string_view *residual, const FailFrame &ff) {
   std::string_view temp;
-  if (!tryConsume(src, expectedPrefix, &temp, ff.nest(HERE)) ||
-      !tryParseDecimal(temp, result, residual, ff.nest(HERE))) {
+  if (!maybeConsume(src, expectedPrefix, &temp)) {
+    return ff.failf(HERE, "%o did not start with %o", src, expectedPrefix);
+  }
+  if (!tryParseDecimal(temp, result, residual, ff.nest(HERE))) {
     return false;
   }
   if (*result < beginValue || *result >= endValue) {
@@ -218,11 +209,10 @@ bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
   return true;
 }
 
-bool tryConsume(std::string_view src, std::string_view prefix, std::string_view *residual,
-    const FailFrame &ff) {
+bool maybeConsume(std::string_view src, std::string_view prefix, std::string_view *residual) {
   if (src.size() < prefix.size() ||
       src.substr(0, prefix.size()) != prefix) {
-    return ff.failf(HERE, R"("%o" does not start with prefix "%o")", src, prefix);
+    return false;
   }
   *residual = src.substr(prefix.size());
   return true;

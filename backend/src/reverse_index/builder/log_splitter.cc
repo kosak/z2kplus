@@ -38,6 +38,8 @@ using kosak::coding::ParseContext;
 using kosak::coding::sorting::SortManager;
 using kosak::coding::nsunix::FileCloser;
 using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::MetadataRecord;
@@ -81,11 +83,12 @@ struct NameAndWriter {
 };
 
 struct SplitterThread {
-  static bool tryCreate(size_t shard, const PathMaster *pm, const SplitterInputs &sis,
-      const FileKey *startKey, const FileKey *endKey, std::shared_ptr<SplitterThread> *result,
+  static bool tryCreate(size_t shard, const PathMaster &pm, const SplitterInputs &sis,
+      std::vector<IntraFileRange<FileKeyKind::Either>> ranges, std::shared_ptr<SplitterThread> *result,
       const FailFrame &ff);
 
-  SplitterThread(size_t shard, const PathMaster *pm, const FileKey *startKey, const FileKey *endKey,
+  SplitterThread(size_t shard, std::shared_ptr<const PathMaster> pm,
+      std::vector<IntraFileRange<FileKeyKind::Either>> ranges,
       NameAndWriter logged, NameAndWriter unlogged, NameAndWriter reactionsByZgramId,
       NameAndWriter reactionsByReaction, NameAndWriter zgramRevs, NameAndWriter zgramRefersTo,
       NameAndWriter zmojis);
@@ -99,9 +102,8 @@ struct SplitterThread {
   bool tryRunHelper(const FailFrame &ff);
 
   size_t shard_;
-  const PathMaster *pm_ = nullptr;
-  const FileKey *startKey_ = nullptr;
-  const FileKey *endKey_ = nullptr;
+  std::shared_ptr<const PathMaster> pm_;
+  std::vector<IntraFileRange<FileKeyKind::Either>> ranges_;
 
   NameAndWriter logged_;
   NameAndWriter unlogged_;
@@ -121,8 +123,8 @@ struct SplitterThread {
 
 class SplitterVisitor {
 public:
-  SplitterVisitor(SplitterThread *owner, const FileKey &fileKey, size_t offset, size_t size,
-      const FailFrame *ff);
+  SplitterVisitor(SplitterThread *owner, FileKey<FileKeyKind::Either> fileKey,
+      size_t offset, size_t size, const FailFrame *ff);
   ~SplitterVisitor() = default;
 
   bool operator()(const Zephyrgram &o);
@@ -137,14 +139,16 @@ private:
   bool appendHelper(BufferedWriter *bw, const std::tuple<Args...> &tuple) const;
 
   SplitterThread *owner_ = nullptr;
-  FileKey fileKey_;
+  FileKey<FileKeyKind::Either> fileKey_;
   size_t offset_ = 0;
   size_t size_ = 0;
   const FailFrame *ff_;
 };
 }  // namespace
 
-bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
+bool LogSplitter::split(const PathMaster &pm,
+    const std::vector<IntraFileRange<FileKeyKind::Logged>> &loggedRanges,
+    const std::vector<IntraFileRange<FileKeyKind::Unlogged>> &unloggedRanges,
     size_t numShards, LogSplitterResult *result, const FailFrame &ff) {
   auto loggedZgrams = pm.getScratchPathFor(filenames::loggedZgrams);
   auto unloggedZgrams = pm.getScratchPathFor(filenames::unloggedZgrams);
@@ -157,20 +161,39 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
       std::move(reactionsByZgramId), std::move(reactionsByReaction), std::move(zgramRevisions),
       std::move(zgramRefersTo), std::move(zmojis));
 
-  std::sort(fileKeys.begin(), fileKeys.end());
+  auto allRanges = makeReservedVector<IntraFileRange<FileKeyKind::Either>>(loggedRanges.size() + unloggedRanges.size());
+  allRanges.insert(allRanges.end(), loggedRanges.begin(), loggedRanges.end());
+  allRanges.insert(allRanges.end(), unloggedRanges.begin(), unloggedRanges.end());
+  std::sort(allRanges.begin(), allRanges.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.fileKey().canonicalRaw() < rhs.fileKey().canonicalRaw();
+  });
 
-  auto shardSize = fileKeys.size() / numShards;
-  auto excess = fileKeys.size() % numShards;
-  const FileKey *shardStart = fileKeys.data();
+  const auto *prevShardEnd = allRanges.data();
+  const auto *allShardEnd = &*allRanges.end();
   std::vector<std::shared_ptr<SplitterThread>> sts(numShards);
   for (size_t i = 0; i != numShards; ++i) {
-    auto bonusWork = excess != 0 ? 1 : 0;
-    const auto *shardEnd = shardStart + shardSize + bonusWork;
-    excess -= bonusWork;
-    if (!SplitterThread::tryCreate(i, &pm, sis, shardStart, shardEnd, &sts[i], ff.nest(HERE))) {
+    auto divisor = numShards - i;
+    auto shardSize = (allShardEnd - prevShardEnd) / divisor;
+    auto newShardEnd = prevShardEnd + shardSize;
+
+    if (prevShardEnd != newShardEnd && newShardEnd != allShardEnd) {
+      // Shard is non-empty and not the last shard
+      const auto *back = newShardEnd - 1;
+      if (back->fileKey().canonicalRaw() == newShardEnd->fileKey().canonicalRaw()) {
+        // Don't let logged and unlogged zgrams of the same date fall into different shards.
+        ++newShardEnd;
+      }
+    }
+
+    std::vector<IntraFileRange<FileKeyKind::Either>> rangesForShard(prevShardEnd, newShardEnd);
+    if (!SplitterThread::tryCreate(i, pm, sis, std::move(rangesForShard), &sts[i], ff.nest(HERE))) {
       return false;
     }
-    shardStart = shardEnd;
+    prevShardEnd = newShardEnd;
+  }
+
+  if (prevShardEnd != allShardEnd) {
+    return ff.fail(HERE, "Programming error");
   }
 
   // Finish all the threads before reporting errors in any of them.
@@ -181,6 +204,10 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
     return false;
   }
 
+  // We don't have to sort the zgrams because they are already sorted in the
+  // log files. The only complication is that logged and unlogged zgrams are
+  // in different files. But so long as the logged/unlogged zgrams for a given
+  // day are processed by the same shard, they will be fine.
   auto gatherAndMoveInputs = [&sts](NameAndWriter SplitterThread::*field) {
     auto result = makeReservedVector<std::string>(sts.size());
     for (const auto &st : sts) {
@@ -236,8 +263,8 @@ bool LogSplitter::split(const PathMaster &pm, std::vector<FileKey> fileKeys,
 }
 
 namespace {
-bool SplitterThread::tryCreate(size_t shard, const PathMaster *pm, const SplitterInputs &sis,
-    const FileKey *startKey, const FileKey *endKey, std::shared_ptr<SplitterThread> *result,
+bool SplitterThread::tryCreate(size_t shard, const PathMaster &pm, const SplitterInputs &sis,
+    std::vector<IntraFileRange<FileKeyKind::Either>> ranges, std::shared_ptr<SplitterThread> *result,
     const FailFrame &ff) {
   auto createBw = [](size_t shard, const std::string &filename, NameAndWriter *result,
       const FailFrame &ff) {
@@ -266,7 +293,8 @@ bool SplitterThread::tryCreate(size_t shard, const PathMaster *pm, const Splitte
     return false;
   }
 
-  auto st = std::make_shared<SplitterThread>(shard, pm, startKey, endKey,
+  auto pms = pm.shared_from_this();
+  auto st = std::make_shared<SplitterThread>(shard, std::move(pms), std::move(ranges),
       std::move(logged), std::move(unlogged), std::move(reactionsByZgramId),
       std::move(reactionsByReaction), std::move(zgramRevs), std::move(zgramRefersTo),
       std::move(zmojis));
@@ -284,11 +312,11 @@ void SplitterThread::run(std::shared_ptr<SplitterThread> self) {
   streamf(std::cerr, "Splitter thread %o shutting down\n", self->shard_);
 }
 
-SplitterThread::SplitterThread(size_t shard, const PathMaster *pm, const FileKey *startKey,
-    const FileKey *endKey, NameAndWriter logged, NameAndWriter unlogged,
-    NameAndWriter reactionsByZgramId, NameAndWriter reactionsByReaction,
+SplitterThread::SplitterThread(size_t shard, std::shared_ptr<const PathMaster> pm,
+    std::vector<IntraFileRange<FileKeyKind::Either>> ranges, NameAndWriter logged,
+    NameAndWriter unlogged, NameAndWriter reactionsByZgramId, NameAndWriter reactionsByReaction,
     NameAndWriter zgramRevs, NameAndWriter zgramRefersTo, NameAndWriter zmojis) : shard_(shard),
-    pm_(pm), startKey_(startKey), endKey_(endKey), logged_(std::move(logged)),
+    pm_(std::move(pm)), ranges_(std::move(ranges)), logged_(std::move(logged)),
     unlogged_(std::move(unlogged)), reactionsByZgramId_(std::move(reactionsByZgramId)),
     reactionsByReaction_(std::move(reactionsByReaction)), zgramRevs_(std::move(zgramRevs)),
     zgramRefersTo_(std::move(zgramRefersTo)), zmojis_(std::move(zmojis)) {}
@@ -297,15 +325,16 @@ SplitterThread::~SplitterThread() = default;
 
 bool SplitterThread::tryRunHelper(const FailFrame &ff) {
   // Split records into various individual files so they can be sorted and then digested.
-  for (const auto *current = startKey_; current != endKey_; ++current) {
-    const auto &fileKey = *current;
-    auto pathName = pm_->getPlaintextPath(fileKey);
+  for (const auto &range : ranges_) {
+    auto pathName = pm_->getPlaintextPath(range.fileKey());
     MappedFile<char> mf;
     if (!mf.tryMap(pathName, false, ff.nest(HERE))) {
       return false;
     }
-    std::string_view recordText(mf.get(), mf.byteSize());
-    auto splitter = Splitter::ofRecords(recordText, '\n');
+    std::string_view wholeFileText(mf.get(), mf.byteSize());
+    auto selectedText = wholeFileText.substr(range.begin(), range.end() - range.begin());
+
+    auto splitter = Splitter::ofRecords(selectedText, '\n');
     std::string_view record;
     size_t offset = 0;
     while (splitter.moveNext(&record)) {
@@ -317,7 +346,7 @@ bool SplitterThread::tryRunHelper(const FailFrame &ff) {
         return false;
       }
       auto ff2 = ff.nest(HERE);
-      SplitterVisitor visitor(this, fileKey, offset, record.size(), &ff2);
+      SplitterVisitor visitor(this, range.fileKey(), offset, record.size(), &ff2);
       if (!std::visit(visitor, lr.payload())) {
         return false;
       }
@@ -345,7 +374,7 @@ bool SplitterThread::tryFinish(const FailFrame &ff) {
   return true;
 }
 
-SplitterVisitor::SplitterVisitor(SplitterThread *owner, const FileKey &fileKey, size_t offset,
+SplitterVisitor::SplitterVisitor(SplitterThread *owner, FileKey<FileKeyKind::Either> fileKey, size_t offset,
     size_t size, const FailFrame *ff) : owner_(owner), fileKey_(fileKey), offset_(offset),
     size_(size), ff_(ff) {}
 
@@ -353,7 +382,7 @@ bool SplitterVisitor::operator()(const Zephyrgram &o) {
   std::optional<ZgramId> *whichPrev;
   BufferedWriter *whichWriter;
   bool expectedLogged;
-  if (fileKey_.asExpandedFileKey().isLogged()) {
+  if (fileKey_.isLogged()) {
     whichPrev = &owner_->prevLoggedZgramId_;
     whichWriter = &owner_->logged_.writer_;
     expectedLogged = true;

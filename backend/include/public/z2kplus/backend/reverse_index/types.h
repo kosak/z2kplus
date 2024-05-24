@@ -36,13 +36,13 @@ struct WordOffTag {
 typedef kosak::coding::StrongInt<uint32_t, internal::ZgramOffTag> zgramOff_t;
 typedef kosak::coding::StrongInt<uint32_t, internal::WordOffTag> wordOff_t;
 
-// This class is POD.
+// This class is blittable.
 class ZgramInfo {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::LogLocation LogLocation;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
 public:
-  static bool tryCreate(uint64 timesecs, const Location &location, wordOff_t startingWordOff,
+  static bool tryCreate(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff,
       ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
       size_t instanceWordLength, size_t bodyWordLength, ZgramInfo *result, const FailFrame &ff);
 
@@ -53,7 +53,7 @@ public:
   }
 
   uint64_t timesecs() const { return timesecs_; }
-  const Location &location() const { return location_; }
+  const LogLocation &location() const { return location_; }
   wordOff_t startingWordOff() const { return startingWordOff_; }
   ZgramId zgramId() const { return zgramId_; }
   uint8_t senderWordLength() const { return senderWordLength_; }
@@ -67,23 +67,26 @@ public:
   }
 
 private:
-  ZgramInfo(uint64 timesecs, const Location &location, wordOff_t startingWordOff, ZgramId zgramId,
-      size_t senderWordLength, size_t signatureWordLength, size_t instanceWordLength,
-      size_t bodyWordLength);
+  ZgramInfo(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff, ZgramId zgramId,
+      uint16_t senderWordLength, uint16_t signatureWordLength, uint16_t instanceWordLength,
+      uint16_t bodyWordLength);
 
   // The timesecs field of this zgram
   uint64 timesecs_ = 0;
   // The location of the zgram
-  Location location_;
-  // Starting wordIndex of this zgram. See explanation below.
-  wordOff_t startingWordOff_;
+  LogLocation location_;
   // The ID.
   ZgramId zgramId_;
+
+  // Starting wordIndex of this zgram. See explanation below.
+  wordOff_t startingWordOff_;
+  // [[maybe_unused]]
+  uint32_t padding_ = 0;
   // Length of sender field in words, where "word" is defined as in our documentation
   // (see dynamic_index.h)
-  uint8_t senderWordLength_ = 0;
+  uint16_t senderWordLength_ = 0;
   // Length of signature field in words. For example "Corey Kosak" is two words.
-  uint8_t signatureWordLength_ = 0;
+  uint16_t signatureWordLength_ = 0;
   // Length of instance field in words.
   uint16_t instanceWordLength_ = 0;
   // Length of body field in words.
@@ -91,12 +94,19 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg);
 };
+static_assert(std::is_trivially_copyable_v<ZgramInfo> &&
+  std::has_unique_object_representations_v<ZgramInfo>);
+
 
 // This class is POD. This structure forms the entries of the "word index"---the reverse index of
 // word numbers to zephyrgram numbers.
 class WordInfo {
+  typedef kosak::coding::FailFrame FailFrame;
+
 public:
-  WordInfo(zgramOff_t zgramOff, FieldTag fieldTag);
+  static bool tryCreate(zgramOff_t zgramOff, FieldTag fieldTag, WordInfo *result, const FailFrame &ff);
+
+  WordInfo() : zgramOff_(0), fieldTag_(0) {}
 
   zgramOff_t zgramOff() const { return zgramOff_t(zgramOff_); }
 
@@ -106,10 +116,13 @@ public:
   DEFINE_ALL_COMPARISON_OPERATORS(WordInfo);
 
 private:
+  constexpr WordInfo(zgramOff_t zgramOff, FieldTag fieldTag) :
+      zgramOff_(zgramOff.raw()), fieldTag_(static_cast<uint32_t>(fieldTag)) {}
+
   static_assert((int)FieldTag::numTags <= 8);
   static_assert(sizeof(zgramOff_t) == sizeof(uint32_t));
 
-  static constexpr size_t maxZgramOff = ((size_t)1 << 29U) - 1;
+  // static constexpr size_t maxZgramOff = ((size_t)1 << 29U) - 1;
 
   // The zgram offset
   uint32_t zgramOff_: 29;
@@ -118,5 +131,7 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const WordInfo &zg);
 };
+static_assert(std::is_trivially_copyable_v<WordInfo> &&
+    std::has_unique_object_representations_v<WordInfo>);
 
 }  // namespace z2kplus::backend::reverse_index

@@ -39,9 +39,11 @@ using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::text::ReusableString32;
 using z2kplus::backend::factories::LogParser;
-using z2kplus::backend::files::DateAndPartKey;
 using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::FilePosition;
+using z2kplus::backend::files::InterFileRange;
+using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::ZgramId;
@@ -70,11 +72,11 @@ namespace z2kplus::backend::test {
 namespace {
 bool tryGetPathMaster(std::shared_ptr<PathMaster> *result, const FailFrame &ff);
 
-auto simpleKey0 = FileKey::createUnsafe(2000, 1, 1, 0, true);
+auto simpleKey0 = FileKey<FileKeyKind::Logged>::createUnsafe(2000, 1, 1, true);
 const char simpleText0[] = "" // to help CLion align the next line
   R"([["z",[[0],946703313,"kosak","Corey Kosak",true,["test","Hello this is kosak","d"]]]])" "\n";
 
-auto simpleKey1 = FileKey::createUnsafe(2000, 1, 1, 1, true);
+auto simpleKey1 = FileKey<FileKeyKind::Logged>::createUnsafe(2000, 1, 2, true);
 const char simpleText1[] = "" // to help CLion align the next line
   R"([["z",[[1],946703314,"kosh","Kosh",true,["test","You are not ready","d"]]]])" "\n"
   // body revision of zgram 0
@@ -118,9 +120,9 @@ TEST_CASE("index_construction: Build Dynamic Index", "[index_construction]") {
   std::pair<const wordOff_t*, const wordOff_t*> result;
   ReusableString32 rs32;
   REQUIRE(true == di.trie().tryFind(TestUtil::friendlyReset(&rs32, "Kosh"), &result));
-  REQUIRE(1 == result.second - result.first);
   // In this test Kosh appears at offset 9. In the next test, after the body revision is processed,
-  // Kosh will move to position 10.
+  // there will be two Koshes, at 6 and 8.
+  REQUIRE(1 == result.second - result.first);
   REQUIRE(9 == result.first->raw());
 }
 
@@ -131,7 +133,9 @@ TEST_CASE("index_construction: Build Frozen Index", "[index_construction]") {
   if (!tryGetPathMaster(&pm, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey0, simpleText0, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey1, simpleText1, fr.nest(HERE)) ||
-    !IndexBuilder::tryBuild(*pm, {}, {}, {}, {}, fr.nest(HERE)) ||
+    !IndexBuilder::tryBuild(*pm,
+        InterFileRange<FileKeyKind::Logged>::everything,
+        InterFileRange<FileKeyKind::Unlogged>::everything, fr.nest(HERE)) ||
     !pm->tryPublishBuild(fr.nest(HERE)) ||
     !mf.tryMap(pm->getIndexPath(), false, fr.nest(HERE))) {
     FAIL(fr);
@@ -140,22 +144,53 @@ TEST_CASE("index_construction: Build Frozen Index", "[index_construction]") {
   std::pair<const wordOff_t*, const wordOff_t*> result;
   ReusableString32 rs32;
   REQUIRE(true == index->trie().tryFind(TestUtil::friendlyReset(&rs32, "Kosh"), &result));
-  REQUIRE(2 == result.second - result.first);
-  // In this test Kosh appears at offset 9. In the next test, after the body revision is processed,
+  // In the previous Kosh appears at offset 9. In this test, after the body revision is processed,
   // there will be two Koshes, at 6 and 8.
+  REQUIRE(2 == result.second - result.first);
   REQUIRE(6 == result.first[0].raw());
   REQUIRE(8 == result.first[1].raw());
+}
+
+TEST_CASE("index_construction: Build Frozen Index partial file", "[index_construction]") {
+  FailRoot fr;
+  std::shared_ptr<PathMaster> pm;
+  MappedFile<FrozenIndex> mf;
+  auto file1Length = std::string_view(simpleText1).find('\n');
+  REQUIRE(file1Length != std::string_view::npos);
+
+  InterFileRange<FileKeyKind::Logged> loggedRange(
+      FilePosition<FileKeyKind::Logged>::zero,
+      FilePosition<FileKeyKind::Logged>(simpleKey1, file1Length + 1));
+  if (!tryGetPathMaster(&pm, fr.nest(HERE)) ||
+      !TestUtil::tryPopulateFile(*pm, simpleKey0, simpleText0, fr.nest(HERE)) ||
+      !TestUtil::tryPopulateFile(*pm, simpleKey1, simpleText1, fr.nest(HERE)) ||
+      !IndexBuilder::tryBuild(*pm,
+          loggedRange,
+          InterFileRange<FileKeyKind::Unlogged>::everything, fr.nest(HERE)) ||
+      !pm->tryPublishBuild(fr.nest(HERE)) ||
+      !mf.tryMap(pm->getIndexPath(), false, fr.nest(HERE))) {
+    FAIL(fr);
+  }
+  const auto *index = mf.get();
+  std::pair<const wordOff_t*, const wordOff_t*> result;
+  ReusableString32 rs32;
+  REQUIRE(true == index->trie().tryFind(TestUtil::friendlyReset(&rs32, "Kosh"), &result));
+  // In this test, we don't see the modificaiton line, so Kos is back at offset 9.
+  REQUIRE(1 == result.second - result.first);
+  REQUIRE(9 == result.first->raw());
 }
 
 TEST_CASE("index_construction: Probe Frozen Index", "[index_construction]") {
   FailRoot fr;
   std::shared_ptr<PathMaster> pm;
   MappedFile<FrozenIndex> mf;
-  DateAndPartKey lastKey;
   if (!tryGetPathMaster(&pm, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey0, simpleText0, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey1, simpleText1, fr.nest(HERE)) ||
-    !IndexBuilder::tryBuild(*pm, {}, {}, {}, {}, fr.nest(HERE)) ||
+    !IndexBuilder::tryBuild(*pm,
+        InterFileRange<FileKeyKind::Logged>::everything,
+        InterFileRange<FileKeyKind::Unlogged>::everything,
+        fr.nest(HERE)) ||
     !pm->tryPublishBuild(fr.nest(HERE)) ||
     !mf.tryMap(pm->getIndexPath(), false, fr.nest(HERE))) {
     FAIL(fr);

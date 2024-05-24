@@ -49,9 +49,7 @@ private:
 };
 
 class FrozenIndex {
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
-  typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::reverse_index::trie::FrozenTrie FrozenTrie;
   typedef z2kplus::backend::reverse_index::metadata::FrozenMetadata FrozenMetadata;
   typedef z2kplus::backend::util::frozen::FrozenStringPool FrozenStringPool;
@@ -59,12 +57,15 @@ class FrozenIndex {
   using FrozenVector = z2kplus::backend::util::frozen::FrozenVector<T>;
   template<typename K, typename V>
   using FrozenMap = z2kplus::backend::util::frozen::FrozenMap<K, V>;
+  template<FileKeyKind Kind>
+  using FilePosition = z2kplus::backend::files::FilePosition<Kind>;
 
 public:
   FrozenIndex();
-  FrozenIndex(DateAndPartKey endKey, FrozenVector<ZgramInfo> &&zgramInfos,
-      FrozenVector<WordInfo> &&wordInfos, FrozenTrie &&trie, FrozenStringPool &&stringPool,
-      FrozenMetadata &&metadata);
+  FrozenIndex(const FilePosition<FileKeyKind::Logged> &loggedEnd,
+      const FilePosition<FileKeyKind::Unlogged> &unloggedEnd,
+      FrozenVector<ZgramInfo> zgramInfos, FrozenVector<WordInfo> wordInfos, FrozenTrie trie,
+      FrozenStringPool stringPool, FrozenMetadata metadata);
   DISALLOW_COPY_AND_ASSIGN(FrozenIndex);
   DECLARE_MOVE_COPY_AND_ASSIGN(FrozenIndex);
   ~FrozenIndex();
@@ -73,7 +74,8 @@ public:
     return FrozenLess(&stringPool_);
   }
 
-  DateAndPartKey endKey() const { return endKey_; }
+  const FilePosition<FileKeyKind::Logged> &loggedEnd() const { return loggedEnd_; }
+  const FilePosition<FileKeyKind::Unlogged> &unloggedEnd() const { return unloggedEnd_; }
   const FrozenVector<ZgramInfo> &zgramInfos() const { return zgramInfos_; }
   const FrozenVector<WordInfo> &wordInfos() const { return wordInfos_; }
   const FrozenTrie &trie() const { return trie_; }
@@ -84,7 +86,8 @@ public:
   const FrozenMetadata &metadata() const { return metadata_; }
 
 private:
-  DateAndPartKey endKey_;
+  FilePosition<FileKeyKind::Logged> loggedEnd_;
+  FilePosition<FileKeyKind::Unlogged> unloggedEnd_;
   FrozenVector<ZgramInfo> zgramInfos_;
   FrozenVector<WordInfo> wordInfos_;
   FrozenTrie trie_;

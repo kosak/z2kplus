@@ -31,9 +31,8 @@ using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::streamf;
 using z2kplus::backend::coordinator::Coordinator;
-using z2kplus::backend::files::ExpandedFileKey;
-using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::DateAndPartKey;
+using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
 using z2kplus::backend::reverse_index::index::ConsolidatedIndex;
@@ -97,9 +96,13 @@ bool tryStartServer(std::shared_ptr<PathMaster> pm, std::shared_ptr<Server> *res
   }
 
   if (!exists) {
-    // What should happen here? Maybe here is where we purge graffiti older than a week?
+    // Since there's no index file, it would be safe to purge old graffiti here.
+    // Otherwise it will be purged at the next index rebuild.
     if (!IndexBuilder::tryClearScratchDirectory(*pm, ff.nest(HERE)) ||
-        !IndexBuilder::tryBuild(*pm, {}, {}, {}, {}, ff.nest(HERE)) ||
+        !IndexBuilder::tryBuild(*pm,
+            InterFileRange<FileKeyKind::Logged>::everything,
+            InterFileRange<FileKeyKind::Unlogged>::everything,
+            ff.nest(HERE)) ||
         !pm->tryPublishBuild(ff.nest(HERE))) {
       return false;
     }

@@ -47,25 +47,65 @@
 // dynamic - A DynamicIndex, having new zgrams and new/modified metadata.
 namespace z2kplus::backend::reverse_index::index {
 namespace internal {
-struct DynamicFileState {
+class DynamicFileStateBase {
+protected:
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
-  typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  static bool tryCreate(const PathMaster &pm, DateAndPartKey dpKey, bool logged,
-      DynamicFileState *result, const FailFrame &ff);
+  template<z2kplus::backend::files::FileKeyKind Kind2>
+  using FileKey = z2kplus::backend::files::FileKey<Kind2>;
 
-  DynamicFileState();
-  DynamicFileState(FileKey fileKey, FileCloser fc, size_t fileSize);
+  static bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
+      FileCloser *fc, const FailFrame &ff);
+
+public:
+  DynamicFileStateBase();
+  DISALLOW_COPY_AND_ASSIGN(DynamicFileStateBase);
+  DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileStateBase);
+  ~DynamicFileStateBase();
+
+  void advance(uint32_t bytes) {
+    fileSize_ += bytes;
+  }
+
+  const FileCloser &fileCloser() const { return fileCloser_; }
+  uint32_t fileSize() const { return fileSize_; }
+
+protected:
+  DynamicFileStateBase(FileCloser fileCloser, size_t fileSize) : fileCloser_(std::move(fileCloser)),
+    fileSize_(fileSize) {}
+
+  FileCloser fileCloser_;
+  uint32_t fileSize_ = 0;
+};
+
+template<z2kplus::backend::files::FileKeyKind Kind>
+class DynamicFileState : public DynamicFileStateBase {
+public:
+  static bool tryCreate(const PathMaster &pm, FileKey<Kind> fileKey,
+      uint32_t offset, DynamicFileState *result, const FailFrame &ff) {
+    FileCloser fc;
+    if (!tryCreateOrAppendToLogFile(pm, fileKey, offset, &fc, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = DynamicFileState(std::move(fc), fileKey, offset);
+    return true;
+  }
+
+  DynamicFileState() = default;
   DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
-  DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
-  ~DynamicFileState();
+  DEFINE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
+  ~DynamicFileState() = default;
 
-  FileKey fileKey_;
-  FileCloser fc_;
-  size_t fileSize_ = 0;
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
+
+private:
+  DynamicFileState(FileCloser fileCloser, FileKey<Kind> fileKey, size_t fileSize) :
+      DynamicFileStateBase(std::move(fileCloser), fileSize), fileKey_(fileKey) {}
+
+  FileKey<Kind> fileKey_;
 };
 }  // namespace internal
 
@@ -73,9 +113,7 @@ class ConsolidatedIndex {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::factories::LogParser::logRecordAndLocation_t logRecordAndLocation_t;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
-  typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::DynamicIndex DynamicIndex;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;
@@ -91,6 +129,9 @@ class ConsolidatedIndex {
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::automaton::FiniteAutomaton FiniteAutomaton;
 
+  template<FileKeyKind Kind>
+  using FilePosition = z2kplus::backend::files::FilePosition<Kind>;
+
   template<typename T>
   using MappedFile =  kosak::coding::memory::MappedFile<T>;
 
@@ -103,7 +144,9 @@ public:
       std::chrono::system_clock::time_point now,
       ConsolidatedIndex *result, const FailFrame &ff);
 
-  static bool tryCreate(std::shared_ptr<PathMaster> pm, DateAndPartKey currentKey,
+  static bool tryCreate(std::shared_ptr<PathMaster> pm,
+      const FilePosition<FileKeyKind::Logged> &loggedStart,
+      const FilePosition<FileKeyKind::Unlogged> &unloggedStart,
       MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result, const FailFrame &ff);
 
   ConsolidatedIndex();
@@ -123,7 +166,9 @@ public:
   void findMatching(const FiniteAutomaton &dfa,
       const kosak::coding::Delegate<void, const wordOff_t *, const wordOff_t *> &callback) const;
 
-  bool tryCheckpoint(std::chrono::system_clock::time_point now, DateAndPartKey *endKey,
+  bool tryCheckpoint(std::chrono::system_clock::time_point now,
+      FilePosition<FileKeyKind::Logged> *loggedPosition,
+      FilePosition<FileKeyKind::Unlogged> *unloggedPosition,
       const FailFrame &ff);
 
   bool tryFind(ZgramId id, zgramOff_t *result) const;
@@ -164,9 +209,10 @@ public:
   ZgramCache &zgramCache() { return zgramCache_; }
 
 private:
-  ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm, DateAndPartKey currentKey,
-      MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
-      internal::DynamicFileState &&unloggedState);
+  ConsolidatedIndex(std::shared_ptr<PathMaster> pm,
+      MappedFile<FrozenIndex> frozenIndex,
+      internal::DynamicFileState<FileKeyKind::Logged> loggedState,
+      internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState);
 
   bool tryAddZgramsHelper(std::chrono::system_clock::time_point now, const Profile &profile,
       std::vector<ZgramCore> &&zgcs, std::vector<Zephyrgram> *zgrams, const FailFrame &ff);
@@ -178,16 +224,15 @@ private:
 
   std::shared_ptr<PathMaster> pm_;
 
-  DateAndPartKey currentKey_;
   // Zgrams and metadata that have been digested and stored in the on-disk format.
   MappedFile<FrozenIndex> frozenIndex_;
   // Freshly arrived zephyrgrams and metadata.
   DynamicIndex dynamicIndex_;
 
   // Log for the freshly-arrived logged zgrams and metadata
-  internal::DynamicFileState loggedState_;
+  internal::DynamicFileState<FileKeyKind::Logged> loggedState_;
   // Log for the freshly-arrived unlogged zgrams and metadata
-  internal::DynamicFileState unloggedState_;
+  internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState_;
 
   ZgramCache zgramCache_;
 };

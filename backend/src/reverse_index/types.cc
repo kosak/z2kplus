@@ -26,7 +26,7 @@ using kosak::coding::streamf;
 
 namespace z2kplus::backend::reverse_index {
 
-bool ZgramInfo::tryCreate(uint64_t timesecs, const Location &location, wordOff_t startingWordOff,
+bool ZgramInfo::tryCreate(uint64_t timesecs, const LogLocation &location, wordOff_t startingWordOff,
     ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
     size_t instanceWordLength, size_t bodyWordLength, ZgramInfo *result, const FailFrame &ff) {
   *result = ZgramInfo(timesecs, location, startingWordOff, zgramId, senderWordLength,
@@ -43,18 +43,13 @@ bool ZgramInfo::tryCreate(uint64_t timesecs, const Location &location, wordOff_t
 
 ZgramInfo::ZgramInfo() = default;
 
-ZgramInfo::ZgramInfo(uint64 timesecs, const Location &location, wordOff_t startingWordOff,
-    ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
-  size_t instanceWordLength, size_t bodyWordLength) :
-  timesecs_(timesecs), location_(location), startingWordOff_(startingWordOff), zgramId_(zgramId),
-  senderWordLength_((uint8_t)senderWordLength), signatureWordLength_((uint8_t)signatureWordLength),
-  instanceWordLength_((uint16_t)instanceWordLength), bodyWordLength_((uint16_t)bodyWordLength) {
-  // Check for truncation
-  passert(senderWordLength_ == senderWordLength &&
-    signatureWordLength_ == signatureWordLength &&
-    instanceWordLength_ == instanceWordLength &&
-    bodyWordLength_ == bodyWordLength,
-    senderWordLength, signatureWordLength, instanceWordLength, bodyWordLength);
+ZgramInfo::ZgramInfo(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff,
+    ZgramId zgramId, uint16_t senderWordLength, uint16_t signatureWordLength,
+    uint16_t instanceWordLength, uint16_t bodyWordLength) :
+  timesecs_(timesecs), location_(location), zgramId_(zgramId),
+  startingWordOff_(startingWordOff), senderWordLength_(senderWordLength),
+  signatureWordLength_(signatureWordLength), instanceWordLength_(instanceWordLength),
+  bodyWordLength_(bodyWordLength) {
 }
 
 std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg) {
@@ -64,10 +59,13 @@ std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg) {
     (size_t)zg.signatureWordLength_, (size_t)zg.instanceWordLength_, (size_t)zg.bodyWordLength_);
 }
 
-WordInfo::WordInfo(zgramOff_t zgramOff, FieldTag fieldTag)
-  : zgramOff_(zgramOff.raw()), fieldTag_((unsigned)fieldTag) {
-  passert(zgramOff.raw() < (1U << 29U));
-  passert((unsigned)fieldTag < (1U << 3U));
+bool WordInfo::tryCreate(zgramOff_t zgramOff, FieldTag fieldTag, WordInfo *result,
+    const FailFrame &ff) {
+  *result = WordInfo(zgramOff, fieldTag);
+  if (zgramOff != result->zgramOff() || fieldTag != result->fieldTag()) {
+    return ff.failf(HERE, "Some value was truncated: %o and %o", zgramOff, fieldTag);
+  }
+  return true;
 }
 
 int WordInfo::compare(const WordInfo &other) const {

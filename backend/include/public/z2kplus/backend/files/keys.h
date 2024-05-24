@@ -28,200 +28,313 @@
 #include "kosak/coding/failures.h"
 
 namespace z2kplus::backend::files {
-class ExpandedFileKey;
+enum class FileKeyKind { Logged, Unlogged, Either };
 
-// This class is blittable.
 namespace internal {
-class FileKeyCore {
+bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, FileKeyKind kind,
+    const kosak::coding::FailFrame &ff);
+bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
+    uint32_t *result, const kosak::coding::FailFrame &ff);
+}  // namespace internal
+
+// Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
+// refers to a file in the database.
+// This is blitted inside the index.
+// For extra programming safety, is templated into one of three partitions:
+// Logged, Unlogged, Either
+template<FileKeyKind Kind>
+class FileKey {
   using FailFrame = kosak::coding::FailFrame;
+
+  explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
+
 public:
-  static constexpr size_t yearBegin = 1970;
-  static constexpr size_t yearEnd = 2101;
-  static constexpr size_t monthBegin = 1;
-  static constexpr size_t monthEnd = 13;
-  static constexpr size_t dayBegin = 1;
-  static constexpr size_t dayEnd = 32;
-  static constexpr size_t partBegin = 0;
-  static constexpr size_t partEnd = 1000;
-  static constexpr size_t extraBegin = 0;
-  static constexpr size_t extraEnd = 2;
+  static FileKey infinity;
 
-  static constexpr size_t yearWidth = yearEnd - yearBegin;
-  static constexpr size_t monthWidth = monthEnd - monthBegin;
-  static constexpr size_t dayWidth = dayEnd - dayBegin;
-  static constexpr size_t partWidth = partEnd - partBegin;
-  static constexpr size_t extraWidth = extraEnd - extraBegin;
-
-  static constexpr size_t totalWidth = yearWidth * monthWidth * dayWidth * partWidth * extraWidth;
-  static_assert(totalWidth < std::numeric_limits<uint32_t>::max());
-
-  static bool tryCreate(size_t year, size_t month, size_t day, size_t part, bool extra,
-      FileKeyCore *result, const FailFrame &failFrame);
-
-  static bool tryCreate(uint32_t raw, FileKeyCore *result, const FailFrame &failFrame);
-
-  static constexpr FileKeyCore createUnsafe(size_t year, size_t month, size_t day, size_t part,
-      bool extra) noexcept {
-    uint32 raw = year - yearBegin;
-    raw = raw * monthWidth + (month - monthBegin);
-    raw = raw * dayWidth + (day - dayBegin);
-    raw = raw * partWidth + (part - partBegin);
-    raw = raw * extraWidth + (extra ? 1 : 0);
-    return FileKeyCore(raw);
+  static bool tryCreate(uint32_t year, uint32_t month, uint32_t day, bool isLogged,
+      FileKey *result, const FailFrame &ff) {
+    if (!internal::tryValidate(year, month, day, isLogged, Kind, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = createUnsafe(year, month, day, isLogged);
+    return true;
   }
 
-  FileKeyCore() = default;
-  ~FileKeyCore() = default;
+  static constexpr FileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
+    auto raw = year;
+    raw = raw * 100 + month;
+    raw = raw * 100 + day;
+    raw = raw * 10 + (isLogged ? 1 : 0);
+    return FileKey(raw);
+  }
 
-  ExpandedFileKey asExpandedFileKey() const;
+  static constexpr FileKey createUnsafe(uint32_t raw) {
+    if (Kind == FileKeyKind::Logged && ((raw & 1) == 0)) {
+      throw std::runtime_error("raw value not Logged kind");
+    }
+    if (Kind == FileKeyKind::Unlogged && ((raw & 1) == 1)) {
+      throw std::runtime_error("raw value not Unlogged kind");
+    }
+    FileKey<Kind> temp(raw);
+    return temp;
+  }
+
+  static bool tryCreateFromTimePoint(std::chrono::system_clock::time_point timePoint,
+      FileKey *result, const FailFrame &ff) {
+    static_assert(Kind != FileKeyKind::Either);
+    uint32_t raw;
+    if (!internal::tryCreateRawFromTimePoint(timePoint, Kind == FileKeyKind::Logged,
+        &raw, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = FileKey<Kind>(raw);
+    return true;
+  }
+
+  constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
+  }
+
+  template<FileKeyKind OtherKind>
+  constexpr FileKey(FileKey<OtherKind> other) : raw_(other.raw()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
+
+  constexpr std::pair<std::optional<FileKey<FileKeyKind::Logged>>, std::optional<FileKey<FileKeyKind::Unlogged>>> visit() const {
+    if constexpr (Kind == FileKeyKind::Logged) {
+      return {*this, {}};
+    } else if constexpr (Kind == FileKeyKind::Unlogged) {
+      return {{}, *this};
+    } else if constexpr (Kind == FileKeyKind::Either) {
+      if (isLogged()) {
+        return {FileKey<FileKeyKind::Logged>::createUnsafe(raw_), {}};
+      } else {
+        return {{}, FileKey<FileKeyKind::Unlogged>::createUnsafe(raw_)};
+      }
+    } else {
+      throw std::runtime_error("Impossible: unexpected case");
+    }
+  }
+
+  std::tuple<uint32, uint32, uint32, bool> expand() const {
+    auto temp = raw_;
+    bool isLogged = (temp % 10) != 0;
+    temp /= 10;
+
+    uint32_t day = temp % 100;
+    temp /= 100;
+
+    uint32_t month = temp % 100;
+    temp /= 100;
+
+    uint32_t year = temp;
+    return std::make_tuple(year, month, day, isLogged);
+  }
 
   uint32_t raw() const { return raw_; }
 
-  int compare(const FileKeyCore &other) const {
-    return kosak::coding::compare(&raw_, &other.raw_);
+  uint32_t canonicalRaw() const { return raw_ & ~1; }
+
+  bool isLogged() const {
+    return (raw_ & 1) != 0;
   }
 
-  DEFINE_ALL_COMPARISON_OPERATORS(FileKeyCore);
-
-  void dump(std::ostream &s, char extraWhenFalse, char extraWhenTrue) const;
-
 private:
-  explicit constexpr FileKeyCore(uint32_t raw) : raw_(raw) {}
-
   uint32_t raw_ = 0;
 
-};
-}  // namespace internal
-
-class ExpandedFileKey {
-public:
-  size_t year() const { return year_; }
-  size_t month() const { return month_; }
-  size_t day() const { return day_; }
-  size_t part() const { return part_; }
-  bool isLogged() const { return isLogged_; }
-
-  void dump(std::ostream &s, char extraWhenFalse, char extraWhenTrue) const;
-
-private:
-  ExpandedFileKey(size_t year, size_t month, size_t day, size_t part, bool isLogged);
-
-  size_t year_ = 0;
-  size_t month_ = 0;
-  size_t day_ = 0;
-  size_t part_ = 0;
-  bool isLogged_ = false;
-
-  friend std::ostream &operator<<(std::ostream &s, const ExpandedFileKey &o);
-  friend class internal::FileKeyCore;
-};
-
-// This class is blittable.
-class FileKey;
-class DateAndPartKey {
-  using FailFrame = kosak::coding::FailFrame;
-public:
-  static bool tryCreate(size_t year, size_t month, size_t day, size_t part, DateAndPartKey *result,
-      const FailFrame &ff);
-
-  static bool tryCreate(std::chrono::system_clock::time_point p, DateAndPartKey *result,
-      const FailFrame &ff);
-
-  static constexpr DateAndPartKey createUnsafe(size_t year, size_t month, size_t day, size_t part)
-      noexcept {
-    return DateAndPartKey(internal::FileKeyCore::createUnsafe(year, month, day, part, false));
+  friend bool operator<(const FileKey &lhs, const FileKey &rhs) {
+    static_assert(Kind != FileKeyKind::Either);
+    return lhs.raw_ < rhs.raw_;
   }
 
-  DateAndPartKey() = default;
-  ~DateAndPartKey() = default;
-
-  ExpandedFileKey asExpandedFileKey() const {
-    return core_.asExpandedFileKey();
+  friend bool operator==(const FileKey &lhs, const FileKey &rhs) {
+    return lhs.raw_ == rhs.raw_;
   }
-
-  FileKey asFileKey(bool logged) const;
-
-  bool tryBump(DateAndPartKey *result, const FailFrame &ff) const;
-
-  bool thisOrNow(std::chrono::system_clock::time_point now, DateAndPartKey *result,
-      const FailFrame &ff) const;
-
-  uint32_t raw() const { return core_.raw(); }
-
-  int compare(const DateAndPartKey &other) const { return core_.compare(other.core_); }
-  DEFINE_ALL_COMPARISON_OPERATORS(DateAndPartKey);
-
-private:
-  explicit constexpr DateAndPartKey(const internal::FileKeyCore &core) : core_(core) {}
-
-  internal::FileKeyCore core_;
-
-  friend std::ostream &operator<<(std::ostream &s, const DateAndPartKey &o) {
-    o.core_.dump(s, 0, 0);
-    return s;
-  }
-};
-
-// This class is blittable.
-class FileKey {
-  using FailFrame = kosak::coding::FailFrame;
-public:
-  static bool tryCreate(size_t year, size_t month, size_t day, size_t part, bool isLogged,
-      FileKey *result, const FailFrame &failFrame);
-  static bool tryCreate(uint32_t raw, FileKey *result, const FailFrame &failFrame);
-
-  static constexpr FileKey createUnsafe(size_t year, size_t month, size_t day, size_t part,
-      bool logged) noexcept {
-    return FileKey(internal::FileKeyCore::createUnsafe(year, month, day, part, logged));
-  }
-
-  FileKey() = default;
-  ~FileKey() = default;
-
-  ExpandedFileKey asExpandedFileKey() const {
-    return core_.asExpandedFileKey();
-  }
-
-  DateAndPartKey asDateAndPartKey() const;
-
-  uint32_t raw() const { return core_.raw(); }
-
-  int compare(const FileKey &other) const { return core_.compare(other.core_); }
-  DEFINE_ALL_COMPARISON_OPERATORS(FileKey);
-
-private:
-  explicit constexpr FileKey(const internal::FileKeyCore &core) : core_(core) {}
-  internal::FileKeyCore core_;
 
   friend std::ostream &operator<<(std::ostream &s, const FileKey &o) {
-    o.core_.dump(s, 'U', 'L');
-    return s;
+    // yyyymmdd.{logged,unlogged}
+    // Plenty of space
+    char buffer[64];
+    auto [y, m, d, l] = o.expand();
+    snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04u%02u%02u.%s",
+        y, m, d, l ? "logged" : "unlogged");
+    return s << buffer;
   }
 };
 
+static_assert(std::is_trivially_copyable_v<FileKey<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<FileKey<FileKeyKind::Either>>);
 
-// This class is blittable.
-class Location {
+template<FileKeyKind Kind>
+FileKey<Kind> FileKey<Kind>::infinity = FileKey<Kind>::createUnsafe(9999, 12, 31, Kind == FileKeyKind::Logged);
+
+// Defines the start and end of a zgram or metadata record, either logged or unlogged.
+// It is used inside ZgramInfo. This class is blittable.
+class LogLocation {
 public:
-  Location() = default;
-  Location(FileKey fileKey, uint32_t position, uint32_t size) : fileKey_(fileKey),
-    position_(position), size_(size) {}
+  LogLocation() = default;
+  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t offset, uint32_t size, const char *zamboniTime) :
+      fileKey_(fileKey), offset_(offset), size_(size) {}
 
-  const FileKey &fileKey() const { return fileKey_; }
-  uint32_t position() const { return position_; }
+  const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }
+  uint32_t offset() const { return offset_; }
   uint32_t size() const { return size_; }
-
-  int compare(const Location &other) const;
-  DEFINE_ALL_COMPARISON_OPERATORS(Location);
 
 private:
   // Which fulltext file this zgram lives in.
-  FileKey fileKey_;
-  // The character position of start of zgram in the fulltext file.
-  uint32_t position_ = 0;
-  // The length of zgram in characters.
+  FileKey<FileKeyKind::Either> fileKey_;
+  // The character position of start of the record in the fulltext file.
+  uint32_t offset_ = 0;
+  // The number of bytes in this record
   uint32_t size_ = 0;
 
-  friend std::ostream &operator<<(std::ostream &s, const Location &o);
+  // [[maybe_unused]]
+  uint32_t padding_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
 };
+static_assert(std::is_trivially_copyable_v<LogLocation> &&
+  std::has_unique_object_representations_v<LogLocation>);
+
+
+// Defines a position inside a file. This is used in the FrozenIndex to keep
+// track of the end of the logged and unlogged databases at the time the
+// FrozenIndex was created. It is templated for extra programming safety.
+// This class is blittable.
+template<FileKeyKind Kind>
+class FilePosition {
+  using FailFrame = kosak::coding::FailFrame;
+
+public:
+  static FilePosition zero;
+  static FilePosition infinity;
+
+  constexpr FilePosition(FileKey<Kind> fileKey, uint32_t position)
+      : fileKey_(fileKey), position_(position) {}
+  constexpr FilePosition() = default;
+
+  template<FileKeyKind OtherKind>
+  constexpr FilePosition(FilePosition<OtherKind> other) : fileKey_(other.fileKey()),
+    position_(other.position()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
+
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
+  uint32_t position() const { return position_; }
+
+private:
+  // Which fulltext file this zgram lives in.
+  FileKey<Kind> fileKey_;
+  // The character position of start of zgram in the fulltext file.
+  uint32_t position_ = 0;
+
+  friend bool operator<(const FilePosition &lhs, const FilePosition &rhs) {
+    static_assert(Kind != FileKeyKind::Either);
+    if (lhs.fileKey_ < rhs.fileKey_) {
+      return true;
+    }
+    if (rhs.fileKey_ < lhs.fileKey_) {
+      return false;
+    }
+    return lhs.position_ < rhs.position_;
+  }
+
+  friend bool operator==(const FilePosition &lhs, const FilePosition &rhs) {
+    return lhs.fileKey_ == rhs.fileKey_ && lhs.position_ == rhs.position_;
+  }
+
+  friend std::ostream &operator<<(std::ostream &s, const FilePosition &o) {
+    return kosak::coding::streamf(s, "%o:%o", o.fileKey_, o.position_);
+  }
+};
+static_assert(std::is_trivially_copyable_v<FilePosition<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<FilePosition<FileKeyKind::Either>>);
+
+template<FileKeyKind Kind>
+FilePosition<Kind> FilePosition<Kind>::zero;
+
+template<FileKeyKind Kind>
+FilePosition<Kind> FilePosition<Kind>::infinity(FileKey<Kind>::infinity, 0);
+
+// Defines a byte range [begin,end) inside a file in the database.
+template<FileKeyKind Kind>
+class IntraFileRange {
+public:
+  IntraFileRange() = default;
+  IntraFileRange(FileKey<Kind> fileKey, uint32_t begin, uint32_t end) :
+      fileKey_(fileKey), begin_(begin), end_(end) {}
+
+  template<FileKeyKind OtherKind>
+  IntraFileRange(const IntraFileRange<OtherKind> &other) :
+    fileKey_(other.fileKey()), begin_(other.begin()), end_(other.end()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
+
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
+  uint32_t begin() const { return begin_; }
+  uint32_t end() const { return end_; }
+
+private:
+  // The file being referred to.
+  FileKey<Kind> fileKey_;
+  // The inclusive start of the range.
+  uint32_t begin_ = 0;
+  // The exclusive end of the range.
+  uint32_t end_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o) {
+    return kosak::coding::streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
+  }
+};
+static_assert(std::is_trivially_copyable_v<IntraFileRange<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<IntraFileRange<FileKeyKind::Either>>);
+
+// Defines a range across files. This is used as a parameter to define the whole
+// valid range of {logged, unlogged} zgrams for a method to look at.
+template<FileKeyKind Kind>
+class InterFileRange {
+public:
+  static InterFileRange everything;
+
+  constexpr InterFileRange(FileKey<Kind> beginKey, uint32_t beginPos,
+      FileKey<Kind> endKey, uint32_t endPos) :
+      begin_(beginKey, beginPos), end_(endKey, endPos) {}
+
+  constexpr InterFileRange(FilePosition<Kind> begin, FilePosition<Kind> end) :
+    begin_(begin), end_(end) {}
+
+  InterFileRange() = default;
+//  InterFileRange(const FileKey &beginKey, uint32_t beginPos,
+//      const FileKey &endKey, uint32_t endPos);
+//  InterFileRange(const FilePosition &begin, const FilePosition &end) :
+//      begin_(begin), end_(end) {}
+
+  const FilePosition<Kind> &begin() const { return begin_; }
+  const FilePosition<Kind> &end() const { return end_; }
+
+  InterFileRange intersectWith(const InterFileRange &other) const {
+    auto newBegin = std::max(begin_, other.begin_);
+    auto newEnd = std::min(end_, other.end_);
+    if (newEnd < newBegin) {
+      // Ranges don't intersect; return empty.
+      return {end_, end_};
+    }
+    return {newBegin, newEnd};
+  }
+
+  bool empty() const {
+    return begin_ == end_;
+  }
+
+private:
+  FilePosition<Kind> begin_;
+  FilePosition<Kind> end_;
+
+  friend std::ostream &operator<<(std::ostream &s, const InterFileRange &o) {
+    return kosak::coding::streamf(s, "[%o--%o)", o.begin_, o.end_);
+  }
+};
+
+template<FileKeyKind Kind>
+InterFileRange<Kind> InterFileRange<Kind>::everything(FilePosition<Kind>::zero,
+    FilePosition<Kind>::infinity);
 }  // namespace z2kplus::backend::files

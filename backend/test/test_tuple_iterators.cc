@@ -35,6 +35,7 @@ using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::tuple_iterators::makeAccumulator;
 using z2kplus::backend::reverse_index::builder::tuple_iterators::makeLastKeeper;
@@ -226,13 +227,9 @@ TEST_CASE("tuples: trueKeeper", "[tuples]") {
 
 TEST_CASE("tuples: serializer", "[tuples]") {
   FailRoot fr;
-  typedef std::tuple<bool, uint32_t, uint64_t, std::string_view, ZgramId, FileKey> everything_t;
+  typedef std::tuple<bool, uint32_t, uint64_t, std::string_view, ZgramId, FileKey<FileKeyKind::Either>> everything_t;
   ZgramId zgId(1234);
-  FileKey fk;
-  if (!FileKey::tryCreate(1999, 3, 1, 3, true, &fk, fr.nest(HERE))) {
-    INFO(fr);
-    REQUIRE(false);
-  }
+  auto fk = FileKey<FileKeyKind::Either>::createUnsafe(1999, 3, 1, true);
   everything_t src(true, 87, 1'234'567'890'123ULL, "kosak", zgId, fk);
 
   std::string text;
@@ -241,7 +238,7 @@ TEST_CASE("tuples: serializer", "[tuples]") {
     REQUIRE(false);
   }
 
-  const char *expected = "T\t87\t1234567890123\tkosak\t1234\t21700007";
+  const char *expected = "T\t87\t1234567890123\tkosak\t1234\t199903011";
   REQUIRE(expected == text);
 
   everything_t dest;
