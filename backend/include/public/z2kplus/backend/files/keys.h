@@ -50,10 +50,10 @@ public:
   FileKey() = default;
   ~FileKey() = default;
 
-  size_t year() const { return year_; }
-  size_t month() const { return month_; }
-  size_t day() const { return day_; }
-  bool isLogged() const { return isLogged_; }
+  size_t year() const;
+  size_t month() const;
+  size_t day() const;
+  bool isLogged() const;
 
   uint32_t raw() const { return raw_; }
 
@@ -72,7 +72,6 @@ private:
 };
 static_assert(std::is_trivially_copyable_v<FileKey> && std::has_unique_object_representations_v<FileKey>);
 
-
 // FileKey: compressed file key (yyyymmddL)
 // file key with offset (yyyymmddL + offset); Location can be our proxy for this
 // logged vs unlogged are incomparable
@@ -83,16 +82,11 @@ class FilePosition {
   using FailFrame = kosak::coding::FailFrame;
 
 public:
-  Location() = default;
-  Location(FileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
+  FilePosition() = default;
+  FilePosition(FileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
 
   const FileKey &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
-
-  int tryCompare(const Location &other, const FailFrame &ff) const;
-
-  int compare(const Location &other) const;
-  DEFINE_ALL_COMPARISON_OPERATORS(Location);
 
 private:
   // Which fulltext file this zgram lives in.
@@ -100,22 +94,20 @@ private:
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
-  friend std::ostream &operator<<(std::ostream &s, const Location &o);
+  friend std::ostream &operator<<(std::ostream &s, const FilePosition &o);
 };
-static_assert(std::is_trivially_copyable_v<FileLocation> && std::has_unique_object_representations_v<FileLocation>);
+static_assert(std::is_trivially_copyable_v<FilePosition> &&
+    std::has_unique_object_representations_v<FilePosition>);
 
 class IntraFileRange {
 public:
-  ZgramLocator() = default;
-  ZgramLocator(FileKey fileKey, uint32_t position, uint32_t size) : fileKey_(fileKey),
-                                                                position_(position), size_(size) {}
+  IntraFileRange() = default;
+  IntraFileRange(FileKey fileKey, uint32_t begin, uint32_t end) :
+      fileKey_(fileKey), begin_(begin), end_(end) {}
 
   const FileKey &fileKey() const { return fileKey_; }
-  uint32_t position() const { return position_; }
-  uint32_t size() const { return size_; }
-
-  int compare(const Location &other) const;
-  DEFINE_ALL_COMPARISON_OPERATORS(Location);
+  uint32_t begin() const { return begin; }
+  uint32_t end() const { return end_; }
 
 private:
   // The file being referred to.
@@ -125,31 +117,24 @@ private:
   // The exclusive end of the range.
   uint32_t end_ = 0;
 
-  friend std::ostream &operator<<(std::ostream &s, const FileRange &o);
+  friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o);
 };
-static_assert(std::is_trivially_copyable_v<IntraFileRange> && std::has_unique_object_representations_v<IntraFileRange>);
+static_assert(std::is_trivially_copyable_v<IntraFileRange> &&
+    std::has_unique_object_representations_v<IntraFileRange>);
 
 class InterFileRange {
 public:
-  ZgramLocator() = default;
-  ZgramLocator(FileKey fileKey, uint32_t position, uint32_t size) : fileKey_(fileKey),
-  position_(position), size_(size) {}
+  InterFileRange() = default;
+  InterFileRange(const FilePosition &begin, const FilePosition &end) :
+      begin_(begin), end_(end) {}
 
-  const FileKey &fileKey() const { return fileKey_; }
-  uint32_t position() const { return position_; }
-  uint32_t size() const { return size_; }
-
-  int compare(const Location &other) const;
-  DEFINE_ALL_COMPARISON_OPERATORS(Location);
+  const FilePosition &begin() const { return begin_; }
+  const FilePosition &end() const { return end_; }
 
 private:
   FilePosition begin_;
   FilePosition end_;
 
-  friend std::ostream &operator<<(std::ostream &s, const FileRange &o);
+  friend std::ostream &operator<<(std::ostream &s, const InterFileRange &o);
 };
-static_assert(std::is_trivially_copyable_v<IntraFileRange> && std::has_unique_object_representations_v<IntraFileRange>);
-
-
-
 }  // namespace z2kplus::backend::files

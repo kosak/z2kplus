@@ -15,16 +15,20 @@
 #include "z2kplus/backend/reverse_index/builder/log_analyzer.h"
 
 #include "kosak/coding/coding.h"
+#include "kosak/coding/unix.h"
 #include "z2kplus/backend/files/keys.h"
 
 #define HERE KOSAK_CODING_HERE
 
 using kosak::coding::streamf;
+using kosak::coding::nsunix::FileCloser;
 using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::IntraFileRange;
+namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<FileRange> includedRanges) :
+LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange> includedRanges) :
     includedRanges_(std::move(includedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
@@ -34,34 +38,39 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     const InterFileRange &loggedRange,
     const InterFileRange &unloggedRange,
     LogAnalyzer *result, const FailFrame &ff) {
-  std::vector<FileRange> includedRanges;
-  auto cbKeys = [&](const FileKey &key, const FailFrame &f2) {
-    const auto *which = key.isLogged() ? &loggedRange : &unloggedRange;
-
-
-
-    if ((!whichBegin->has_value() || key >= *whichBegin) &&
-        (!whichEnd->has_value() || key < *whichEnd)) {
-      includedKeys.push_back(key);
+  std::vector<IntraFileRange> includedRanges;
+  auto cbKeys = [&pm, &loggedRange, &unloggedRange, &includedRanges](const FileKey &key, const FailFrame &f2) {
+    auto filename = pm.getPlaintextPath(key);
+    FileCloser fc;
+    struct stat stat = {};
+    if (!nsunix::tryOpen(filename, O_RDONLY, 0, &fc, f2.nest(HERE)) ||
+        !nsunix::tryFstat(fc.get(), &stat, f2.nest(HERE))) {
+      return false;
     }
 
-    FileKey bumpedKey;
-    if (!FileKey::tryCreate(efk.year(), efk.month(), efk.day(), efk.part() + 1, efk.isLogged(),
-        &bumpedKey, f2.nest(HERE))) {
-      return false;
+    InterFileRange myRange(key, 0, key, stat.st_size);
+
+    const auto *which = key.isLogged() ? &loggedRange : &unloggedRange;
+    auto intersection = which->intersectWith(myRange);
+
+    if (!intersection.empty()) {
+      includedRanges.emplace_back(key,
+          intersection.begin().position(),
+          intersection.end().position());
     }
     return true;
   };
   if (!pm.tryGetPlaintexts(&cbKeys, ff.nest(HERE))) {
     return false;
   }
-  std::sort(includedKeys.begin(), includedKeys.end());
-  *result = LogAnalyzer(std::move(includedKeys));
+  // To make things readable
+  std::sort(includedRanges.begin(), includedRanges.end(), MyComparer());
+  *result = LogAnalyzer(std::move(includedRanges));
   warn("Created a LogAnalyzer: %o", *result);
   return true;
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "includedKeys=%o", o.includedKeys_);
+  return streamf(s, "includedRanges=%o", o.includedRanges);
 }
 }  // namespace z2kplus::backend::reverse_index::builder
