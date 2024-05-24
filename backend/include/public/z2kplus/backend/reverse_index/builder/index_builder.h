@@ -23,6 +23,7 @@ namespace z2kplus::backend::reverse_index::builder {
 class IndexBuilder {
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::InterFileRange InterFileRange;
   typedef kosak::coding::FailFrame FailFrame;
 
 public:
@@ -30,8 +31,7 @@ public:
 
   static bool tryClearScratchDirectory(const PathMaster &pm, const FailFrame &ff);
   static bool tryBuild(const PathMaster &pm,
-      std::optional<FileKey> loggedBeginKey, std::optional<FileKey> loggedEndKey,
-      std::optional<FileKey> unloggedBeginKey, std::optional<FileKey> unloggedEndKey,
+      const InterFileRange &begin, const InterFileRange &end,
       const FailFrame &ff);
 };
 }   // namespace z2kplus::backend::reverse_index::builder

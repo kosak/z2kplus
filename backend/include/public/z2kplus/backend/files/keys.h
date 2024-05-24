@@ -57,12 +57,6 @@ public:
 
   uint32_t raw() const { return raw_; }
 
-  int tryCompare(const FileKey &other, const FailFrame &ff) const;
-
-  // Logged keys and unlogged keys are incomparable: attempting to compare them will throw an exception.
-  int compare(const FileKey &other) const;
-
-
 private:
   explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
 
@@ -106,7 +100,7 @@ public:
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
   const FileKey &fileKey() const { return fileKey_; }
-  uint32_t begin() const { return begin; }
+  uint32_t begin() const { return begin_; }
   uint32_t end() const { return end_; }
 
 private:
@@ -130,6 +124,10 @@ public:
 
   const FilePosition &begin() const { return begin_; }
   const FilePosition &end() const { return end_; }
+
+  InterFileRange intersectWith(const InterFileRange &other) const;
+
+  bool empty() const;
 
 private:
   FilePosition begin_;

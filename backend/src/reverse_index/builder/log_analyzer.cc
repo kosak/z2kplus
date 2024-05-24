@@ -28,8 +28,8 @@ namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange> includedRanges) :
-    includedRanges_(std::move(includedRanges)) {}
+LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange> sortedRanges) :
+    sortedRanges_(std::move(sortedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
@@ -71,6 +71,6 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "includedRanges=%o", o.includedRanges);
+  return streamf(s, "includedRanges=%o", o.includedRanges_);
 }
 }  // namespace z2kplus::backend::reverse_index::builder

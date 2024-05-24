@@ -38,12 +38,12 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(LogAnalyzer);
   ~LogAnalyzer();
 
-  const auto &includedRanges() const { return includedRanges_; }
+  const auto &sortedRanges() const { return sortedRanges_; }
 
 private:
-  explicit LogAnalyzer(std::vector<IntraFileRange> includedRanges);
+  explicit LogAnalyzer(std::vector<IntraFileRange> sortedRanges);
 
-  std::vector<IntraFileRange> includedRanges_;
+  std::vector<IntraFileRange> sortedRanges_;
 
   friend std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o);
 };
