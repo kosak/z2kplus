@@ -34,12 +34,12 @@ struct LogParser {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
   typedef z2kplus::backend::shared::LogRecord LogRecord;
 
   LogParser() = delete;
 
-  typedef std::pair<LogRecord, Location> logRecordAndLocation_t;
+  typedef std::pair<LogRecord, IntraFileRange> logRecordAndLocation_t;
 
   static bool tryParseLogFile(const PathMaster &pm, const FileKey &fileKey,
       std::vector<logRecordAndLocation_t> *logRecordsAndLocations,

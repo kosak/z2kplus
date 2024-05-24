@@ -39,10 +39,10 @@ typedef kosak::coding::StrongInt<uint32_t, internal::WordOffTag> wordOff_t;
 // This class is POD.
 class ZgramInfo {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
 public:
-  static bool tryCreate(uint64 timesecs, const Location &location, wordOff_t startingWordOff,
+  static bool tryCreate(uint64 timesecs, const IntraFileRange &location, wordOff_t startingWordOff,
       ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
       size_t instanceWordLength, size_t bodyWordLength, ZgramInfo *result, const FailFrame &ff);
 
@@ -53,7 +53,7 @@ public:
   }
 
   uint64_t timesecs() const { return timesecs_; }
-  const Location &location() const { return location_; }
+  const IntraFileRange &location() const { return location_; }
   wordOff_t startingWordOff() const { return startingWordOff_; }
   ZgramId zgramId() const { return zgramId_; }
   uint8_t senderWordLength() const { return senderWordLength_; }
@@ -67,14 +67,14 @@ public:
   }
 
 private:
-  ZgramInfo(uint64 timesecs, const Location &location, wordOff_t startingWordOff, ZgramId zgramId,
+  ZgramInfo(uint64 timesecs, const IntraFileRange &location, wordOff_t startingWordOff, ZgramId zgramId,
       size_t senderWordLength, size_t signatureWordLength, size_t instanceWordLength,
       size_t bodyWordLength);
 
   // The timesecs field of this zgram
   uint64 timesecs_ = 0;
   // The location of the zgram
-  Location location_;
+  IntraFileRange location_;
   // Starting wordIndex of this zgram. See explanation below.
   wordOff_t startingWordOff_;
   // The ID.

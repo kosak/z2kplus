@@ -30,7 +30,7 @@ namespace z2kplus::backend::reverse_index::index {
 class DynamicIndex {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
+  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;
   typedef z2kplus::backend::reverse_index::metadata::DynamicMetadata DynamicMetadata;
@@ -47,7 +47,7 @@ class DynamicIndex {
   using Slice = kosak::coding::containers::Slice<T>;
 
 public:
-  typedef std::pair<LogRecord, Location> logRecordAndLocation_t;
+  typedef std::pair<LogRecord, IntraFileRange> logRecordAndLocation_t;
   typedef std::map<ZgramId, PlusPlusScanner::ppDeltas_t> ppDeltaMap_t;
 
   DynamicIndex();
@@ -60,7 +60,7 @@ public:
   bool tryAddLogRecords(const FrozenIndex &frozenSide,
       const std::vector<logRecordAndLocation_t> &items, const FailFrame &ff);
   bool tryAddZgrams(const FrozenIndex &frozenSide,
-      const Slice<const Zephyrgram> &zgrams, const Slice<const Location> &locations, const FailFrame &ff);
+      const Slice<const Zephyrgram> &zgrams, const Slice<const IntraFileRange> &locations, const FailFrame &ff);
   bool tryAddMetadata(const FrozenIndex &frozenSide,
       const Slice<const MetadataRecord> &items, const FailFrame &ff);
 
@@ -73,7 +73,7 @@ public:
   const DynamicMetadata &metadata() const { return metadata_; }
 
 private:
-  bool tryAddZgram(const FrozenIndex &frozenSide, const Zephyrgram &zg, const Location &location,
+  bool tryAddZgram(const FrozenIndex &frozenSide, const Zephyrgram &zg, const IntraFileRange &location,
       std::vector<std::string_view> *wordStorage, std::u32string *char32Storage, const FailFrame &ff);
 
   DynamicTrie trie_;

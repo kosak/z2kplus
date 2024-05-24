@@ -27,7 +27,6 @@
 
 namespace z2kplus::backend::reverse_index::metadata {
 class FrozenMetadata {
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::shared::RenderStyle RenderStyle;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::frozen::frozenStringRef_t frozenStringRef_t;

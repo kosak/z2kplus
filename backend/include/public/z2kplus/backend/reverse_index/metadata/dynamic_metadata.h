@@ -35,7 +35,6 @@
 namespace z2kplus::backend::reverse_index::metadata {
 class DynamicMetadata {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;
   typedef z2kplus::backend::reverse_index::metadata::FrozenMetadata FrozenMetadata;
   typedef z2kplus::backend::shared::ZgramCore ZgramCore;
