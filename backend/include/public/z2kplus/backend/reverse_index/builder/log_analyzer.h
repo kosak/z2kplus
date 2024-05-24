@@ -24,12 +24,13 @@ namespace z2kplus::backend::reverse_index::builder {
 class LogAnalyzer {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::PathMaster PathMaster;
-  typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FilePosition FilePosition;
+  typedef z2kplus::backend::files::FileRange FileRange;
 
 public:
   static bool tryAnalyze(const PathMaster &pm,
-      std::optional<FileKey> loggedBegin, std::optional<FileKey> loggedEnd,
-      std::optional<FileKey> unloggedBegin, std::optional<FileKey> unloggedEnd,
+      const FilePosition &loggedBegin, const FilePosition &loggedEnd,
+      const FilePosition &unloggedBegin, const FilePosition &unloggedEnd,
       LogAnalyzer *result, const FailFrame &ff);
 
   LogAnalyzer();
@@ -37,12 +38,12 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(LogAnalyzer);
   ~LogAnalyzer();
 
-  const auto &includedKeys() const { return includedKeys_; }
+  const auto &includedRanges() const { return includedRanges_; }
 
 private:
-  explicit LogAnalyzer(std::vector<FileKey> includedKeys);
+  explicit LogAnalyzer(std::vector<FileRange> includedRanges);
 
-  std::vector<FileKey> includedKeys_;
+  std::vector<FileRange> includedRanges_;
 
   friend std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o);
 };

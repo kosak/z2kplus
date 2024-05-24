@@ -22,7 +22,6 @@
 namespace z2kplus::backend::reverse_index::builder {
 class IndexBuilder {
   typedef z2kplus::backend::files::PathMaster PathMaster;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
   typedef z2kplus::backend::files::FileKey FileKey;
   typedef kosak::coding::FailFrame FailFrame;
 

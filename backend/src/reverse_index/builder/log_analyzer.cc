@@ -15,36 +15,30 @@
 #include "z2kplus/backend/reverse_index/builder/log_analyzer.h"
 
 #include "kosak/coding/coding.h"
+#include "z2kplus/backend/files/keys.h"
 
 #define HERE KOSAK_CODING_HERE
 
 using kosak::coding::streamf;
+using z2kplus::backend::files::FileKey;
 
 namespace z2kplus::backend::reverse_index::builder {
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<FileKey> includedKeys) :
-    includedKeys_(std::move(includedKeys)) {}
+LogAnalyzer::LogAnalyzer(std::vector<FileRange> includedRanges) :
+    includedRanges_(std::move(includedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
-    std::optional<FileKey> loggedBegin, std::optional<FileKey> loggedEnd,
-    std::optional<FileKey> unloggedBegin, std::optional<FileKey> unloggedEnd,
+    const InterFileRange &loggedRange,
+    const InterFileRange &unloggedRange,
     LogAnalyzer *result, const FailFrame &ff) {
-  std::vector<FileKey> includedKeys;
-  auto cbKeys = [&loggedBegin, &loggedEnd, &unloggedBegin, &unloggedEnd, &includedKeys](
-      const FileKey &key, const FailFrame &f2) {
-    auto efk = key.asExpandedFileKey();
-    const std::optional<FileKey> *whichBegin, *whichEnd;
+  std::vector<FileRange> includedRanges;
+  auto cbKeys = [&](const FileKey &key, const FailFrame &f2) {
+    const auto *which = key.isLogged() ? &loggedRange : &unloggedRange;
 
-    if (efk.isLogged()) {
-      whichBegin = &loggedBegin;
-      whichEnd = &loggedEnd;
-    } else {
-      whichBegin = &unloggedBegin;
-      whichEnd = &unloggedEnd;
-    }
+
 
     if ((!whichBegin->has_value() || key >= *whichBegin) &&
         (!whichEnd->has_value() || key < *whichEnd)) {
