@@ -78,14 +78,16 @@ private:
 
 // This class is blittable.
 class Location {
+  using FailFrame = kosak::coding::FailFrame;
+
 public:
   Location() = default;
-  Location(FileKey fileKey, uint32_t position, uint32_t size) : fileKey_(fileKey),
-    position_(position), size_(size) {}
+  Location(FileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
 
   const FileKey &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
-  uint32_t size() const { return size_; }
+
+  int tryCompare(const Location &other, const FailFrame &ff) const;
 
   int compare(const Location &other) const;
   DEFINE_ALL_COMPARISON_OPERATORS(Location);
@@ -95,6 +97,25 @@ private:
   FileKey fileKey_;
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const Location &o);
+};
+
+class ZgramLocator {
+public:
+  ZgramLocator() = default;
+  Location(FileKey fileKey, uint32_t position, uint32_t size) : fileKey_(fileKey),
+                                                                position_(position), size_(size) {}
+
+  const FileKey &fileKey() const { return fileKey_; }
+  uint32_t position() const { return position_; }
+  uint32_t size() const { return size_; }
+
+  int compare(const Location &other) const;
+  DEFINE_ALL_COMPARISON_OPERATORS(Location);
+
+private:
+  Location location_;
   // The length of zgram in characters.
   uint32_t size_ = 0;
 

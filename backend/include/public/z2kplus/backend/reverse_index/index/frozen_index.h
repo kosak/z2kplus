@@ -49,7 +49,6 @@ private:
 };
 
 class FrozenIndex {
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
   typedef z2kplus::backend::files::FileKey FileKey;
   typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::reverse_index::trie::FrozenTrie FrozenTrie;
@@ -62,9 +61,9 @@ class FrozenIndex {
 
 public:
   FrozenIndex();
-  FrozenIndex(DateAndPartKey endKey, FrozenVector<ZgramInfo> &&zgramInfos,
-      FrozenVector<WordInfo> &&wordInfos, FrozenTrie &&trie, FrozenStringPool &&stringPool,
-      FrozenMetadata &&metadata);
+  FrozenIndex(Location loggedEnd, Location unloggedEnd, FrozenVector<ZgramInfo> zgramInfos,
+      FrozenVector<WordInfo> wordInfos, FrozenTrie trie, FrozenStringPool stringPool,
+      FrozenMetadata metadata);
   DISALLOW_COPY_AND_ASSIGN(FrozenIndex);
   DECLARE_MOVE_COPY_AND_ASSIGN(FrozenIndex);
   ~FrozenIndex();
@@ -73,7 +72,8 @@ public:
     return FrozenLess(&stringPool_);
   }
 
-  DateAndPartKey endKey() const { return endKey_; }
+  const Location &loggedEnd() const { return loggedEnd_; }
+  const Location &unloggedEnd() const { return unloggedEnd_; }
   const FrozenVector<ZgramInfo> &zgramInfos() const { return zgramInfos_; }
   const FrozenVector<WordInfo> &wordInfos() const { return wordInfos_; }
   const FrozenTrie &trie() const { return trie_; }
@@ -84,7 +84,8 @@ public:
   const FrozenMetadata &metadata() const { return metadata_; }
 
 private:
-  DateAndPartKey endKey_;
+  Location loggedEnd_;
+  Location unloggedEnd_;
   FrozenVector<ZgramInfo> zgramInfos_;
   FrozenVector<WordInfo> wordInfos_;
   FrozenTrie trie_;
