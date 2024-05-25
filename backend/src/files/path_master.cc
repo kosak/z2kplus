@@ -206,7 +206,7 @@ bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
   return true;
 }
 
-bool maybeyConsume(std::string_view src, std::string_view prefix, std::string_view *residual) {
+bool maybeConsume(std::string_view src, std::string_view prefix, std::string_view *residual) {
   if (src.size() < prefix.size() ||
       src.substr(0, prefix.size()) != prefix) {
     return false;

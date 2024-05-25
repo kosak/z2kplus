@@ -37,9 +37,8 @@ using kosak::coding::memory::MaybeInlinedBuffer;
 using kosak::coding::nsunix::FileCloser;
 using kosak::coding::streamf;
 using z2kplus::backend::factories::LogParser;
-using z2kplus::backend::files::DateAndPartKey;
 using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::util::frozen::FrozenStringPool;
 using z2kplus::backend::util::frozen::frozenStringRef_t;
@@ -447,24 +446,9 @@ bool PlusPlusManager::tryFinish(const FailFrame &ff) {
 }
 
 bool ConsolidatedIndex::tryCheckpoint(std::chrono::system_clock::time_point now,
-    DateAndPartKey *endKey, const FailFrame &ff) {
-  DateAndPartKey bumpedCurrentKey;
-  DateAndPartKey nextBeginKey;
-  internal::DynamicFileState newLoggedState;
-  internal::DynamicFileState newUnloggedState;
-  if (!currentKey_.tryBump(&bumpedCurrentKey, ff.nest(HERE)) ||
-      !bumpedCurrentKey.thisOrNow(now, &nextBeginKey, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm_, nextBeginKey, true, &newLoggedState, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm_, nextBeginKey, false, &newUnloggedState, ff.nest(HERE)) ||
-      !loggedState_.fc_.tryClose(ff.nest(HERE)) ||
-      !unloggedState_.fc_.tryClose(ff.nest(HERE))) {
-    return false;
-  }
-
-  loggedState_ = std::move(newLoggedState);
-  unloggedState_ = std::move(newUnloggedState);
-  currentKey_ = nextBeginKey;
-  *endKey = nextBeginKey;
+    FilePosition *loggedPosition, FilePosition *unloggedPosition, const FailFrame &/*ff*/) {
+  *loggedPosition = FilePosition(loggedState_.fileKey_, loggedState_.fileSize_);
+  *unloggedPosition = FilePosition(unloggedState_.fileKey_, unloggedState_.fileSize_);
   return true;
 }
 

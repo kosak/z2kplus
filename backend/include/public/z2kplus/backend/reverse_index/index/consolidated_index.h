@@ -50,7 +50,6 @@ namespace internal {
 struct DynamicFileState {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
   typedef z2kplus::backend::files::FileKey FileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
@@ -73,9 +72,7 @@ class ConsolidatedIndex {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::factories::LogParser::logRecordAndLocation_t logRecordAndLocation_t;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
   typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::DynamicIndex DynamicIndex;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;

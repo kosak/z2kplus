@@ -61,9 +61,7 @@ struct SubComparer {
 class Coordinator {
 public:
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::DateAndPartKey DateAndPartKey;
   typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::ConsolidatedIndex ConsolidatedIndex;
   typedef z2kplus::backend::reverse_index::iterators::ZgramIterator ZgramIterator;

@@ -119,6 +119,8 @@ static_assert(std::is_trivially_copyable_v<IntraFileRange> &&
 class InterFileRange {
 public:
   InterFileRange() = default;
+  InterFileRange(const FileKey &beginKey, uint32_t beginPos,
+      const FileKey &endKey, uint32_t endPos);
   InterFileRange(const FilePosition &begin, const FilePosition &end) :
       begin_(begin), end_(end) {}
 

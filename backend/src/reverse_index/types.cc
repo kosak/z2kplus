@@ -26,7 +26,7 @@ using kosak::coding::streamf;
 
 namespace z2kplus::backend::reverse_index {
 
-bool ZgramInfo::tryCreate(uint64_t timesecs, const Location &location, wordOff_t startingWordOff,
+bool ZgramInfo::tryCreate(uint64_t timesecs, const IntraFileRange &location, wordOff_t startingWordOff,
     ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
     size_t instanceWordLength, size_t bodyWordLength, ZgramInfo *result, const FailFrame &ff) {
   *result = ZgramInfo(timesecs, location, startingWordOff, zgramId, senderWordLength,
@@ -43,7 +43,7 @@ bool ZgramInfo::tryCreate(uint64_t timesecs, const Location &location, wordOff_t
 
 ZgramInfo::ZgramInfo() = default;
 
-ZgramInfo::ZgramInfo(uint64 timesecs, const Location &location, wordOff_t startingWordOff,
+ZgramInfo::ZgramInfo(uint64 timesecs, const IntraFileRange &location, wordOff_t startingWordOff,
     ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
   size_t instanceWordLength, size_t bodyWordLength) :
   timesecs_(timesecs), location_(location), startingWordOff_(startingWordOff), zgramId_(zgramId),

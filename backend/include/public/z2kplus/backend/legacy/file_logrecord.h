@@ -30,7 +30,6 @@ namespace z2kplus::backend::legacy {
 class LogParser {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::Location Location;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::legacy::LogRecord LogRecord;
   typedef z2kplus::backend::legacy::Zephyrgram Zephyrgram;

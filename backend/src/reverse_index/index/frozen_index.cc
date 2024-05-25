@@ -24,9 +24,10 @@ using z2kplus::backend::shared::Zephyrgram;
 namespace z2kplus::backend::reverse_index::index {
 
 FrozenIndex::FrozenIndex() = default;
-FrozenIndex::FrozenIndex(DateAndPartKey endKey,
-    FrozenVector<ZgramInfo> &&zgramInfos, FrozenVector<WordInfo> &&wordInfos, FrozenTrie &&trie,
-    FrozenStringPool &&stringPool, FrozenMetadata &&metadata) : endKey_(endKey),
+FrozenIndex::FrozenIndex(const FilePosition &loggedEnd, const FilePosition  &unloggedEnd,
+    FrozenVector<ZgramInfo> zgramInfos, FrozenVector<WordInfo> wordInfos, FrozenTrie trie,
+    FrozenStringPool stringPool, FrozenMetadata metadata) :
+    loggedEnd_(loggedEnd), unloggedEnd_(unloggedEnd),
     zgramInfos_(std::move(zgramInfos)),
     wordInfos_(std::move(wordInfos)), trie_(std::move(trie)), stringPool_(std::move(stringPool)),
     metadata_(std::move(metadata)) {}
@@ -36,12 +37,13 @@ FrozenIndex::~FrozenIndex() = default;
 
 std::ostream &operator<<(std::ostream &s, const FrozenIndex &o) {
   return streamf(s,
-    "{endKey: %o"
-    "\n{trie: %o"
+    "{loggedEnd: %o"
+    "\nunloggedEnd: %o"
+    "\ntrie: %o"
     "\nzgramInfos: %o"
     "\nwordInfos: %o"
     "\nstringPool: %o"
     "\nmetadata: %o}",
-    o.endKey_, o.trie_, o.zgramInfos_, o.wordInfos_, o.stringPool_, o.metadata_);
+    o.loggedEnd_, o.unloggedEnd_, o.trie_, o.zgramInfos_, o.wordInfos_, o.stringPool_, o.metadata_);
 }
 }  // namespace z2kplus::backend::reverse_index::index

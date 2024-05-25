@@ -27,6 +27,23 @@ using z2kplus::backend::files::IntraFileRange;
 namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
+namespace {
+struct MyComparer {
+  bool operator()(const IntraFileRange &lhs, const IntraFileRange &rhs) const {
+    auto lLogged = lhs.fileKey().isLogged();
+    auto rLogged = rhs.fileKey().isLogged();
+    if (lLogged != rLogged) {
+      // returning the result of "less than", assuming we want all logged before all unlogged
+      // lLogged = false, rLogged = true: return false
+      // lLogged = true, rLogged = false: return true
+      return lLogged;
+    }
+
+    // Otherwise we can rely on the natural ordering of the raw value.
+    return lhs.fileKey().raw() < rhs.fileKey().raw();
+  }
+};
+}  // namespace
 LogAnalyzer::LogAnalyzer() = default;
 LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange> sortedRanges) :
     sortedRanges_(std::move(sortedRanges)) {}
@@ -71,6 +88,6 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "includedRanges=%o", o.includedRanges_);
+  return streamf(s, "sortedRanges=%o", o.sortedRanges_);
 }
 }  // namespace z2kplus::backend::reverse_index::builder
