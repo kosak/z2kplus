@@ -87,7 +87,7 @@ private:
 
 // Defines the start and end of a zgram or metadata record, either logged or unlogged.
 // It is used inside ZgramInfo. This class is blittable.
-class LogRecordLocation {
+class LogLocation {
 
 };
 
