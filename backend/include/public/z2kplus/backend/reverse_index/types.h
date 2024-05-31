@@ -36,13 +36,13 @@ struct WordOffTag {
 typedef kosak::coding::StrongInt<uint32_t, internal::ZgramOffTag> zgramOff_t;
 typedef kosak::coding::StrongInt<uint32_t, internal::WordOffTag> wordOff_t;
 
-// This class is POD.
+// This class is blittable.
 class ZgramInfo {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
+  typedef z2kplus::backend::files::LogLocation LogLocation;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
 public:
-  static bool tryCreate(uint64 timesecs, const IntraFileRange &location, wordOff_t startingWordOff,
+  static bool tryCreate(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff,
       ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
       size_t instanceWordLength, size_t bodyWordLength, ZgramInfo *result, const FailFrame &ff);
 
@@ -53,7 +53,7 @@ public:
   }
 
   uint64_t timesecs() const { return timesecs_; }
-  const IntraFileRange &location() const { return location_; }
+  const LogLocation &location() const { return location_; }
   wordOff_t startingWordOff() const { return startingWordOff_; }
   ZgramId zgramId() const { return zgramId_; }
   uint8_t senderWordLength() const { return senderWordLength_; }
@@ -67,14 +67,14 @@ public:
   }
 
 private:
-  ZgramInfo(uint64 timesecs, const IntraFileRange &location, wordOff_t startingWordOff, ZgramId zgramId,
+  ZgramInfo(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff, ZgramId zgramId,
       size_t senderWordLength, size_t signatureWordLength, size_t instanceWordLength,
       size_t bodyWordLength);
 
   // The timesecs field of this zgram
   uint64 timesecs_ = 0;
   // The location of the zgram
-  IntraFileRange location_;
+  LogLocation location_;
   // Starting wordIndex of this zgram. See explanation below.
   wordOff_t startingWordOff_;
   // The ID.
@@ -91,6 +91,9 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg);
 };
+static_assert(std::is_trivially_copyable_v<ZgramInfo> &&
+  std::has_unique_object_representations_v<ZgramInfo>);
+
 
 // This class is POD. This structure forms the entries of the "word index"---the reverse index of
 // word numbers to zephyrgram numbers.
@@ -118,5 +121,7 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const WordInfo &zg);
 };
+static_assert(std::is_trivially_copyable_v<WordInfo> &&
+    std::has_unique_object_representations_v<WordInfo>);
 
 }  // namespace z2kplus::backend::reverse_index

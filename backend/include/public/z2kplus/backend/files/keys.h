@@ -88,7 +88,17 @@ private:
 // Defines the start and end of a zgram or metadata record, either logged or unlogged.
 // It is used inside ZgramInfo. This class is blittable.
 class LogLocation {
+public:
+  LogLocation() = default;
+  LogLocation(CompressedFileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
 
+private:
+  // Which fulltext file this zgram lives in.
+  CompressedFileKey fileKey_;
+  // The character position of start of zgram in the fulltext file.
+  uint32_t position_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
 };
 
 // Defines a position inside a file. This is used in the FrozenIndex to keep
@@ -101,9 +111,10 @@ class FilePosition {
 
 public:
   FilePosition() = default;
-  FilePosition(FileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
+  FilePosition(CompressedFileKey fileKey, uint32_t position)
+    : fileKey_(fileKey), position_(position) {}
 
-  const FileKey &fileKey() const { return fileKey_; }
+  const CompressedFileKey &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
 private:
@@ -153,10 +164,10 @@ template<bool IsLogged>
 class InterFileRange {
 public:
   InterFileRange() = default;
-  InterFileRange(const FileKey &beginKey, uint32_t beginPos,
-      const FileKey &endKey, uint32_t endPos);
-  InterFileRange(const FilePosition &begin, const FilePosition &end) :
-      begin_(begin), end_(end) {}
+//  InterFileRange(const FileKey &beginKey, uint32_t beginPos,
+//      const FileKey &endKey, uint32_t endPos);
+//  InterFileRange(const FilePosition &begin, const FilePosition &end) :
+//      begin_(begin), end_(end) {}
 
   const FilePosition<IsLogged> &begin() const { return begin_; }
   const FilePosition<IsLogged> &end() const { return end_; }

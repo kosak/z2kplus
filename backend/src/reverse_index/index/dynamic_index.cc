@@ -92,8 +92,9 @@ bool DynamicIndex::tryAddZgrams(const FrozenIndex &frozenSide,
   return true;
 }
 
-bool DynamicIndex::tryAddZgram(const FrozenIndex &frozenSide, const Zephyrgram &zg, const Location &location,
-    std::vector<std::string_view> *wordStorage, std::u32string *char32Storage, const FailFrame &ff) {
+bool DynamicIndex::tryAddZgram(const FrozenIndex &frozenSide, const Zephyrgram &zg,
+    const LogLocation &location, std::vector<std::string_view> *wordStorage,
+    std::u32string *char32Storage, const FailFrame &ff) {
   if (!zgramInfos_.empty() && zg.zgramId() <= zgramInfos_.back().zgramId()) {
     return ff.failf(HERE, "Nonincreasing ids: went from %o to %o", zgramInfos_.back().zgramId(), zg.zgramId());
   }
