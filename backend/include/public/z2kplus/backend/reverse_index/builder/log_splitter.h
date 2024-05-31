@@ -43,10 +43,13 @@ struct LogSplitterResult {
 class LogSplitter {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::PathMaster PathMaster;
-  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
+  template<bool IsLogged>
+  using IntraFileRange = z2kplus::backend::files::IntraFileRange<IsLogged>;
 
 public:
-  static bool split(const PathMaster &pm, const std::vector<IntraFileRange> &ranges,
+  static bool split(const PathMaster &pm,
+      const std::vector<IntraFileRange<true>> &loggedRanges,
+      const std::vector<IntraFileRange<true>> &unloggedRanges,
       size_t numShards, LogSplitterResult *result, const FailFrame &ff);
 };
 }  // namespace z2kplus::backend::reverse_index::builder

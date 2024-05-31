@@ -120,14 +120,17 @@ class FilePosition {
   using FailFrame = kosak::coding::FailFrame;
 
 public:
+  static bool tryCreate(CompressedFileKey fileKey, uint32_t position, FilePosition *result,
+      const FailFrame &ff);
   FilePosition() = default;
-  FilePosition(CompressedFileKey fileKey, uint32_t position)
-    : fileKey_(fileKey), position_(position) {}
 
   const CompressedFileKey &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
 private:
+  FilePosition(CompressedFileKey fileKey, uint32_t position)
+      : fileKey_(fileKey), position_(position) {}
+
   // Which fulltext file this zgram lives in.
   CompressedFileKey fileKey_;
   // The character position of start of zgram in the fulltext file.
@@ -146,14 +149,15 @@ template<bool IsLogged>
 class IntraFileRange {
 public:
   IntraFileRange() = default;
-  IntraFileRange(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
-      fileKey_(fileKey), begin_(begin), end_(end) {}
 
   const CompressedFileKey &fileKey() const { return fileKey_; }
   uint32_t begin() const { return begin_; }
   uint32_t end() const { return end_; }
 
 private:
+  IntraFileRange(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
+      fileKey_(fileKey), begin_(begin), end_(end) {}
+
   // The file being referred to.
   CompressedFileKey fileKey_;
   // The inclusive start of the range.

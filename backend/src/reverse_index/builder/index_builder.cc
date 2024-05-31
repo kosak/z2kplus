@@ -138,8 +138,8 @@ bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &lo
   LogAnalyzer lazr;
   LogSplitterResult lsr;
   if (!LogAnalyzer::tryAnalyze(pm, loggedRange, unloggedRange, &lazr, ff.nest(HERE)) ||
-      !LogSplitter::split(pm, lazr.sortedRanges(), magicConstants::numIndexBuilderShards,
-      &lsr, ff.nest(HERE))) {
+      !LogSplitter::split(pm, lazr.sortedLoggedRanges(), lazr.sortedUnloggedRanges(),
+          magicConstants::numIndexBuilderShards, &lsr, ff.nest(HERE))) {
     return false;
   }
 
@@ -169,18 +169,18 @@ bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &lo
   }
 
   // Default to minimum key.
-  lazr.sortedLoggedRanges()
-  FilePosition loggedEnd, unloggedEnd;
-  for (auto rip = lazr.sortedRanges().rbegin(); rip != lazr.sortedRanges().rend(); ++rip) {
-    if (rip->fileKey().isLogged()) {
-      loggedEnd = FilePosition(rip->fileKey(), rip->end());
-      break;
+  FilePosition<true> loggedEnd;
+  FilePosition<false> unloggedEnd;
+  if (!lazr.sortedLoggedRanges().empty()) {
+    const auto &back = lazr.sortedLoggedRanges().back();
+    if (!FilePosition<true>::tryCreate(back.fileKey(), back.end(), &loggedEnd, ff.nest(HERE))) {
+      return false;
     }
   }
-  for (auto rip = lazr.sortedRanges().rbegin(); rip != lazr.sortedRanges().rend(); ++rip) {
-    if (!rip->fileKey().isLogged()) {
-      unloggedEnd = FilePosition(rip->fileKey(), rip->end());
-      break;
+  if (!lazr.sortedUnloggedRanges().empty()) {
+    const auto &back = lazr.sortedUnloggedRanges().back();
+    if (!FilePosition<false>::tryCreate(back.fileKey(), back.end(), &unloggedEnd, ff.nest(HERE))) {
+      return false;
     }
   }
 
