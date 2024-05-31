@@ -49,8 +49,6 @@ private:
 };
 
 class FrozenIndex {
-  typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::FilePosition FilePosition;
   typedef z2kplus::backend::reverse_index::trie::FrozenTrie FrozenTrie;
   typedef z2kplus::backend::reverse_index::metadata::FrozenMetadata FrozenMetadata;
   typedef z2kplus::backend::util::frozen::FrozenStringPool FrozenStringPool;
@@ -58,12 +56,14 @@ class FrozenIndex {
   using FrozenVector = z2kplus::backend::util::frozen::FrozenVector<T>;
   template<typename K, typename V>
   using FrozenMap = z2kplus::backend::util::frozen::FrozenMap<K, V>;
+  template<bool IsLogged>
+  using FilePosition = z2kplus::backend::files::FilePosition<IsLogged>;
 
 public:
   FrozenIndex();
-  FrozenIndex(const FilePosition &loggedEnd, const FilePosition  &unloggedEnd, FrozenVector<ZgramInfo> zgramInfos,
-      FrozenVector<WordInfo> wordInfos, FrozenTrie trie, FrozenStringPool stringPool,
-      FrozenMetadata metadata);
+  FrozenIndex(const FilePosition<true> &loggedEnd, const FilePosition<false>  &unloggedEnd,
+      FrozenVector<ZgramInfo> zgramInfos, FrozenVector<WordInfo> wordInfos, FrozenTrie trie,
+      FrozenStringPool stringPool, FrozenMetadata metadata);
   DISALLOW_COPY_AND_ASSIGN(FrozenIndex);
   DECLARE_MOVE_COPY_AND_ASSIGN(FrozenIndex);
   ~FrozenIndex();
@@ -72,8 +72,8 @@ public:
     return FrozenLess(&stringPool_);
   }
 
-  const FilePosition &loggedEnd() const { return loggedEnd_; }
-  const FilePosition &unloggedEnd() const { return unloggedEnd_; }
+  const FilePosition<true> &loggedEnd() const { return loggedEnd_; }
+  const FilePosition<false> &unloggedEnd() const { return unloggedEnd_; }
   const FrozenVector<ZgramInfo> &zgramInfos() const { return zgramInfos_; }
   const FrozenVector<WordInfo> &wordInfos() const { return wordInfos_; }
   const FrozenTrie &trie() const { return trie_; }
@@ -84,8 +84,8 @@ public:
   const FrozenMetadata &metadata() const { return metadata_; }
 
 private:
-  FilePosition loggedEnd_;
-  FilePosition unloggedEnd_;
+  FilePosition<true> loggedEnd_;
+  FilePosition<false> unloggedEnd_;
   FrozenVector<ZgramInfo> zgramInfos_;
   FrozenVector<WordInfo> wordInfos_;
   FrozenTrie trie_;

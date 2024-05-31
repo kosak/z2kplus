@@ -88,8 +88,8 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
 
-  auto loggedRange = InterFileRange<true>::create(frozenIndex.get()->loggedEnd(), {});
-  auto unloggedRange = InterFileRange<false>::create(frozenIndex.get()->unloggedEnd(), {});
+  InterFileRange<true> loggedRange(frozenIndex.get()->loggedEnd(), {});
+  InterFileRange<false> unloggedRange(frozenIndex.get()->unloggedEnd(), {});
   if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
     return false;
   }
@@ -131,17 +131,17 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
     return false;
   }
 
-  *result = ConsolidatedIndex(std::move(pm), currentKey, std::move(frozenIndex),
+  *result = ConsolidatedIndex(std::move(pm), std::move(frozenIndex),
       std::move(loggedState), std::move(unloggedState));
   return true;
 }
 
 ConsolidatedIndex::ConsolidatedIndex() = default;
 
-ConsolidatedIndex::ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm, DateAndPartKey currentKey,
+ConsolidatedIndex::ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm,
     MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
     internal::DynamicFileState &&unloggedState) :
-    pm_(std::move(pm)), currentKey_(currentKey),
+    pm_(std::move(pm)),
     frozenIndex_(std::move(frozenIndex)),
     loggedState_(std::move(loggedState)), unloggedState_(std::move(unloggedState)),
     zgramCache_(magicConstants::zgramCacheSize) {

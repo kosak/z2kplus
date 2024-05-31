@@ -35,6 +35,8 @@ namespace z2kplus::backend::files {
 class CompressedFileKey {
   using FailFrame = kosak::coding::FailFrame;
 public:
+  static bool tryCreate(uint32_t raw, CompressedFileKey *result, const FailFrame &ff);
+
   CompressedFileKey() = default;
   // explicit constexpr CompressedFileKey(uint32_t raw) : raw_(raw) {}
 
@@ -90,13 +92,18 @@ private:
 class LogLocation {
 public:
   LogLocation() = default;
-  LogLocation(CompressedFileKey fileKey, uint32_t position) : fileKey_(fileKey), position_(position) {}
+  LogLocation(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
+      fileKey_(fileKey), begin_(begin), end_(end) {}
 
 private:
   // Which fulltext file this zgram lives in.
   CompressedFileKey fileKey_;
-  // The character position of start of zgram in the fulltext file.
-  uint32_t position_ = 0;
+  // The character position of start of the zgram in the fulltext file.
+  uint32_t begin_ = 0;
+  // The character position of the end of the zgram in the fulltext file.
+  uint32_t end_ = 0;
+
+  uint32_t dummy_ = 0;
 
   friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
 };
@@ -165,22 +172,25 @@ static_assert(std::is_trivially_copyable_v<IntraFileRange<true>> &&
 template<bool IsLogged>
 class InterFileRange {
 public:
+  InterFileRange(std::optional<FilePosition<IsLogged>> begin,
+    std::optional<FilePosition<IsLogged>> end);
+
   InterFileRange() = default;
 //  InterFileRange(const FileKey &beginKey, uint32_t beginPos,
 //      const FileKey &endKey, uint32_t endPos);
 //  InterFileRange(const FilePosition &begin, const FilePosition &end) :
 //      begin_(begin), end_(end) {}
 
-  const FilePosition<IsLogged> &begin() const { return begin_; }
-  const FilePosition<IsLogged> &end() const { return end_; }
+  const auto &begin() const { return begin_; }
+  const auto &end() const { return end_; }
 
   InterFileRange intersectWith(const InterFileRange &other) const;
 
   bool empty() const;
 
 private:
-  FilePosition<IsLogged> begin_;
-  FilePosition<IsLogged> end_;
+  std::optional<FilePosition<IsLogged>> begin_;
+  std::optional<FilePosition<IsLogged>> end_;
 
   friend std::ostream &operator<<(std::ostream &s, const InterFileRange &o);
 };
