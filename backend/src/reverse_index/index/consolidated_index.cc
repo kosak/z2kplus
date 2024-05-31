@@ -88,8 +88,8 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
 
-  InterFileRange loggedRange(frozenIndex.get()->loggedEnd(), FilePosition::loggedInfinity);
-  InterFileRange unloggedRange(frozenIndex.get()->unloggedEnd(), FilePosition::unloggedInfinity);
+  auto loggedRange = InterFileRange<true>::create(frozenIndex.get()->loggedEnd(), {});
+  auto unloggedRange = InterFileRange<false>::create(frozenIndex.get()->unloggedEnd(), {});
   if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
     return false;
   }
@@ -120,14 +120,14 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   return true;
 }
 
-bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm, DateAndPartKey currentKey,
+bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
+    const FilePosition<true> &loggedStart, const FilePosition<false> &unloggedStart,
     MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result,
     const FailFrame &ff) {
   internal::DynamicFileState loggedState;
   internal::DynamicFileState unloggedState;
-  if (!internal::DynamicFileState::tryCreate(*pm, currentKey, true, &loggedState, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm, currentKey, false, &unloggedState,
-          ff.nest(HERE))) {
+  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart, &loggedState, ff.nest(HERE)) ||
+      !internal::DynamicFileState::tryCreate(*pm, unloggedStart, &unloggedState, ff.nest(HERE))) {
     return false;
   }
 

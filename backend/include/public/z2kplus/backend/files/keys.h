@@ -85,6 +85,8 @@ private:
   friend std::ostream &operator<<(std::ostream &s, const ExpandedFileKey &o);
 };
 
+// Defines the start and end of a zgram or metadata record, either logged or unlogged.
+// It is used inside ZgramInfo. This class is blittable.
 class LogRecordLocation {
 
 };
@@ -119,9 +121,6 @@ static_assert(std::is_trivially_copyable_v<FilePosition<true>> &&
     std::has_unique_object_representations_v<FilePosition<true>>);
 
 // Defines a byte range [begin,end) inside a file in the database.
-// Typically this is used to represent the [begin, end) of a zgram or metadata record.
-// It is used inside ZgramInfo.
-// This class is blittable.
 template<bool IsLogged>
 class IntraFileRange {
 public:
@@ -143,8 +142,10 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o);
 };
-static_assert(std::is_trivially_copyable_v<IntraFileRange> &&
-    std::has_unique_object_representations_v<IntraFileRange>);
+static_assert(std::is_trivially_copyable_v<IntraFileRange<false>> &&
+    std::has_unique_object_representations_v<IntraFileRange<false>>);
+static_assert(std::is_trivially_copyable_v<IntraFileRange<true>> &&
+    std::has_unique_object_representations_v<IntraFileRange<true>>);
 
 // Defines a range across files. This is used as a parameter to define the whole
 // valid range of {logged, unlogged} zgrams for a method to look at.

@@ -50,21 +50,20 @@ namespace internal {
 struct DynamicFileState {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
-  typedef z2kplus::backend::files::FileKey FileKey;
-  typedef z2kplus::backend::files::FilePosition FilePosition;
+  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
-      DynamicFileState *result, const FailFrame &ff);
+//  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
+//      DynamicFileState *result, const FailFrame &ff);
 
   DynamicFileState();
-  DynamicFileState(FileCloser fc, const FileKey &fileKey, size_t fileSize);
+  DynamicFileState(FileCloser fc, const CompressedFileKey &fileKey, size_t fileSize);
   DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState();
 
   FileCloser fc_;
-  FileKey fileKey_;
+  CompressedFileKey fileKey_;
   size_t fileSize_ = 0;
 };
 }  // namespace internal
@@ -73,7 +72,6 @@ class ConsolidatedIndex {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::factories::LogParser::logRecordAndLocation_t logRecordAndLocation_t;
-  typedef z2kplus::backend::files::FileKey FileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::DynamicIndex DynamicIndex;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;
