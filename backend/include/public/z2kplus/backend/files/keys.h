@@ -29,7 +29,52 @@
 
 namespace z2kplus::backend::files {
 
-// This class is blittable.
+// Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
+// refers to a file in the database. This class is blittable.
+class CompressedFileKey {
+  using FailFrame = kosak::coding::FailFrame;
+public:
+  CompressedFileKey() = default;
+  explicit constexpr CompressedFileKey(uint32_t raw) : raw_(raw) {}
+
+  uint32_t raw() const { return raw_; }
+
+private:
+  uint32_t raw_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const CompressedFileKey &o);
+};
+
+static_assert(std::is_trivially_copyable_v<CompressedFileKey> &&
+    std::has_unique_object_representations_v<CompressedFileKey>);
+
+// Defines a byte range [begin,end) inside a file in the database.
+// Typically this is used to locate the [begin, end) of a zgram or metadata record
+class IntraFileRange {
+public:
+  IntraFileRange() = default;
+  IntraFileRange(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
+      fileKey_(fileKey), begin_(begin), end_(end) {}
+
+  const CompressedFileKey &fileKey() const { return fileKey_; }
+  uint32_t begin() const { return begin_; }
+  uint32_t end() const { return end_; }
+
+private:
+  // The file being referred to.
+  CompressedFileKey fileKey_;
+  // The inclusive start of the range.
+  uint32_t begin_ = 0;
+  // The exclusive end of the range.
+  uint32_t end_ = 0;
+
+  friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o);
+};
+static_assert(std::is_trivially_copyable_v<IntraFileRange> &&
+    std::has_unique_object_representations_v<IntraFileRange>);
+
+// The expanded version of the CompressedFileKey. Less space-efficient but easier
+// to work with.
 class FileKey {
   using FailFrame = kosak::coding::FailFrame;
 public:
@@ -38,14 +83,14 @@ public:
 
   static bool tryCreate(uint32_t raw, FileKey *result, const FailFrame &failFrame);
 
-  static constexpr FileKey createUnsafe(size_t year, size_t month, size_t day,
-      bool extra) noexcept {
-    uint32 raw = year;
-    raw = raw * 100 + month;
-    raw = raw * 100 + day;
-    raw = raw * 10 + (extra ? 1 : 0);
-    return FileKey(raw);
-  }
+//  static constexpr FileKey createUnsafe(size_t year, size_t month, size_t day,
+//      bool extra) noexcept {
+//    uint32 raw = year;
+//    raw = raw * 100 + month;
+//    raw = raw * 100 + day;
+//    raw = raw * 10 + (extra ? 1 : 0);
+//    return FileKey(raw);
+//  }
 
   FileKey() = default;
   ~FileKey() = default;
@@ -55,16 +100,14 @@ public:
   size_t day() const;
   bool isLogged() const;
 
-  uint32_t raw() const { return raw_; }
-
 private:
-  explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
-
-  uint32_t raw_ = 0;
+  size_t year_ = 0;
+  size_t month_ = 0;
+  size_t day_ = 0;
+  bool isLogged_ = false;
 
   friend std::ostream &operator<<(std::ostream &s, const FileKey &o);
 };
-static_assert(std::is_trivially_copyable_v<FileKey> && std::has_unique_object_representations_v<FileKey>);
 
 // FileKey: compressed file key (yyyymmddL)
 // file key with offset (yyyymmddL + offset); Location can be our proxy for this
@@ -93,28 +136,7 @@ private:
 static_assert(std::is_trivially_copyable_v<FilePosition> &&
     std::has_unique_object_representations_v<FilePosition>);
 
-class IntraFileRange {
-public:
-  IntraFileRange() = default;
-  IntraFileRange(FileKey fileKey, uint32_t begin, uint32_t end) :
-      fileKey_(fileKey), begin_(begin), end_(end) {}
 
-  const FileKey &fileKey() const { return fileKey_; }
-  uint32_t begin() const { return begin_; }
-  uint32_t end() const { return end_; }
-
-private:
-  // The file being referred to.
-  FileKey fileKey_;
-  // The inclusive start of the range.
-  uint32_t begin_ = 0;
-  // The exclusive end of the range.
-  uint32_t end_ = 0;
-
-  friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o);
-};
-static_assert(std::is_trivially_copyable_v<IntraFileRange> &&
-    std::has_unique_object_representations_v<IntraFileRange>);
 
 class InterFileRange {
 public:
