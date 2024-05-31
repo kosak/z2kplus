@@ -96,6 +96,10 @@ public:
   LogLocation(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
+  const CompressedFileKey &fileKey() const { return fileKey_; }
+  uint32_t begin() const { return begin_; }
+  uint32_t end() const { return end_; }
+
 private:
   // Which fulltext file this zgram lives in.
   CompressedFileKey fileKey_;

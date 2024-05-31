@@ -20,9 +20,12 @@
 
 #define HERE KOSAK_CODING_HERE
 
+using kosak::coding::FailFrame;
 using kosak::coding::streamf;
 using kosak::coding::nsunix::FileCloser;
-using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::CompressedFileKey;
+using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
 namespace nsunix = kosak::coding::nsunix;
 
@@ -45,11 +48,40 @@ struct MyComparer {
 };
 }  // namespace
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange> sortedRanges) :
-    sortedRanges_(std::move(sortedRanges)) {}
+LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange<true>> sortedLoggedRanges,
+    std::vector<IntraFileRange<false>> sortedUnloggedRanges) :
+    sortedLoggedRanges_(std::move(sortedLoggedRanges)),
+    sortedUnloggedRanges_(std::move(sortedUnloggedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
+
+template<bool IsLogged>
+bool tryProcessFile(const InterFileRange<IsLogged> &universe, CompressedFileKey key,
+    uint32_t begin, uint32_t end, std::vector<IntraFileRange<IsLogged>> *result,
+    const FailFrame &ff) {
+  InterFileRange <IsLogged> inter;
+  if (!InterFileRange<IsLogged>::tryCreate(key, begin, key, end, &inter, ff.nest(HERE))) {
+    return false;
+  }
+  auto intersection = universe.intersectWith(inter);
+  if (intersection.empty()) {
+    return true;
+  }
+
+  IntraFileRange<IsLogged> intra;
+  if (!IntraFileRange<IsLogged>::tryCreate())
+
+
+
+    result->emplace_back()
+    intersection.begin()
+    return true;
+  }
+
+  InterFileRange<IsLogged> myRange(key, 0, key, stat.st_size);
+
+}
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     const InterFileRange<true> &loggedRange,
@@ -57,13 +89,21 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     LogAnalyzer *result, const FailFrame &ff) {
   std::vector<IntraFileRange<true>> includedLoggedRanges;
   std::vector<IntraFileRange<false>> includedUnloggedRanges;
-  auto cbKeys = [&pm, &loggedRange, &unloggedRange, &includedRanges](const FileKey &key, const FailFrame &f2) {
+  auto cbKeys = [&pm, &loggedRange, &unloggedRange, &includedRanges](
+      const CompressedFileKey &key, const FailFrame &f2) {
     auto filename = pm.getPlaintextPath(key);
     FileCloser fc;
     struct stat stat = {};
     if (!nsunix::tryOpen(filename, O_RDONLY, 0, &fc, f2.nest(HERE)) ||
         !nsunix::tryFstat(fc.get(), &stat, f2.nest(HERE))) {
       return false;
+    }
+
+    ExpandedFileKey efk(key);
+    if (efk.isLogged()) {
+      processNubbin1();
+    } else {
+      processNubbin2();
     }
 
     InterFileRange myRange(key, 0, key, stat.st_size);

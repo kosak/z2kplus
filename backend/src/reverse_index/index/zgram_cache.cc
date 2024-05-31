@@ -26,7 +26,7 @@
 
 using kosak::coding::FailFrame;
 using kosak::coding::memory::MappedFile;
-using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::ZgramId;
@@ -45,13 +45,13 @@ ZgramCache& ZgramCache::operator=(ZgramCache &&) noexcept = default;
 ZgramCache::~ZgramCache() = default;
 
 bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
-  const std::vector<std::pair<ZgramId, IntraFileRange>> &locators,
+  const std::vector<std::pair<ZgramId, LogLocation>> &locators,
     std::vector<std::shared_ptr<const Zephyrgram>> *result, const FailFrame &ff) {
   // Do a little extra work to make us append to the result rather than overwrite it.
   auto offset = result->size();
   result->resize(offset + locators.size());
 
-  std::vector<std::tuple<ZgramId, IntraFileRange, size_t>> todo;
+  std::vector<std::tuple<ZgramId, LogLocation, size_t>> todo;
   todo.reserve(locators.size());
 
   // First, populate what we can from the cache.
@@ -66,13 +66,13 @@ bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
     }
     (*result)[offset + i] = cp->second;
   }
-  // sort 'todo' by Location (arbitrary ordering) so that file accesses are more efficient.
+  // Sort 'todo' by filekey (to group filekeys together) so that file accesses are more efficient.
   std::sort(todo.begin(), todo.end(), [](const auto &lhs, const auto &rhs) {
     return std::get<1>(lhs).fileKey().raw() < std::get<1>(rhs).fileKey().raw();
   });
 
   MappedFile<const char> currentFile;
-  FileKey currentFileKey;
+  CompressedFileKey currentFileKey;
   for (const auto &[zgramId, location, index] : todo) {
     // If first time, or the file key is different from the file we have open, open a new file.
     if (currentFile.get() == nullptr || currentFileKey.raw() != location.fileKey().raw()) {
