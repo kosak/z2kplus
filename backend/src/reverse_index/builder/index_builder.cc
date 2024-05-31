@@ -133,8 +133,8 @@ bool IndexBuilder::tryClearScratchDirectory(const PathMaster &pm, const FailFram
 // 1. Concatenate all the plaintexts and sort by key to make plaintext.sorted
 // 2. Scan this to make canonicalStringPool.unsorted
 // 3. Sort to make
-bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange &loggedRange,
-    const InterFileRange &unloggedRange, const FailFrame &ff) {
+bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &loggedRange,
+    const InterFileRange<false> &unloggedRange, const FailFrame &ff) {
   LogAnalyzer lazr;
   LogSplitterResult lsr;
   if (!LogAnalyzer::tryAnalyze(pm, loggedRange, unloggedRange, &lazr, ff.nest(HERE)) ||
@@ -169,6 +169,7 @@ bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange &loggedRa
   }
 
   // Default to minimum key.
+  lazr.sortedLoggedRanges()
   FilePosition loggedEnd, unloggedEnd;
   for (auto rip = lazr.sortedRanges().rbegin(); rip != lazr.sortedRanges().rend(); ++rip) {
     if (rip->fileKey().isLogged()) {

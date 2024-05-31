@@ -61,7 +61,7 @@ class FrozenIndex {
 
 public:
   FrozenIndex();
-  FrozenIndex(const FilePosition<true> &loggedEnd, const FilePosition<false>  &unloggedEnd,
+  FrozenIndex(const FilePosition<true> &loggedEnd, const FilePosition<false> &unloggedEnd,
       FrozenVector<ZgramInfo> zgramInfos, FrozenVector<WordInfo> wordInfos, FrozenTrie trie,
       FrozenStringPool stringPool, FrozenMetadata metadata);
   DISALLOW_COPY_AND_ASSIGN(FrozenIndex);

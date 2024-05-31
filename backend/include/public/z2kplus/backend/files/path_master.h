@@ -47,7 +47,7 @@ public:
   std::string getScratchIndexPath() const;
   std::string getScratchPathFor(std::string_view name) const;
 
-  bool tryGetPlaintexts(const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb,
+  bool tryGetPlaintexts(const Delegate<bool, const ExpandedFileKey &, const FailFrame &> &cb,
       const FailFrame &ff) const;
 
   bool tryPublishBuild(const FailFrame &ff) const;

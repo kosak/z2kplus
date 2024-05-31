@@ -53,8 +53,8 @@ struct DynamicFileState {
   typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-//  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
-//      DynamicFileState *result, const FailFrame &ff);
+  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
+      DynamicFileState *result, const FailFrame &ff);
 
   DynamicFileState();
   DynamicFileState(FileCloser fc, const CompressedFileKey &fileKey, size_t fileSize);

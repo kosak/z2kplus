@@ -52,10 +52,11 @@ LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
-    const InterFileRange &loggedRange,
-    const InterFileRange &unloggedRange,
+    const InterFileRange<true> &loggedRange,
+    const InterFileRange<false> &unloggedRange,
     LogAnalyzer *result, const FailFrame &ff) {
-  std::vector<IntraFileRange> includedRanges;
+  std::vector<IntraFileRange<true>> includedLoggedRanges;
+  std::vector<IntraFileRange<false>> includedUnloggedRanges;
   auto cbKeys = [&pm, &loggedRange, &unloggedRange, &includedRanges](const FileKey &key, const FailFrame &f2) {
     auto filename = pm.getPlaintextPath(key);
     FileCloser fc;
@@ -88,6 +89,6 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "sortedRanges=%o", o.sortedRanges_);
+  return streamf(s, "sorted=%o\nunsorted=%o", o.sortedLoggedRanges_, o.sortedUnloggedRanges_);
 }
 }  // namespace z2kplus::backend::reverse_index::builder

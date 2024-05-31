@@ -71,6 +71,7 @@ public:
 //  }
 
   ExpandedFileKey() = default;
+  explicit ExpandedFileKey(CompressedFileKey cfk);
   ~ExpandedFileKey() = default;
 
   size_t year() const;

@@ -24,13 +24,15 @@ namespace z2kplus::backend::reverse_index::builder {
 class LogAnalyzer {
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::files::PathMaster PathMaster;
-  typedef z2kplus::backend::files::FilePosition FilePosition;
-  typedef z2kplus::backend::files::InterFileRange InterFileRange;
-  typedef z2kplus::backend::files::IntraFileRange IntraFileRange;
+
+  template<bool IsLogged>
+  using InterFileRange = z2kplus::backend::files::InterFileRange<IsLogged>;
+  template<bool IsLogged>
+  using IntraFileRange = z2kplus::backend::files::IntraFileRange<IsLogged>;
 
 public:
   static bool tryAnalyze(const PathMaster &pm,
-      const InterFileRange &loggedRange, const InterFileRange &unloggedRange,
+      const InterFileRange<true> &loggedRange, const InterFileRange<false> &unloggedRange,
       LogAnalyzer *result, const FailFrame &ff);
 
   LogAnalyzer();
@@ -38,12 +40,15 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(LogAnalyzer);
   ~LogAnalyzer();
 
-  const auto &sortedRanges() const { return sortedRanges_; }
+  const auto &sortedLoggedRanges() const { return sortedLoggedRanges_; }
+  const auto &sortedUnloggedRanges() const { return sortedUnloggedRanges_; }
 
 private:
-  explicit LogAnalyzer(std::vector<IntraFileRange> sortedRanges);
+  explicit LogAnalyzer(std::vector<IntraFileRange<true>> sortedLoggedRanges,
+      std::vector<IntraFileRange<false>> sortedUnloggedRanges);
 
-  std::vector<IntraFileRange> sortedRanges_;
+  std::vector<IntraFileRange<true>> sortedLoggedRanges_;
+  std::vector<IntraFileRange<false>> sortedUnloggedRanges_;
 
   friend std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o);
 };
