@@ -44,17 +44,12 @@ bool ZgramInfo::tryCreate(uint64_t timesecs, const LogLocation &location, wordOf
 ZgramInfo::ZgramInfo() = default;
 
 ZgramInfo::ZgramInfo(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff,
-    ZgramId zgramId, size_t senderWordLength, size_t signatureWordLength,
-  size_t instanceWordLength, size_t bodyWordLength) :
-  timesecs_(timesecs), location_(location), startingWordOff_(startingWordOff), zgramId_(zgramId),
-  senderWordLength_((uint8_t)senderWordLength), signatureWordLength_((uint8_t)signatureWordLength),
-  instanceWordLength_((uint16_t)instanceWordLength), bodyWordLength_((uint16_t)bodyWordLength) {
-  // Check for truncation
-  passert(senderWordLength_ == senderWordLength &&
-    signatureWordLength_ == signatureWordLength &&
-    instanceWordLength_ == instanceWordLength &&
-    bodyWordLength_ == bodyWordLength,
-    senderWordLength, signatureWordLength, instanceWordLength, bodyWordLength);
+    ZgramId zgramId, uint16_t senderWordLength, uint16_t signatureWordLength,
+    uint16_t instanceWordLength, uint16_t bodyWordLength) :
+  timesecs_(timesecs), location_(location), zgramId_(zgramId),
+  startingWordOff_(startingWordOff), senderWordLength_(senderWordLength),
+  signatureWordLength_(signatureWordLength), instanceWordLength_(instanceWordLength),
+  bodyWordLength_(bodyWordLength) {
 }
 
 std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg) {

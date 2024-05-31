@@ -100,6 +100,8 @@ private:
 
   friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
 };
+static_assert(std::is_trivially_copyable_v<LogLocation> &&
+  std::has_unique_object_representations_v<LogLocation>);
 
 // Defines a position inside a file. This is used in the FrozenIndex to keep
 // track of the end of the logged and unlogged databases at the time the

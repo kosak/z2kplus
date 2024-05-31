@@ -68,22 +68,24 @@ public:
 
 private:
   ZgramInfo(uint64 timesecs, const LogLocation &location, wordOff_t startingWordOff, ZgramId zgramId,
-      size_t senderWordLength, size_t signatureWordLength, size_t instanceWordLength,
-      size_t bodyWordLength);
+      uint16_t senderWordLength, uint16_t signatureWordLength, uint16_t instanceWordLength,
+      uint16_t bodyWordLength);
 
   // The timesecs field of this zgram
   uint64 timesecs_ = 0;
   // The location of the zgram
   LogLocation location_;
-  // Starting wordIndex of this zgram. See explanation below.
-  wordOff_t startingWordOff_;
   // The ID.
   ZgramId zgramId_;
+
+  // Starting wordIndex of this zgram. See explanation below.
+  wordOff_t startingWordOff_;
+  uint32_t padding_ = 0;
   // Length of sender field in words, where "word" is defined as in our documentation
   // (see dynamic_index.h)
-  uint8_t senderWordLength_ = 0;
+  uint16_t senderWordLength_ = 0;
   // Length of signature field in words. For example "Corey Kosak" is two words.
-  uint8_t signatureWordLength_ = 0;
+  uint16_t signatureWordLength_ = 0;
   // Length of instance field in words.
   uint16_t instanceWordLength_ = 0;
   // Length of body field in words.
