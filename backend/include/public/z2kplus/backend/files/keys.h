@@ -85,7 +85,7 @@ private:
   friend std::ostream &operator<<(std::ostream &s, const ExpandedFileKey &o);
 };
 
-class ZgramPosition {
+class LogRecordLocation {
 
 };
 

@@ -37,9 +37,9 @@ using kosak::coding::memory::MaybeInlinedBuffer;
 using kosak::coding::nsunix::FileCloser;
 using kosak::coding::streamf;
 using z2kplus::backend::factories::LogParser;
-using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
+using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::util::frozen::FrozenStringPool;
 using z2kplus::backend::util::frozen::frozenStringRef_t;
@@ -862,27 +862,25 @@ bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState
   return true;
 }
 
-bool tryReadAllDynamicFiles(const PathMaster &pm, const std::vector<FileKey> &dynamicFileKeys,
+bool tryReadAllDynamicFiles(const PathMaster &pm,
+    const std::vector<IntraFileRange<true>> &loggedKeys,
+    const std::vector<IntraFileRange<false>> &unloggedKeys,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff) {
   // We have an ordering problem. For a given DateAndPartKey, zgrams might be arbitrarily
   // distributed between logged and unlogged. For example zgram 100 might be logged, and zgram 101
-  // might be unlogged, then zgram 102 might be logged again. We need to add them in sequential
-  // order: we simply can't add all the logged then all the unlogged, for example.
-  // To deal with this, we group by DateAndPartKey and then, for each DateAndPartKey, we gather
-  // all the records, sort them, and then add them to the index.
-  std::map<DateAndPartKey, std::vector<FileKey>> groupedKeys;
-  for (auto filekey : dynamicFileKeys) {
-    groupedKeys[filekey.asDateAndPartKey()].push_back(filekey);
-  }
-
+  // might be unlogged, then zgram 102 might be logged again. But we need to add them to the index
+  // sequential: we simply can't add all the logged then all the unlogged, for example.
+  // To deal with this, we pull them all in and then sort them using a stable sort.
   struct extractor_t {
     void operator()(const Zephyrgram &zg) { zg_ = &zg; }
     void operator()(const MetadataRecord &mr) { mr_ = &mr; }
+
     const Zephyrgram *zg_ = nullptr;
     const MetadataRecord *mr_ = nullptr;
   };
 
-  // Zgrams ordered before Metadata. Zgrams are ordered by id. Metadata are all equivalent.
+  // Zgrams ordered before Metadata. Zgrams are ordered by id. Metadata are all equivalent,
+  // but their ordering is preserved thanks to the stable sort.
   auto myLess = [](const LogParser::logRecordAndLocation_t &lhs,
       const LogParser::logRecordAndLocation_t &rhs) {
     extractor_t lExtractor, rExtractor;
@@ -899,20 +897,27 @@ bool tryReadAllDynamicFiles(const PathMaster &pm, const std::vector<FileKey> &dy
       return false;
     }
 
+    // lhs must be Zgram
     if (rExtractor.mr_ != nullptr) {
       // Case 2.
       return true;
     }
 
+    // lhs and rhs must be Zgram
     return lExtractor.zg_->zgramId() < rExtractor.zg_->zgramId();
   };
 
-  for (const auto &[_, keysInThisGroup] : groupedKeys) {
-    for (auto fk : keysInThisGroup) {
-      auto path = pm.getPlaintextPath(fk);
-      if (!LogParser::tryParseLogFile(pm, fk, result, ff.nest(HERE))) {
-        return false;
-      }
+  for (const auto &ifr : loggedKeys) {
+    auto path = pm.getPlaintextPath(ifr.fileKey());
+    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
+      return false;
+    }
+  }
+
+  for (const auto &ifr : unloggedKeys) {
+    auto path = pm.getPlaintextPath(ifr.fileKey());
+    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
+      return false;
     }
   }
 
