@@ -31,7 +31,7 @@ public:
 
   static bool tryClearScratchDirectory(const PathMaster &pm, const FailFrame &ff);
   static bool tryBuild(const PathMaster &pm,
-      const InterFileRange &begin, const InterFileRange &end,
+      const InterFileRange &loggedRange, const InterFileRange &unloggedRange,
       const FailFrame &ff);
 };
 }   // namespace z2kplus::backend::reverse_index::builder

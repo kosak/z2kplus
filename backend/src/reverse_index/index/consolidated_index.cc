@@ -39,6 +39,7 @@ using kosak::coding::streamf;
 using z2kplus::backend::factories::LogParser;
 using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::FilePosition;
+using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::util::frozen::FrozenStringPool;
 using z2kplus::backend::util::frozen::frozenStringRef_t;
@@ -86,9 +87,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   }
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
-  auto frozenEndKey = frozenIndex.get()->endKey();
-  if (!LogAnalyzer::tryAnalyze(*pm, frozenEndKey.asFileKey(true), {},
-      frozenEndKey.asFileKey(false), {}, &analyzer, ff.nest(HERE))) {
+
+  InterFileRange loggedRange(frozenIndex.get()->loggedEnd(), FilePosition::loggedInfinity);
+  InterFileRange unloggedRange(frozenIndex.get()->unloggedEnd(), FilePosition::unloggedInfinity);
+  if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
     return false;
   }
   // Pick a new currentKey derived from the date and the max key in the log files
@@ -109,7 +111,7 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   ConsolidatedIndex ci;
   std::vector<DynamicIndex::logRecordAndLocation_t> records;
   if (!tryCreate(std::move(pm), finalChoice, std::move(frozenIndex), &ci, ff.nest(HERE)) ||
-      !tryReadAllDynamicFiles(ci.pm(), analyzer.includedKeys(), &records, ff.nest(HERE)) ||
+      !tryReadAllDynamicFiles(ci.pm(), analyzer.sortedRanges(), &records, ff.nest(HERE)) ||
       !ci.tryAddForBootstrap(records, ff.nest(HERE))) {
     return false;
   }

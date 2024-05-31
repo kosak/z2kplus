@@ -51,19 +51,20 @@ struct DynamicFileState {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::files::FileKey FileKey;
+  typedef z2kplus::backend::files::FilePosition FilePosition;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  static bool tryCreate(const PathMaster &pm, DateAndPartKey dpKey, bool logged,
+  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
       DynamicFileState *result, const FailFrame &ff);
 
   DynamicFileState();
-  DynamicFileState(FileKey fileKey, FileCloser fc, size_t fileSize);
+  DynamicFileState(FileCloser fc, const FileKey &fileKey, size_t fileSize);
   DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState();
 
-  FileKey fileKey_;
   FileCloser fc_;
+  FileKey fileKey_;
   size_t fileSize_ = 0;
 };
 }  // namespace internal
@@ -161,7 +162,7 @@ public:
   ZgramCache &zgramCache() { return zgramCache_; }
 
 private:
-  ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm, DateAndPartKey currentKey,
+  ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm,
       MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
       internal::DynamicFileState &&unloggedState);
 
@@ -175,7 +176,6 @@ private:
 
   std::shared_ptr<PathMaster> pm_;
 
-  DateAndPartKey currentKey_;
   // Zgrams and metadata that have been digested and stored in the on-disk format.
   MappedFile<FrozenIndex> frozenIndex_;
   // Freshly arrived zephyrgrams and metadata.

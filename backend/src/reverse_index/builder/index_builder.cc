@@ -133,11 +133,11 @@ bool IndexBuilder::tryClearScratchDirectory(const PathMaster &pm, const FailFram
 // 1. Concatenate all the plaintexts and sort by key to make plaintext.sorted
 // 2. Scan this to make canonicalStringPool.unsorted
 // 3. Sort to make
-bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange &begin,
-    const InterFileRange &end, const FailFrame &ff) {
+bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange &loggedRange,
+    const InterFileRange &unloggedRange, const FailFrame &ff) {
   LogAnalyzer lazr;
   LogSplitterResult lsr;
-  if (!LogAnalyzer::tryAnalyze(pm, begin, end, &lazr, ff.nest(HERE)) ||
+  if (!LogAnalyzer::tryAnalyze(pm, loggedRange, unloggedRange, &lazr, ff.nest(HERE)) ||
       !LogSplitter::split(pm, lazr.sortedRanges(), magicConstants::numIndexBuilderShards,
       &lsr, ff.nest(HERE))) {
     return false;
