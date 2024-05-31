@@ -100,8 +100,10 @@ static_assert(std::is_trivially_copyable_v<ZgramInfo> &&
 // This class is POD. This structure forms the entries of the "word index"---the reverse index of
 // word numbers to zephyrgram numbers.
 class WordInfo {
+  typedef kosak::coding::FailFrame FailFrame;
+
 public:
-  WordInfo(zgramOff_t zgramOff, FieldTag fieldTag);
+  static bool tryCreate(zgramOff_t zgramOff, FieldTag fieldTag, WordInfo *result, const FailFrame &ff);
 
   zgramOff_t zgramOff() const { return zgramOff_t(zgramOff_); }
 
@@ -111,10 +113,13 @@ public:
   DEFINE_ALL_COMPARISON_OPERATORS(WordInfo);
 
 private:
+  constexpr WordInfo(zgramOff_t zgramOff, FieldTag fieldTag) :
+      zgramOff_(zgramOff.raw()), fieldTag_(static_cast<uint32_t>(fieldTag)) {}
+
   static_assert((int)FieldTag::numTags <= 8);
   static_assert(sizeof(zgramOff_t) == sizeof(uint32_t));
 
-  static constexpr size_t maxZgramOff = ((size_t)1 << 29U) - 1;
+  // static constexpr size_t maxZgramOff = ((size_t)1 << 29U) - 1;
 
   // The zgram offset
   uint32_t zgramOff_: 29;

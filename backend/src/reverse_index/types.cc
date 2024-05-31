@@ -59,10 +59,13 @@ std::ostream &operator<<(std::ostream &s, const ZgramInfo &zg) {
     (size_t)zg.signatureWordLength_, (size_t)zg.instanceWordLength_, (size_t)zg.bodyWordLength_);
 }
 
-WordInfo::WordInfo(zgramOff_t zgramOff, FieldTag fieldTag)
-  : zgramOff_(zgramOff.raw()), fieldTag_((unsigned)fieldTag) {
-  passert(zgramOff.raw() < (1U << 29U));
-  passert((unsigned)fieldTag < (1U << 3U));
+bool WordInfo::tryCreate(zgramOff_t zgramOff, FieldTag fieldTag, WordInfo *result,
+    const FailFrame &ff) {
+  *result = WordInfo(zgramOff, fieldTag);
+  if (zgramOff != result->zgramOff() || fieldTag != result->fieldTag()) {
+    return ff.failf(HERE, "Some value was truncated: %o and %o", zgramOff, fieldTag);
+  }
+  return true;
 }
 
 int WordInfo::compare(const WordInfo &other) const {
