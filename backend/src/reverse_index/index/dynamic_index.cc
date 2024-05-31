@@ -42,16 +42,16 @@ DynamicIndex &DynamicIndex::operator=(DynamicIndex &&other) noexcept = default;
 DynamicIndex::~DynamicIndex() = default;
 
 bool DynamicIndex::tryAddLogRecords(const FrozenIndex &frozenSide,
-    const std::vector<std::pair<LogRecord, Location>> &items, const FailFrame &ff) {
+    const std::vector<logRecordAndLocation_t> &items, const FailFrame &ff) {
   struct visitor_t {
-    visitor_t(DynamicIndex *self, const FrozenIndex &frozenSide, const Location &location,
+    visitor_t(DynamicIndex *self, const FrozenIndex &frozenSide, const LogLocation &location,
         const FailFrame *f2) :
       self_(self), frozenSide_(frozenSide), location_(location), f2_(f2) {
     }
 
     bool operator()(const Zephyrgram &zg) {
       auto zgSlice = Slice<const Zephyrgram>(&zg, 1);
-      auto locSlice = Slice<const Location>(&location_, 1);
+      auto locSlice = Slice<const LogLocation>(&location_, 1);
       return self_->tryAddZgrams(frozenSide_, zgSlice, locSlice, f2_->nest(HERE));
     }
 
@@ -62,8 +62,8 @@ bool DynamicIndex::tryAddLogRecords(const FrozenIndex &frozenSide,
 
     DynamicIndex *self_;
     const FrozenIndex &frozenSide_;
-    const Location &location_;
-    const FailFrame *f2_;
+    const LogLocation &location_;
+    const FailFrame *f2_ = nullptr;
   };
   auto ff2 = ff.nest(HERE);
   for (const auto &item : items) {
@@ -76,7 +76,7 @@ bool DynamicIndex::tryAddLogRecords(const FrozenIndex &frozenSide,
 }
 
 bool DynamicIndex::tryAddZgrams(const FrozenIndex &frozenSide,
-    const Slice<const Zephyrgram> &zgrams, const Slice<const Location> &locations,
+    const Slice<const Zephyrgram> &zgrams, const Slice<const LogLocation> &locations,
     const FailFrame &ff) {
   if (zgrams.size() != locations.size()) {
     return ff.failf(HERE, "zgrams.size (%o) != locations.size (%o)", zgrams.size(), locations.size());
