@@ -31,23 +31,6 @@ using z2kplus::backend::files::IntraFileRange;
 namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
-namespace {
-struct MyComparer {
-  bool operator()(const IntraFileRange &lhs, const IntraFileRange &rhs) const {
-    auto lLogged = lhs.fileKey().isLogged();
-    auto rLogged = rhs.fileKey().isLogged();
-    if (lLogged != rLogged) {
-      // returning the result of "less than", assuming we want all logged before all unlogged
-      // lLogged = false, rLogged = true: return false
-      // lLogged = true, rLogged = false: return true
-      return lLogged;
-    }
-
-    // Otherwise we can rely on the natural ordering of the raw value.
-    return lhs.fileKey().raw() < rhs.fileKey().raw();
-  }
-};
-}  // namespace
 LogAnalyzer::LogAnalyzer() = default;
 LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange<true>> sortedLoggedRanges,
     std::vector<IntraFileRange<false>> sortedUnloggedRanges) :
@@ -58,15 +41,14 @@ LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
 template<bool IsLogged>
-bool tryProcessFile(const InterFileRange<IsLogged> &universe, TaggedFileKey<IsLogged> key,
-    uint32_t begin, uint32_t end, std::vector<IntraFileRange<IsLogged>> *result,
-    const FailFrame &ff) {
-  InterFileRange <IsLogged> inter(key, begin, key, end);
+void processFile(const InterFileRange<IsLogged> &universe, TaggedFileKey<IsLogged> key,
+    uint32_t begin, uint32_t end, std::vector<IntraFileRange<IsLogged>> *result) {
+  InterFileRange<IsLogged> inter(key, begin, key, end);
   auto intersection = universe.intersectWith(inter);
   if (!intersection.empty()) {
-    result->emplace_back(key, intersection.begin(), intersection.end());
+    passert(intersection.begin().fileKey().raw() == intersection.end().fileKey().raw());
+    result->emplace_back(key, intersection.begin().position(), intersection.end().position());
   }
-  return true;
 }
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
@@ -75,7 +57,7 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     LogAnalyzer *result, const FailFrame &ff) {
   std::vector<IntraFileRange<true>> includedLoggedRanges;
   std::vector<IntraFileRange<false>> includedUnloggedRanges;
-  auto cbKeys = [&pm, &loggedRange, &unloggedRange, &includedRanges](
+  auto cbKeys = [&](
       const CompressedFileKey &key, const FailFrame &f2) {
     auto filename = pm.getPlaintextPath(key);
     FileCloser fc;
@@ -86,21 +68,11 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     }
 
     ExpandedFileKey efk(key);
-    if (efk.isLogged()) {
-      processNubbin1();
+    auto [loggedKey, unloggedKey] = efk.visit();
+    if (loggedKey.has_value()) {
+      processFile(loggedRange, *loggedKey, 0, stat.st_size, &includedLoggedRanges);
     } else {
-      processNubbin2();
-    }
-
-    InterFileRange myRange(key, 0, key, stat.st_size);
-
-    const auto *which = key.isLogged() ? &loggedRange : &unloggedRange;
-    auto intersection = which->intersectWith(myRange);
-
-    if (!intersection.empty()) {
-      includedRanges.emplace_back(key,
-          intersection.begin().position(),
-          intersection.end().position());
+      processFile(unloggedRange, *unloggedKey, 0, stat.st_size, &includedUnloggedRanges);
     }
     return true;
   };
@@ -108,8 +80,11 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
     return false;
   }
   // To make things readable
-  std::sort(includedRanges.begin(), includedRanges.end(), MyComparer());
-  *result = LogAnalyzer(std::move(includedRanges));
+  std::sort(includedLoggedRanges.begin(), includedLoggedRanges.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.fileKey().raw() < rhs.fileKey().raw(); });
+  std::sort(includedUnloggedRanges.begin(), includedUnloggedRanges.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.fileKey().raw() < rhs.fileKey().raw(); });
+  *result = LogAnalyzer(std::move(includedLoggedRanges), std::move(includedUnloggedRanges));
   warn("Created a LogAnalyzer: %o", *result);
   return true;
 }

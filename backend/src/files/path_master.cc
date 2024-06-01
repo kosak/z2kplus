@@ -32,7 +32,7 @@ namespace nsunix = kosak::coding::nsunix;
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const ExpandedFileKey &, const FailFrame &> &cb, const FailFrame &ff);
+    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff);
 bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
     std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
     std::string_view *residual, const FailFrame &ff);
@@ -110,7 +110,7 @@ std::string PathMaster::getScratchPathFor(std::string_view name) const {
 }
 
 bool PathMaster::tryGetPlaintexts(
-    const Delegate<bool, const ExpandedFileKey &, const FailFrame &> &cb, const FailFrame &ff) const {
+    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff) const {
   return tryGetPlaintextsHelper(loggedRoot_, true, cb, ff.nest(HERE)) &&
       tryGetPlaintextsHelper(unloggedRoot_, false, cb, ff.nest(HERE));
 }
@@ -123,7 +123,7 @@ bool PathMaster::tryPublishBuild(const FailFrame &ff) const {
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const ExpandedFileKey &, const FailFrame &> &cb, const FailFrame &ff) {
+    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff) {
   // example: 2000/01/20000104.unlogged.000
   auto myCallback = [expectLogged, &cb](std::string_view fullName, bool isDir, const FailFrame &f2) {
     if (isDir) {

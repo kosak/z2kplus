@@ -26,31 +26,14 @@ using kosak::coding::FailRoot;
 #define HERE KOSAK_CODING_HERE
 
 namespace z2kplus::backend::files {
-namespace {
-struct Expander {
-  explicit Expander(uint32_t raw) {
-    isLogged_ = (raw % 10) != 0;
-    raw /= 10;
+std::ostream &operator<<(std::ostream &s, const CompressedFileKey &o) {
+  ExpandedFileKey efk(o);
+  streamf(s, "%o (%o)", o.raw_, efk);
+  return s;
+}
 
-    day_ = raw % 100;
-    raw /= 100;
-
-    month_ = raw % 100;
-    raw /= 100;
-
-    year_ = raw;
-  }
-
-  size_t year_ = 0;
-  size_t month_ = 0;
-  size_t day_ = 0;
-  bool isLogged_ = false;
-};
-
-}  // namespace
-
-bool FileKey::tryCreate(size_t year, size_t month, size_t day, bool logged,
-    FileKey *result, const FailFrame &ff) {
+bool ExpandedFileKey::tryCreate(uint32_t year, uint32_t month, uint32_t day, bool logged,
+    ExpandedFileKey *result, const FailFrame &ff) {
   if (year > 2100 || month > 12 || day > 31) {
     return ff.failf(HERE, "At least one of (%o,%o,%o) is suspicious", year, month, day);
   }
@@ -58,45 +41,54 @@ bool FileKey::tryCreate(size_t year, size_t month, size_t day, bool logged,
   return true;
 }
 
-size_t FileKey::year() const {
-  return Expander(raw_).year_;
+ExpandedFileKey::ExpandedFileKey(CompressedFileKey cfk) {
+  auto raw = cfk.raw();
+  isLogged_ = (raw % 10) != 0;
+  raw /= 10;
+
+  day_ = raw % 100;
+  raw /= 100;
+
+  month_ = raw % 100;
+  raw /= 100;
+
+  year_ = raw;
 }
 
-size_t FileKey::month() const {
-  return Expander(raw_).month_;
+CompressedFileKey ExpandedFileKey::compress() const {
+  auto raw = year_;
+  raw = raw * 100 + month_;
+  raw = raw * 100 + day_;
+  raw = raw * 10 + (isLogged_ ? 1 : 0);
+  return CompressedFileKey(raw);
 }
 
-size_t FileKey::day() const {
-  return Expander(raw_).day_;
+std::pair<std::optional<TaggedFileKey<true>>, std::optional<TaggedFileKey<false>>>
+    ExpandedFileKey::visit() const {
+  std::optional<TaggedFileKey<true>> logged;
+  std::optional<TaggedFileKey<false>> unlogged;
+
+  if (isLogged_) {
+    logged = TaggedFileKey<true>(compress());
+  } else {
+    unlogged = TaggedFileKey<false>(compress());
+  }
+
+  return std::make_pair(logged, unlogged);
 }
 
-bool FileKey::isLogged() const {
-  return Expander(raw_).isLogged_;
-}
-
-std::ostream &operator<<(std::ostream &s, const FileKey &o) {
-  Expander e(o.raw_);
+std::ostream &operator<<(std::ostream &s, const ExpandedFileKey &o) {
   // yyyymmdd.{logged,unlogged}
   // Plenty of space
   char buffer[64];
-  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04zu%02zu%02zu.%s",
-      e.year_, e.month_, e.day_, e.isLogged_ ? "logged" : "unlogged");
+  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04u%02u%02u.%s",
+      o.year_, o.month_, o.day_, o.isLogged_ ? "logged" : "unlogged");
   s << buffer;
   return s;
 }
 
-std::ostream &operator<<(std::ostream &s, const FilePosition &o) {
-  streamf(s, "%o:%o", o.fileKey_, o.position_);
-  return s;
-}
-
-std::ostream &operator<<(std::ostream &s, const IntraFileRange &o) {
-  streamf(s, "%o:[%o, %o)", o.fileKey_, o.begin_, o.end_);
-  return s;
-}
-
-std::ostream &operator<<(std::ostream &s, const InterFileRange &o) {
-  streamf(s, "[%o, %o)", o.begin_, o.end_);
+std::ostream &operator<<(std::ostream &s, const LogLocation &o) {
+  streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
   return s;
 }
 }  // namespace z2kplus::backend::files
