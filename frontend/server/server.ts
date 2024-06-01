@@ -59,10 +59,10 @@ class Server {
   private readonly authorizationManager: AuthorizationManager;
   private readonly clientManager: ClientManager;
 
-  constructor(private readonly serverProfile: ServerProfile, private readonly z2kRoot: string) {
+  constructor(private readonly serverProfile: ServerProfile) {
     this.authorizationManager = new AuthorizationManager(serverProfile.googleProfilesFile,
         serverProfile.saltedPasswordsFile);
-    this.clientManager = new ClientManager(serverProfile);
+    this.clientManager = new ClientManager(this.authorizationManager, serverProfile);
     this.makeHttpsServer();
     this.makeHttpServer();
     console.log(`Listening on HTTPS ${serverProfile.httpsPort} and redirecting` +
@@ -232,8 +232,13 @@ class Server {
         ws.close(1008, message);
         return;
       }
-      this.clientManager.newClient(ws, userId);
+      this.clientManager.newClient(ws, userId, "");
     });
+
+    expressApp.ws("/oauth2api", (ws, req) => {
+      this.clientManager.oauthClient(ws, clientId);
+    });
+
 
     server.listen(this.serverProfile.httpsPort);
   }
@@ -332,7 +337,7 @@ function main(argv: string[]) {
   }
   const profile = new ServerProfile(80, 443, "localhost", 8001, hostToUse, fileRoot);
   console.log(`Profile: `, profile);
-  new Server(profile, fileRoot);
+  new Server(profile);
 }
 
 main(process.argv.slice(2));

@@ -27,6 +27,25 @@ import {DRequest} from "../message/drequest";
 import {Profile} from "../profile";
 
 export namespace crequests {
+  // Message from Oauth2-authenticating clients like the IOS client to identify themselves.
+  export class Auth {
+    constructor(public readonly token: string) {
+    }
+
+    toJson() {
+      return [this.token];
+    }
+
+    static tryParseJson(item: any) {
+      const [token] = assertAndDestructure1(item, assertString);
+      return new Auth(token);
+    }
+
+    toString() {
+      return `crequests.Auth(${this.token})`;
+    }
+  }
+
   // Identify yourself at the time of a new connection
   export class Hello {
     constructor(public readonly profile: Profile) {
@@ -105,16 +124,21 @@ export namespace crequests {
 
 export namespace crequestInfo {
   export const enum Tag {
+    Auth = "Auth",
     Hello = "Hello",
     CreateSession = "CreateSession",
     AttachToSession = "AttachToSession",
     PackagedRequest = "PackagedRequest"
   }
 
-  export type payload_t = crequests.Hello | crequests.CreateSession | crequests.AttachToSession |
+  export type payload_t = crequests.Auth | crequests.Hello | crequests.CreateSession | crequests.AttachToSession |
       crequests.PackagedRequest;
 
 // This drama is to support the discriminated union pattern.
+  interface IAuth {
+    readonly tag: Tag.Auth;
+    readonly payload: crequests.Auth;
+  }
   interface IHello {
     readonly tag: Tag.Hello;
     readonly payload: crequests.Hello;
@@ -132,9 +156,10 @@ export namespace crequestInfo {
     readonly payload: crequests.PackagedRequest;
   }
 
-  export type ICRequest = IHello | ICreateSession | IAttachToSession | IPackagedRequest;
+  export type ICRequest = IAuth | IHello | ICreateSession | IAttachToSession | IPackagedRequest;
 
   export interface IVisitor {
+    visitAuth(payload: crequests.Auth) : void;
     visitHello(payload: crequests.Hello) : void;
     visitCreateSession(payload: crequests.CreateSession) : void;
     visitAttachToSession(payload: crequests.AttachToSession) : void;
@@ -143,6 +168,11 @@ export namespace crequestInfo {
 }
 
 export class CRequest {
+  static createAuth(token: string) {
+    const payload = new crequests.Auth(token);
+    return new CRequest(crequestInfo.Tag.Auth, payload);
+  }
+
   static createHello(profile: Profile) {
     const payload = new crequests.Hello(profile);
     return new CRequest(crequestInfo.Tag.Hello, payload);
@@ -173,6 +203,11 @@ export class CRequest {
   acceptVisitor(visitor: crequestInfo.IVisitor) {
     const icreq = this as crequestInfo.ICRequest;
     switch (icreq.tag) {
+      case crequestInfo.Tag.Auth: {
+        visitor.visitAuth(icreq.payload);
+        break;
+
+      }
       case crequestInfo.Tag.Hello: {
         visitor.visitHello(icreq.payload);
         break;
@@ -208,10 +243,15 @@ export class CRequest {
   }
 
   static tryParseJson(item: any) {
-    const variant = assertAndDestructure1(item, i => assertArrayOfLength(i, 2));
+    const [variant] = assertAndDestructure1(item, i => assertArrayOfLength(i, 2));
     const [tag, item1] = assertAndDestructure2(variant, i => assertEnum<crequestInfo.Tag>(i), i => i);
     let payload: crequestInfo.payload_t;
     switch (tag) {
+      case crequestInfo.Tag.Auth: {
+        payload = crequests.Auth.tryParseJson(item1);
+        break;
+      }
+
       case crequestInfo.Tag.Hello: {
         payload = crequests.Hello.tryParseJson(item1);
         break;

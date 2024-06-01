@@ -12,30 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {magicConstants} from "./magic_constants";
-
 export class Chunker {
-  private pending: string;
-
-  constructor() {
-    this.pending = "";
-  }
+  private _pending: string = "";
 
   static wrap(request: string) {
     return request + '\n';
   }
 
   pushBack(text: string) {
-    this.pending += text;
+    this._pending += text;
   }
 
   tryUnwrapNext() : string | undefined {
-    const nextTerminator = this.pending.indexOf('\n');
+    const nextTerminator = this._pending.indexOf('\n');
     if (nextTerminator < 0) {
       return undefined;
     }
-    const result = this.pending.substring(0, nextTerminator);
-    this.pending = this.pending.substring(nextTerminator + 1);
+    const result = this._pending.substring(0, nextTerminator);
+    this._pending = this._pending.substring(nextTerminator + 1);
     return result;
+  }
+
+  get residual() {
+    return this._pending;
   }
 }
