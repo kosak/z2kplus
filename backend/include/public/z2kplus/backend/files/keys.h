@@ -35,10 +35,8 @@ namespace z2kplus::backend::files {
 class CompressedFileKey {
   using FailFrame = kosak::coding::FailFrame;
 public:
-  static bool tryCreate(uint32_t raw, CompressedFileKey *result, const FailFrame &ff);
-
   CompressedFileKey() = default;
-  // explicit constexpr CompressedFileKey(uint32_t raw) : raw_(raw) {}
+  explicit constexpr CompressedFileKey(uint32_t raw) : raw_(raw) {}
 
   uint32_t raw() const { return raw_; }
 
@@ -115,6 +113,13 @@ private:
 static_assert(std::is_trivially_copyable_v<LogLocation> &&
   std::has_unique_object_representations_v<LogLocation>);
 
+template<bool IsLogged>
+class TaggedFileKey {
+
+private:
+  uint32_t raw_ = 0;
+};
+
 // Defines a position inside a file. This is used in the FrozenIndex to keep
 // track of the end of the logged and unlogged databases at the time the
 // FrozenIndex was created. It is templated for extra programming safety.
@@ -132,11 +137,11 @@ public:
   uint32_t position() const { return position_; }
 
 private:
-  FilePosition(CompressedFileKey fileKey, uint32_t position)
+  FilePosition(TaggedFileKey<IsLogged> fileKey, uint32_t position)
       : fileKey_(fileKey), position_(position) {}
 
   // Which fulltext file this zgram lives in.
-  CompressedFileKey fileKey_;
+  TaggedFileKey<IsLogged> fileKey_;
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
@@ -163,7 +168,7 @@ private:
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
   // The file being referred to.
-  CompressedFileKey fileKey_;
+  TaggedFileKey<IsLogged> fileKey_;
   // The inclusive start of the range.
   uint32_t begin_ = 0;
   // The exclusive end of the range.

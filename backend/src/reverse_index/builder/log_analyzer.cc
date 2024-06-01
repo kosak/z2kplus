@@ -25,6 +25,7 @@ using kosak::coding::streamf;
 using kosak::coding::nsunix::FileCloser;
 using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
 namespace nsunix = kosak::coding::nsunix;
@@ -57,30 +58,15 @@ LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
 template<bool IsLogged>
-bool tryProcessFile(const InterFileRange<IsLogged> &universe, CompressedFileKey key,
+bool tryProcessFile(const InterFileRange<IsLogged> &universe, TaggedFileKey<IsLogged> key,
     uint32_t begin, uint32_t end, std::vector<IntraFileRange<IsLogged>> *result,
     const FailFrame &ff) {
-  InterFileRange <IsLogged> inter;
-  if (!InterFileRange<IsLogged>::tryCreate(key, begin, key, end, &inter, ff.nest(HERE))) {
-    return false;
-  }
+  InterFileRange <IsLogged> inter(key, begin, key, end);
   auto intersection = universe.intersectWith(inter);
-  if (intersection.empty()) {
-    return true;
+  if (!intersection.empty()) {
+    result->emplace_back(key, intersection.begin(), intersection.end());
   }
-
-  IntraFileRange<IsLogged> intra;
-  if (!IntraFileRange<IsLogged>::tryCreate())
-
-
-
-    result->emplace_back()
-    intersection.begin()
-    return true;
-  }
-
-  InterFileRange<IsLogged> myRange(key, 0, key, stat.st_size);
-
+  return true;
 }
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
