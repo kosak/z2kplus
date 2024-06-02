@@ -62,6 +62,8 @@ public:
 
 private:
   CompressedFileKey key_;
+
+  friend std::ostream &operator<<(std::ostream &s, const TaggedFileKey &o);
 };
 static_assert(std::is_trivially_copyable_v<TaggedFileKey<false>> &&
     std::has_unique_object_representations_v<TaggedFileKey<false>>);
@@ -80,6 +82,8 @@ public:
       bool isLogged) noexcept {
     return {year, month, day, isLogged};
   }
+
+  ExpandedFileKey(std::chrono::system_clock::time_point now, bool isLogged);
 
   ExpandedFileKey() = default;
   explicit ExpandedFileKey(CompressedFileKey cfk);
@@ -154,8 +158,10 @@ private:
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
+  friend bool operator<(const FilePosition &lhs, const FilePosition &rhs);
+
   friend std::ostream &operator<<(std::ostream &s, const FilePosition &o) {
-    return streamf(s, "%o:%o", o.fileKey_, o.position_);
+    return kosak::coding::streamf(s, "%o:%o", o.fileKey_, o.position_);
   }
 };
 
@@ -185,7 +191,7 @@ private:
   uint32_t end_ = 0;
 
   friend std::ostream &operator<<(std::ostream &s, const IntraFileRange &o) {
-    return streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
+    return kosak::coding::streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
   }
 };
 static_assert(std::is_trivially_copyable_v<IntraFileRange<false>> &&

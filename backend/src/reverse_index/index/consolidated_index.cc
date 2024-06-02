@@ -466,8 +466,8 @@ bool PlusPlusManager::tryFinish(const FailFrame &ff) {
 
 bool ConsolidatedIndex::tryCheckpoint(std::chrono::system_clock::time_point now,
     FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition, const FailFrame &/*ff*/) {
-  *loggedPosition = FilePosition<true>(loggedState_.fileKey(), loggedState_.fileSize());
-  *unloggedPosition = FilePosition<false>(unloggedState_.fileKey(), unloggedState_.fileSize());
+  *loggedPosition = FilePosition<true>(TaggedFileKey<true>(loggedState_.fileKey()), loggedState_.fileSize());
+  *unloggedPosition = FilePosition<false>(TaggedFileKey<false>(unloggedState_.fileKey()), unloggedState_.fileSize());
   return true;
 }
 
