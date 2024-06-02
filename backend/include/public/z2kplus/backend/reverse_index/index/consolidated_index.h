@@ -62,6 +62,9 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState();
 
+  const CompressedFileKey &fileKey() const { return fileKey_; }
+  uint32_t fileSize() const { return fileSize_; }
+
 private:
   DynamicFileState(FileCloser fc, CompressedFileKey fileKey, size_t fileSize);
 
@@ -126,7 +129,8 @@ public:
   void findMatching(const FiniteAutomaton &dfa,
       const kosak::coding::Delegate<void, const wordOff_t *, const wordOff_t *> &callback) const;
 
-  bool tryCheckpoint(std::chrono::system_clock::time_point now, DateAndPartKey *endKey,
+  bool tryCheckpoint(std::chrono::system_clock::time_point now,
+      FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition,
       const FailFrame &ff);
 
   bool tryFind(ZgramId id, zgramOff_t *result) const;

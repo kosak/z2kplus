@@ -42,6 +42,7 @@ using z2kplus::backend::files::ExpandedFileKey;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
+using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::util::frozen::FrozenStringPool;
@@ -201,7 +202,7 @@ private:
   ConsolidatedIndex *ci_ = nullptr;
   PlusPlusScanner plusPlusScanner_;
   DynamicIndex::ppDeltaMap_t deltaMap_;
-  std::vector<std::pair<ZgramId, Location>> locators_;
+  std::vector<std::pair<ZgramId, LogLocation>> locators_;
   bool finished_ = false;
 };
 
@@ -267,7 +268,7 @@ ConsolidatedIndex::tryAddZgramsHelper(std::chrono::system_clock::time_point now,
   uint64_t timesecs = std::chrono::duration_cast<std::chrono::seconds>(
       now.time_since_epoch()).count();
 
-  auto cooked = makeReservedVector<std::pair<LogRecord, Location>>(zgcs.size());
+  auto cooked = makeReservedVector<std::pair<LogRecord, LogLocation>>(zgcs.size());
   std::string loggedBuffer;
   std::string unloggedBuffer;
   for (auto &zgc : zgcs) {
@@ -293,7 +294,7 @@ ConsolidatedIndex::tryAddZgramsHelper(std::chrono::system_clock::time_point now,
     }
     buf->push_back('\n');
     auto recordSize = buf->size() - startBufferSize;
-    Location location(fs->fileKey_, fs->fileSize_ + startBufferSize, recordSize);
+    LogLocation location(fs->fileKey(), fs->fileSize() + startBufferSize, recordSize);
 
     cooked.emplace_back(std::move(logRecord), location);
   }
@@ -464,9 +465,9 @@ bool PlusPlusManager::tryFinish(const FailFrame &ff) {
 }
 
 bool ConsolidatedIndex::tryCheckpoint(std::chrono::system_clock::time_point now,
-    FilePosition *loggedPosition, FilePosition *unloggedPosition, const FailFrame &/*ff*/) {
-  *loggedPosition = FilePosition(loggedState_.fileKey_, loggedState_.fileSize_);
-  *unloggedPosition = FilePosition(unloggedState_.fileKey_, unloggedState_.fileSize_);
+    FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition, const FailFrame &/*ff*/) {
+  *loggedPosition = FilePosition<true>(loggedState_.fileKey(), loggedState_.fileSize());
+  *unloggedPosition = FilePosition<false>(unloggedState_.fileKey(), unloggedState_.fileSize());
   return true;
 }
 
