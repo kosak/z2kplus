@@ -90,6 +90,9 @@ class ConsolidatedIndex {
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::automaton::FiniteAutomaton FiniteAutomaton;
 
+  template<bool IsLogged>
+  using FilePosition = z2kplus::backend::files::FilePosition<IsLogged>;
+
   template<typename T>
   using MappedFile =  kosak::coding::memory::MappedFile<T>;
 
@@ -102,7 +105,8 @@ public:
       std::chrono::system_clock::time_point now,
       ConsolidatedIndex *result, const FailFrame &ff);
 
-  static bool tryCreate(std::shared_ptr<PathMaster> pm, DateAndPartKey currentKey,
+  static bool tryCreate(std::shared_ptr<PathMaster> pm,
+      const FilePosition<true> &loggedStart, const FilePosition<false> &unloggedStart,
       MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result, const FailFrame &ff);
 
   ConsolidatedIndex();

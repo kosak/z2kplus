@@ -76,7 +76,9 @@ bool tryCreateOrAppendToLogFile(const PathMaster &pm, CompressedFileKey fileKey,
 bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
     const FailFrame &ff);
 
-bool tryReadAllDynamicFiles(const PathMaster &pm, const std::vector<FileKey> &dynamicFileKeys,
+bool tryReadAllDynamicFiles(const PathMaster &pm,
+    const std::vector<IntraFileRange<true>> &loggedKeys,
+    const std::vector<IntraFileRange<false>> &unloggedKeys,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
 }  // namespace
 
@@ -112,8 +114,9 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   warn("dynamic=%o, finalChoice=%o", analyzer.includedKeys(), finalChoice);
   ConsolidatedIndex ci;
   std::vector<DynamicIndex::logRecordAndLocation_t> records;
-  if (!tryCreate(std::move(pm), finalChoice, std::move(frozenIndex), &ci, ff.nest(HERE)) ||
-      !tryReadAllDynamicFiles(ci.pm(), analyzer.sortedRanges(), &records, ff.nest(HERE)) ||
+  if (!tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), &ci, ff.nest(HERE)) ||
+      !tryReadAllDynamicFiles(ci.pm(), analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges(),
+          &records, ff.nest(HERE)) ||
       !ci.tryAddForBootstrap(records, ff.nest(HERE))) {
     return false;
   }
@@ -128,8 +131,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
     const FailFrame &ff) {
   internal::DynamicFileState loggedState;
   internal::DynamicFileState unloggedState;
-  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart, &loggedState, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm, unloggedStart, &unloggedState, ff.nest(HERE))) {
+  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart.fileKey().key(), loggedStart.position(),
+      &loggedState, ff.nest(HERE)) ||
+      !internal::DynamicFileState::tryCreate(*pm, unloggedStart.fileKey().key(), unloggedStart.position(),
+          &unloggedState, ff.nest(HERE))) {
     return false;
   }
 
