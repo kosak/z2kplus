@@ -860,7 +860,7 @@ bool ConsolidatedIndex::tryDetermineLogged(const MetadataRecord &mr, bool *isLog
   if (zgramId.has_value() && !tryFind(*zgramId, &zgramOff)) {
     return ff.failf(HERE, "Failed to look up zgram id %o", zgramId);
   }
-  *isLogged = getZgramInfo(zgramOff).location().fileKey().asExpandedFileKey().isLogged();
+  *isLogged = ExpandedFileKey(getZgramInfo(zgramOff).location().fileKey()).isLogged();
   return true;
 }
 
@@ -872,10 +872,10 @@ bool ConsolidatedIndex::tryAppendAndFlush(std::string_view logged, std::string_v
 namespace {
 bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
     const FailFrame &ff) {
-  if (!nsunix::tryWriteAll(state->fc_.get(), buffer.data(), buffer.size(), ff.nest(HERE))) {
+  if (!nsunix::tryWriteAll(state->fileCloser().get(), buffer.data(), buffer.size(), ff.nest(HERE))) {
     return false;
   }
-  state->fileSize_ += buffer.size();
+  state->advance(buffer.size());
   return true;
 }
 
@@ -925,15 +925,15 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
   };
 
   for (const auto &ifr : loggedKeys) {
-    auto path = pm.getPlaintextPath(ifr.fileKey());
-    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
+    auto path = pm.getPlaintextPath(ifr.fileKey().key());
+    if (!LogParser::tryParseLogFile(pm, ifr.fileKey().key(), result, ff.nest(HERE))) {
       return false;
     }
   }
 
   for (const auto &ifr : unloggedKeys) {
-    auto path = pm.getPlaintextPath(ifr.fileKey());
-    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
+    auto path = pm.getPlaintextPath(ifr.fileKey().key());
+    if (!LogParser::tryParseLogFile(pm, ifr.fileKey().key(), result, ff.nest(HERE))) {
       return false;
     }
   }
@@ -956,8 +956,8 @@ bool DynamicFileState::tryCreate(const PathMaster &pm, CompressedFileKey fileKey
 DynamicFileState::DynamicFileState() = default;
 DynamicFileState::DynamicFileState(DynamicFileState &&) noexcept = default;
 DynamicFileState &DynamicFileState::operator=(DynamicFileState &&) noexcept = default;
-DynamicFileState::DynamicFileState(FileCloser fc, CompressedFileKey fileKey, size_t fileSize) :
-    fc_(std::move(fc)), fileKey_(fileKey), fileSize_(fileSize) {}
+DynamicFileState::DynamicFileState(FileCloser fileCloser, CompressedFileKey fileKey, size_t fileSize) :
+    fileCloser_(std::move(fileCloser)), fileKey_(fileKey), fileSize_(fileSize) {}
 DynamicFileState::~DynamicFileState() = default;
 }  // namespace internal
 

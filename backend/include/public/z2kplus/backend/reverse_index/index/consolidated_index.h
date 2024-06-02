@@ -62,13 +62,19 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState();
 
+  void advance(uint32_t bytes) {
+    fileSize_ += bytes;
+  }
+
+  const FileCloser &fileCloser() const { return fileCloser_; }
+
   const CompressedFileKey &fileKey() const { return fileKey_; }
   uint32_t fileSize() const { return fileSize_; }
 
 private:
-  DynamicFileState(FileCloser fc, CompressedFileKey fileKey, size_t fileSize);
+  DynamicFileState(FileCloser fileCloser, CompressedFileKey fileKey, size_t fileSize);
 
-  FileCloser fc_;
+  FileCloser fileCloser_;
   CompressedFileKey fileKey_;
   uint32_t fileSize_ = 0;
 };
