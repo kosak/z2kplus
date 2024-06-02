@@ -47,24 +47,27 @@
 // dynamic - A DynamicIndex, having new zgrams and new/modified metadata.
 namespace z2kplus::backend::reverse_index::index {
 namespace internal {
-struct DynamicFileState {
+class DynamicFileState {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  static bool tryCreate(const PathMaster &pm, const FilePosition &initialPosition,
-      DynamicFileState *result, const FailFrame &ff);
+public:
+  static bool tryCreate(const PathMaster &pm, CompressedFileKey fileKey,
+      uint32_t offset, DynamicFileState *result, const FailFrame &ff);
 
   DynamicFileState();
-  DynamicFileState(FileCloser fc, const CompressedFileKey &fileKey, size_t fileSize);
   DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState();
 
+private:
+  DynamicFileState(FileCloser fc, CompressedFileKey fileKey, size_t fileSize);
+
   FileCloser fc_;
   CompressedFileKey fileKey_;
-  size_t fileSize_ = 0;
+  uint32_t fileSize_ = 0;
 };
 }  // namespace internal
 

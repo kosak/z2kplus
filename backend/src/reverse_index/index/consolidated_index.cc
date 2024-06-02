@@ -37,6 +37,7 @@ using kosak::coding::memory::MaybeInlinedBuffer;
 using kosak::coding::nsunix::FileCloser;
 using kosak::coding::streamf;
 using z2kplus::backend::factories::LogParser;
+using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
@@ -69,7 +70,8 @@ namespace userMetadata = z2kplus::backend::shared::userMetadata;
 namespace zgMetadata = z2kplus::backend::shared::zgMetadata;
 
 namespace {
-bool tryCreateLogFile(const PathMaster &pm, FileKey fileKey, FileCloser *file, const FailFrame &ff);
+bool tryCreateOrAppendToLogFile(const PathMaster &pm, CompressedFileKey fileKey, uint32_t offset,
+    FileCloser *fc, const FailFrame &ff);
 
 bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
     const FailFrame &ff);
@@ -927,37 +929,44 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
 }  // namespace
 
 namespace internal {
-bool DynamicFileState::tryCreate(const PathMaster &pm, DateAndPartKey dpKey, bool logged,
-    DynamicFileState *result, const FailFrame &ff) {
-  auto fileKey = dpKey.asFileKey(logged);
+bool DynamicFileState::tryCreate(const PathMaster &pm, CompressedFileKey fileKey,
+    uint32_t offset, DynamicFileState *result, const FailFrame &ff) {
   FileCloser fc;
-  if (!tryCreateLogFile(pm, fileKey, &fc, ff.nest(HERE))) {
+  if (!tryCreateOrAppendToLogFile(pm, fileKey, offset, &fc, ff.nest(HERE))) {
     return false;
   }
-  *result = DynamicFileState(fileKey, std::move(fc), 0);
+  *result = DynamicFileState(std::move(fc), fileKey, offset);
   return true;
 }
 DynamicFileState::DynamicFileState() = default;
 DynamicFileState::DynamicFileState(DynamicFileState &&) noexcept = default;
 DynamicFileState &DynamicFileState::operator=(DynamicFileState &&) noexcept = default;
-DynamicFileState::DynamicFileState(FileKey fileKey, FileCloser fc, size_t fileSize) :
-    fileKey_(fileKey), fc_(std::move(fc)), fileSize_(fileSize) {}
+DynamicFileState::DynamicFileState(FileCloser fc, CompressedFileKey fileKey, size_t fileSize) :
+    fc_(std::move(fc)), fileKey_(fileKey), fileSize_(fileSize) {}
 DynamicFileState::~DynamicFileState() = default;
 }  // namespace internal
 
 namespace {
-bool tryCreateLogFile(const PathMaster &pm, FileKey fileKey, FileCloser *file,
-    const FailFrame &ff) {
+bool tryCreateOrAppendToLogFile(const PathMaster &pm, CompressedFileKey fileKey, uint32_t offset,
+    FileCloser *fc, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   bool exists;
   if (!nsunix::tryExists(fileName, &exists, ff.nest(HERE))) {
     return false;
   }
   if (exists) {
-    return ff.failf(HERE, "File already exists: %o", fileName);
+    struct stat stat = {};
+    if (!nsunix::tryOpen(fileName, O_WRONLY | O_APPEND, 0700, fc, ff.nest(HERE)) ||
+        !nsunix::tryFstat(fc->get(), &stat, ff.nest(HERE))) {
+      return false;
+    }
+    if (offset != stat.st_size) {
+      return ff.failf(HERE, "Expected file to end at %o, but it ends at %o", offset, stat.st_size);
+    }
+    return true;
   }
   return nsunix::tryEnsureBaseExists(fileName, 0700, ff.nest(HERE)) &&
-    nsunix::tryOpen(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0600, file, ff.nest(HERE));
+    nsunix::tryOpen(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0600, fc, ff.nest(HERE));
 }
 }  // namespace
 }  // namespace z2kplus::backend::reverse_index::index
