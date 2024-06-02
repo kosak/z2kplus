@@ -38,10 +38,12 @@ using kosak::coding::nsunix::FileCloser;
 using kosak::coding::streamf;
 using z2kplus::backend::factories::LogParser;
 using z2kplus::backend::files::CompressedFileKey;
+using z2kplus::backend::files::ExpandedFileKey;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::files::PathMaster;
+using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::util::frozen::FrozenStringPool;
 using z2kplus::backend::util::frozen::frozenStringRef_t;
 using z2kplus::backend::reverse_index::builder::LogAnalyzer;
@@ -80,6 +82,22 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
     const std::vector<IntraFileRange<true>> &loggedKeys,
     const std::vector<IntraFileRange<false>> &unloggedKeys,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
+
+template<bool IsLogged>
+FilePosition<IsLogged> calcStart(const std::vector<IntraFileRange<IsLogged>> &ranges,
+    std::chrono::system_clock::time_point now) {
+  ExpandedFileKey efk(now, IsLogged);
+  TaggedFileKey<IsLogged> tfk(efk.compress());
+  FilePosition<IsLogged> proposedStart(tfk, 0);
+
+  if (!ranges.empty()) {
+    FilePosition<IsLogged> lastUsed(ranges.back().fileKey(), ranges.back().end());
+    if (proposedStart < lastUsed) {
+      proposedStart = lastUsed;
+    }
+  }
+  return proposedStart;
+}
 }  // namespace
 
 bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
@@ -97,21 +115,12 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
     return false;
   }
-  // Pick a new currentKey derived from the date and the max key in the log files
-  DateAndPartKey proposedBeginKey;
-  if (analyzer.includedKeys().empty()) {
-    proposedBeginKey = frozenEndKey;
-  } else {
-    auto lastKey = analyzer.includedKeys().back().asDateAndPartKey();
-    if (!lastKey.tryBump(&proposedBeginKey, ff.nest(HERE))) {
-      return false;
-    }
-  }
-  DateAndPartKey finalChoice;
-  if (!proposedBeginKey.thisOrNow(now, &finalChoice, ff.nest(HERE))) {
-    return false;
-  }
-  warn("dynamic=%o, finalChoice=%o", analyzer.includedKeys(), finalChoice);
+
+  auto loggedStart = calcStart(analyzer.sortedLoggedRanges(), now);
+  auto unloggedStart = calcStart(analyzer.sortedUnloggedRanges(), now);
+
+  warn("logged=%o, unlogged%=o, loggedStart=%o, unloggedStart=%o",
+      analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges(), loggedStart, unloggedStart);
   ConsolidatedIndex ci;
   std::vector<DynamicIndex::logRecordAndLocation_t> records;
   if (!tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), &ci, ff.nest(HERE)) ||
