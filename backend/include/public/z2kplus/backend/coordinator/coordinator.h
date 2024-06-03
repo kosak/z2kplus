@@ -84,6 +84,9 @@ public:
   typedef z2kplus::backend::shared::protocol::message::DResponse DResponse;
   typedef z2kplus::backend::shared::protocol::message::dresponses::AckSubscribe AckSubscribe;
 
+  template<bool IsLogged>
+  using FilePosition = z2kplus::backend::files::FilePosition<IsLogged>;
+
   template<typename R, typename ...Args>
   using Delegate = kosak::coding::Delegate<R, Args...>;
 
@@ -127,9 +130,10 @@ public:
 
   void ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses);
 
-  bool tryCheckpoint(std::chrono::system_clock::time_point now, DateAndPartKey *endKey,
+  bool tryCheckpoint(std::chrono::system_clock::time_point now,
+      FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition,
         const FailFrame &ff) {
-    return index_.tryCheckpoint(now, endKey, ff.nest(KOSAK_CODING_HERE));
+    return index_.tryCheckpoint(now, loggedPosition, unloggedPosition, ff.nest(KOSAK_CODING_HERE));
   }
 
   bool tryResetIndex(std::chrono::system_clock::time_point now, const FailFrame &ff);

@@ -46,7 +46,7 @@ using kosak::coding::sorting::SortOptions;
 using kosak::coding::streamf;
 using kosak::coding::stringf;
 using kosak::coding::toString;
-using z2kplus::backend::files::Location;
+using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::queryparsing::WordSplitter;
 using z2kplus::backend::reverse_index::builder::tuple_iterators::makeLastKeeper;
@@ -444,7 +444,11 @@ bool DigesterThread::addZgramRow(const schemas::Zephyrgram &zgv, std::string_vie
 //    }
     numTokens[i] = tokens.size();
     for (auto token : tokens) {
-      wordInfos.emplace_back(zgramOff_, fieldTags[i]);
+      WordInfo wordInfo;
+      if (!WordInfo::tryCreate(zgramOff_, fieldTags[i], &wordInfo, ff.nest(HERE))) {
+        return false;
+      }
+      wordInfos.emplace_back(wordInfo);
       if (!trieEntriesWriter_.tryAdd(token, wordOff_, ff.nest(HERE))) {
         return false;
       }
@@ -458,7 +462,7 @@ bool DigesterThread::addZgramRow(const schemas::Zephyrgram &zgv, std::string_vie
 
   ++zgramOff_;
 
-  Location location(zgv.fileKey(), zgv.offset(), zgv.size());
+  LogLocation location(zgv.fileKey(), zgv.offset(), zgv.size());
   ZgramInfo zgInfo;
   return ZgramInfo::tryCreate(zgv.timesecs(), location, originalWordOff, zgv.zgramId(),
       numTokens[0], numTokens[1], numTokens[2], numTokens[3], &zgInfo, ff.nest(HERE)) &&
@@ -646,7 +650,9 @@ bool tryGatherWordInfos(const std::vector<std::string> &wordInfoNames,
     auto thisNumElements = numElements[shard];
     for (size_t i = 0; i != thisNumElements; ++i) {
       zgramOff_t newZgramOff(zgramOffset.raw() + src->zgramOff().raw());
-      *dest = WordInfo(newZgramOff, src->fieldTag());
+      if (!WordInfo::tryCreate(newZgramOff, src->fieldTag(), dest, ff.nest(HERE))) {
+        return false;
+      }
       ++src;
       ++dest;
     }

@@ -121,7 +121,7 @@ struct SplitterThread {
 
 class SplitterVisitor {
 public:
-  SplitterVisitor(SplitterThread *owner, const FileKey &fileKey, size_t offset, size_t size,
+  SplitterVisitor(SplitterThread *owner, const CompressedFileKey &fileKey, size_t offset, size_t size,
       const FailFrame *ff);
   ~SplitterVisitor() = default;
 

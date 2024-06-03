@@ -173,15 +173,11 @@ bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &lo
   FilePosition<false> unloggedEnd;
   if (!lazr.sortedLoggedRanges().empty()) {
     const auto &back = lazr.sortedLoggedRanges().back();
-    if (!FilePosition<true>::tryCreate(back.fileKey(), back.end(), &loggedEnd, ff.nest(HERE))) {
-      return false;
-    }
+    loggedEnd = FilePosition<true>(back.fileKey(), back.end());
   }
   if (!lazr.sortedUnloggedRanges().empty()) {
     const auto &back = lazr.sortedUnloggedRanges().back();
-    if (!FilePosition<false>::tryCreate(back.fileKey(), back.end(), &unloggedEnd, ff.nest(HERE))) {
-      return false;
-    }
+    unloggedEnd = FilePosition<false>(back.fileKey(), back.end());
   }
 
   new((void*)start) FrozenIndex(loggedEnd, unloggedEnd,
