@@ -41,8 +41,6 @@ using kosak::coding::stringf;
 using z2kplus::backend::shared::Zephyrgram;
 using z2kplus::backend::reverse_index::index::ConsolidatedIndex;
 using z2kplus::backend::reverse_index::FieldMask;
-using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::WordInfo;
 using z2kplus::backend::reverse_index::zgramOff_t;

@@ -237,8 +237,8 @@ bool TestUtil::trySetupConsolidatedIndex(std::shared_ptr<PathMaster> pm, Consoli
   std::vector<MetadataRecord> movedMetadata;
   auto now = std::chrono::system_clock::now();
   return tryPopulateTestFiles(*pm, ff.nest(HERE)) &&
-      IndexBuilder::tryBuild(*pm, InterFileRange<true>::everything,
-          InterFileRange<false>::everything, ff.nest(HERE)) &&
+      IndexBuilder::tryBuild(*pm, InterFileRange<true>::everything(),
+          InterFileRange<false>::everything(), ff.nest(HERE)) &&
       pm->tryPublishBuild(ff.nest(HERE)) &&
       frozenIndex.tryMap(pm->getIndexPath(), false, ff.nest(HERE)) &&
       ConsolidatedIndex::tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), ci,

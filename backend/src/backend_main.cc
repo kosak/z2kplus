@@ -31,7 +31,7 @@ using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::streamf;
 using z2kplus::backend::coordinator::Coordinator;
-using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
@@ -98,10 +98,10 @@ bool tryStartServer(std::shared_ptr<PathMaster> pm, std::shared_ptr<Server> *res
   if (!exists) {
     // Since there's no index file, it would be safe to purge old graffiti here.
     // Otherwise it will be purged at the next index rebuild.
-    InterFileRange loggedRange(FilePosition::loggedZero, FilePosition::loggedInfinity);
-    InterFileRange unloggedRange(FilePosition::unloggedZero, FilePosition::unloggedInfinity);
     if (!IndexBuilder::tryClearScratchDirectory(*pm, ff.nest(HERE)) ||
-        !IndexBuilder::tryBuild(*pm, loggedRange, unloggedRange, ff.nest(HERE)) ||
+        !IndexBuilder::tryBuild(*pm,
+            InterFileRange<true>::everything(),
+            InterFileRange<false>::everything(), ff.nest(HERE)) ||
         !pm->tryPublishBuild(ff.nest(HERE))) {
       return false;
     }

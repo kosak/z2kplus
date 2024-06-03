@@ -157,6 +157,15 @@ class FilePosition {
   using FailFrame = kosak::coding::FailFrame;
 
 public:
+  static FilePosition zero() {
+    return FilePosition(TaggedFileKey<IsLogged>(), 0);
+  }
+
+  static FilePosition infinity() {
+    ExpandedFileKey efk = ExpandedFileKey::createUnsafe(9999, 12, 31, IsLogged);
+    return FilePosition(TaggedFileKey<IsLogged>(efk.compress()), 0);
+  }
+
   constexpr FilePosition(TaggedFileKey<IsLogged> fileKey, uint32_t position)
       : fileKey_(fileKey), position_(position) {}
   constexpr FilePosition() = default;
@@ -216,7 +225,9 @@ static_assert(std::is_trivially_copyable_v<IntraFileRange<true>> &&
 template<bool IsLogged>
 class InterFileRange {
 public:
-  static InterFileRange everything;
+  static InterFileRange everything() {
+    return InterFileRange(FilePosition<IsLogged>::zero(), FilePosition<IsLogged>::infinity());
+  }
 
   constexpr InterFileRange(TaggedFileKey<IsLogged> beginKey, uint32_t beginPos,
       TaggedFileKey<IsLogged> endKey, uint32_t endPos) :
@@ -246,8 +257,4 @@ private:
     return kosak::coding::streamf(s, "[%o--%o)", o.begin_, o.end_);
   }
 };
-
-template<bool IsLogged>
-InterFileRange<IsLogged> InterFileRange<IsLogged>::everything =
-    InterFileRange<IsLogged>(FilePosition<IsLogged>::zero, FilePosition<IsLogged>::infinity);
 }  // namespace z2kplus::backend::files

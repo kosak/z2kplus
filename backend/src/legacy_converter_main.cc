@@ -105,14 +105,13 @@ void convertZmojis(const std::string &user, LegacyPerUseridMetadataCore::zmojis_
     std::vector<LogRecord> *dest);
 
 struct LegacyFileKey {
-  static bool tryCreate(uint32_t year, uint32_t month, uint32_t day, uint32_t part, bool isLogged,
+  static bool tryCreate(uint32_t year, uint32_t month, uint32_t day, bool isLogged,
       LegacyFileKey *result, const FailFrame &ff);
   static bool tryParse(std::string_view name, LegacyFileKey *result, const FailFrame &ff);
 
   uint32_t year_ = 0;
   uint32_t month_ = 0;
   uint32_t day_ = 0;
-  uint32_t part_ = 0;
   bool isLogged_ = false;
 };
 }  // namespace
@@ -141,7 +140,7 @@ bool Converter::tryConvertDir(const std::string &srcDir, const std::string &dest
     return false;
   }
 
-  typedef std::pair<std::string, FileKey> entry_t;
+  typedef std::pair<std::string, CompressedFileKey> entry_t;
 
   std::vector<entry_t> entries;
 
@@ -155,9 +154,9 @@ bool Converter::tryConvertDir(const std::string &srcDir, const std::string &dest
       return true;
     }
     LegacyFileKey lfk;
-    FileKey fileKey;
+    CompressedFileKey fileKey;
     if (!LegacyFileKey::tryParse(srcName, &lfk, f2) ||
-        !FileKey::tryCreate(lfk.year_, lfk.month_, lfk.day_, lfk.part_, lfk.isLogged_, &fileKey, f2)) {
+        !CompressedFileKey::tryCreate(lfk.year_, lfk.month_, lfk.day_, lfk.isLogged_, &fileKey, f2)) {
       return false;
     }
     entries.emplace_back(std::string(srcPath), fileKey);
