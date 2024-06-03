@@ -106,10 +106,12 @@ bool DynamicIndex::tryAddZgram(const FrozenIndex &frozenSide, const Zephyrgram &
     wordOff_t wordOff(frozenSide.wordInfos().size() + wordInfos_.size());
     for (const auto &word : words) {
       c32s->clear();
-      if (!tryConvertUtf8ToUtf32(word, c32s, ff2.nest(HERE))) {
+      WordInfo wordInfo;
+      if (!tryConvertUtf8ToUtf32(word, c32s, ff2.nest(HERE)) ||
+        !WordInfo::tryCreate(zgramOff, fieldTag, &wordInfo, ff2.nest(HERE))) {
         return false;
       }
-      wordInfos_.emplace_back(zgramOff, fieldTag);
+      wordInfos_.emplace_back(wordInfo);
       trie_.insert(*c32s, &wordOff, 1);
       ++wordOff;
     }

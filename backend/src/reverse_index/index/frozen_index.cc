@@ -24,7 +24,7 @@ using z2kplus::backend::shared::Zephyrgram;
 namespace z2kplus::backend::reverse_index::index {
 
 FrozenIndex::FrozenIndex() = default;
-FrozenIndex::FrozenIndex(const FilePosition &loggedEnd, const FilePosition  &unloggedEnd,
+FrozenIndex::FrozenIndex(const FilePosition<true> &loggedEnd, const FilePosition<false> &unloggedEnd,
     FrozenVector<ZgramInfo> zgramInfos, FrozenVector<WordInfo> wordInfos, FrozenTrie trie,
     FrozenStringPool stringPool, FrozenMetadata metadata) :
     loggedEnd_(loggedEnd), unloggedEnd_(unloggedEnd),

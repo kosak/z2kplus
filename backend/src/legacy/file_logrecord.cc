@@ -26,8 +26,6 @@
 
 namespace z2kplus::backend::legacy {
 
-using z2kplus::backend::files::FileKey;
-using z2kplus::backend::files::Location;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::legacy::LogRecord;
 using z2kplus::backend::legacy::Zephyrgram;

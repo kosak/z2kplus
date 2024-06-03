@@ -133,6 +133,7 @@ private:
     return lhs.items_ == rhs.items_;
   }
 
+  [[maybe_unused]]
   friend std::ostream &operator<<(std::ostream &s, const IntermediateKey &o) {
     return s << o.items_;
   }

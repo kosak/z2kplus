@@ -185,7 +185,7 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
     if (!ExpandedFileKey::tryCreate(year, month, day, logged, &efk, f3.nest(HERE))) {
       return false;
     }
-    return cb(efk, f3.nest(HERE));
+    return cb(efk.compress(), f3.nest(HERE));
   };
   return nsunix::tryEnumerateFilesAndDirsRecursively(root, &myCallback, ff.nest(HERE));
 }

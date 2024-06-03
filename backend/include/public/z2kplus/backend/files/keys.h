@@ -128,7 +128,8 @@ private:
   // The character position of the end of the zgram in the fulltext file.
   uint32_t end_ = 0;
 
-  uint32_t dummy_ = 0;
+  [[maybe_unused]]
+  uint32_t padding_ = 0;
 
   friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
 };

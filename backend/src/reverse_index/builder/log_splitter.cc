@@ -37,7 +37,7 @@ using kosak::coding::text::trim;
 using kosak::coding::ParseContext;
 using kosak::coding::sorting::SortManager;
 using kosak::coding::nsunix::FileCloser;
-using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::shared::LogRecord;
@@ -137,14 +137,16 @@ private:
   bool appendHelper(BufferedWriter *bw, const std::tuple<Args...> &tuple) const;
 
   SplitterThread *owner_ = nullptr;
-  FileKey fileKey_;
+  CompressedFileKey fileKey_;
   size_t offset_ = 0;
   size_t size_ = 0;
   const FailFrame *ff_;
 };
 }  // namespace
 
-bool LogSplitter::split(const PathMaster &pm, const std::vector<IntraFileRange> &ranges,
+bool LogSplitter::split(const PathMaster &pm,
+    const std::vector<IntraFileRange<true>> &loggedRanges,
+    const std::vector<IntraFileRange<false>> &unloggedRanges,
     size_t numShards, LogSplitterResult *result, const FailFrame &ff) {
   auto loggedZgrams = pm.getScratchPathFor(filenames::loggedZgrams);
   auto unloggedZgrams = pm.getScratchPathFor(filenames::unloggedZgrams);

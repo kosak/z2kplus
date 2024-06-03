@@ -89,8 +89,11 @@ bool TupleItemSerializers::tryParseItem(std::string_view src, ZgramId *dest, con
 
 bool TupleItemSerializers::tryParseItem(std::string_view src, CompressedFileKey *dest, const FailFrame &ff) {
   decltype(dest->raw()) raw;
-  return tryParseItem(src, &raw, ff.nest(HERE)) &&
-      CompressedFileKey::tryCreate(raw, dest, ff.nest(HERE));
+  if (!tryParseItem(src, &raw, ff.nest(HERE))) {
+    return false;
+  }
+  *dest = CompressedFileKey(raw);
+  return true;
 }
 }  // namespace internal
 }  // namespace z2kplus::backend::reverse_index::builder::tuple_iterators::tupleSerializer

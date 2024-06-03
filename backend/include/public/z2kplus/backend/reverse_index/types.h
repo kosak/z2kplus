@@ -80,6 +80,7 @@ private:
 
   // Starting wordIndex of this zgram. See explanation below.
   wordOff_t startingWordOff_;
+  [[maybe_unused]]
   uint32_t padding_ = 0;
   // Length of sender field in words, where "word" is defined as in our documentation
   // (see dynamic_index.h)
@@ -104,6 +105,8 @@ class WordInfo {
 
 public:
   static bool tryCreate(zgramOff_t zgramOff, FieldTag fieldTag, WordInfo *result, const FailFrame &ff);
+
+  WordInfo() : zgramOff_(0), fieldTag_(0) {}
 
   zgramOff_t zgramOff() const { return zgramOff_t(zgramOff_); }
 
