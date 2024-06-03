@@ -55,8 +55,11 @@ using z2kplus::backend::coordinator::Subscription;
 using z2kplus::backend::factories::LogParser;
 using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::FilePosition;
+using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
+using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::queryparsing::WordSplitter;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
 using z2kplus::backend::reverse_index::index::ConsolidatedIndex;
@@ -149,7 +152,7 @@ const char zgrams20000104[] =
 
 // Our first graffiti zgram
 auto key20000104g = ExpandedFileKey::createUnsafe(2000, 1, 4, false);
-const char zgrams20000104_0g[] =
+const char zgrams20000104g[] =
     R"([["z",[[52],946944002,"simon","Simon Eriksson",false,["graffiti.z2kplus","FAIL","d"]]]])" "\n";
 
 // Some more "the the the", and testing our MathJax rendering.
@@ -175,8 +178,12 @@ const char zgrams20000106[] =
     R"([["z",[[70],947073600,"simon","Simon Eriksson",true,["appreciation","kosak++ blah kosak++","d"]]]])" "\n"
     R"([["z",[[71],947073601,"kosak","Corey Kosak",true,["appreciation.anti","kosak--","d"]]]])" "\n";
 
+auto loggedStartKey = TaggedFileKey<true>(ExpandedFileKey::createUnsafe(2000, 1, 7, true).compress());
+auto unloggedStartKey = TaggedFileKey<false>(ExpandedFileKey::createUnsafe(2000, 1, 7, false).compress());
+FilePosition<true> loggedStart(loggedStartKey, 0);
+FilePosition<false> unloggedStart(unloggedStartKey, 0);
+
 // This ends up being zgramId 72
-auto currentKey = ExpandedFileKey::createUnsafe(2000, 1, 6, true);
 const char dynamicZgrams[] =
     R"(["⒣⒲⒤⒯⒤⒜","Hello, what is this instance about?","d"])" "\n";
 
@@ -234,7 +241,7 @@ bool TestUtil::trySetupConsolidatedIndex(std::shared_ptr<PathMaster> pm, Consoli
           InterFileRange<false>::everything, ff.nest(HERE)) &&
       pm->tryPublishBuild(ff.nest(HERE)) &&
       frozenIndex.tryMap(pm->getIndexPath(), false, ff.nest(HERE)) &&
-      ConsolidatedIndex::tryCreate(std::move(pm), currentKey, std::move(frozenIndex), ci,
+      ConsolidatedIndex::tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), ci,
           ff.nest(HERE)) &&
       tryParseDynamicZgrams(dynamicZgrams, &zgramCores, ff.nest(HERE)) &&
       tryParseDynamicMetadata(dynamicMetadata, &metadataRecords, ff.nest(HERE)) &&
@@ -318,8 +325,8 @@ bool TestUtil::fourWaySearchTest(const std::string_view &callerInfo, const Conso
   return searchTest(callerInfo, ci, iterator, false, &rawZgramId, selectedToUse, offset, ff.nest(HERE));
 }
 
-bool TestUtil::tryPopulateFile(const PathMaster &pm, const FileKey &fileKey, std::string_view text,
-    const FailFrame &ff) {
+bool TestUtil::tryPopulateFile(const PathMaster &pm, CompressedFileKey fileKey,
+    std::string_view text, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   return nsunix::tryEnsureBaseExists(fileName, 0755, ff.nest(HERE)) &&
       nsunix::tryMakeFile(fileName, 0644, text, ff.nest(HERE));
@@ -371,33 +378,27 @@ bool getTestRootDir(std::string_view nmSpace, std::string *result, const FailFra
 
 bool tryPopulateTestFiles(const PathMaster &pm, const FailFrame &ff) {
   auto fileKeys = std::experimental::make_array(
-      key20000101_0,
-      key20000101_1,
-      key20000101_2,
-      key20000102_0,
-      key20000102_1,
-      key20000103_0,
-      key20000104_0,
-      key20000104_0g,
-      key20000105_0,
-      key20000106_0
+      key20000101,
+      key20000102,
+      key20000103,
+      key20000104,
+      key20000104g,
+      key20000105,
+      key20000106
   );
   auto zgrams = std::experimental::make_array(
-      zgrams20000101_0,
-      zgrams20000101_1,
-      zgrams20000101_2,
-      zgrams20000102_0,
-      zgrams20000102_1,
-      zgrams20000103_0,
-      zgrams20000104_0,
-      zgrams20000104_0g,
-      zgrams20000105_0,
-      zgrams20000106_0
+      zgrams20000101,
+      zgrams20000102,
+      zgrams20000103,
+      zgrams20000104,
+      zgrams20000104g,
+      zgrams20000105,
+      zgrams20000106
   );
 
   static_assert(fileKeys.size() == zgrams.size());
   for (size_t i = 0; i < fileKeys.size(); ++i) {
-    if (!TestUtil::tryPopulateFile(pm, fileKeys[i], zgrams[i], ff.nest(HERE))) {
+    if (!TestUtil::tryPopulateFile(pm, fileKeys[i].compress(), zgrams[i], ff.nest(HERE))) {
       return false;
     }
   }

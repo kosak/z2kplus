@@ -54,8 +54,8 @@ static_assert(std::is_trivially_copyable_v<CompressedFileKey> &&
 template<bool IsLogged>
 class TaggedFileKey {
 public:
-  TaggedFileKey() : key_(IsLogged ? 1 : 0) {}
-  explicit TaggedFileKey(CompressedFileKey key) : key_(key) {}
+  constexpr TaggedFileKey() : key_(IsLogged ? 1 : 0) {}
+  explicit constexpr TaggedFileKey(CompressedFileKey key) : key_(key) {}
 
   const CompressedFileKey &key() const { return key_; }
   uint32_t raw() const { return key_.raw(); }
@@ -90,7 +90,14 @@ public:
   ExpandedFileKey() = default;
   explicit ExpandedFileKey(CompressedFileKey cfk);
 
-  CompressedFileKey compress() const;
+  constexpr CompressedFileKey compress() const {
+    auto raw = year_;
+    raw = raw * 100 + month_;
+    raw = raw * 100 + day_;
+    raw = raw * 10 + (isLogged_ ? 1 : 0);
+    return CompressedFileKey(raw);
+  }
+
   std::pair<std::optional<TaggedFileKey<true>>, std::optional<TaggedFileKey<false>>> visit() const;
 
   size_t year() const { return year_; }
@@ -148,9 +155,9 @@ class FilePosition {
   using FailFrame = kosak::coding::FailFrame;
 
 public:
-  FilePosition(TaggedFileKey<IsLogged> fileKey, uint32_t position)
+  constexpr FilePosition(TaggedFileKey<IsLogged> fileKey, uint32_t position)
       : fileKey_(fileKey), position_(position) {}
-  FilePosition() = default;
+  constexpr FilePosition() = default;
 
   const TaggedFileKey<IsLogged> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
@@ -207,11 +214,13 @@ static_assert(std::is_trivially_copyable_v<IntraFileRange<true>> &&
 template<bool IsLogged>
 class InterFileRange {
 public:
-  InterFileRange(TaggedFileKey<IsLogged> beginKey, uint32_t beginPos,
+  static InterFileRange everything;
+
+  constexpr InterFileRange(TaggedFileKey<IsLogged> beginKey, uint32_t beginPos,
       TaggedFileKey<IsLogged> endKey, uint32_t endPos) :
       begin_(beginKey, beginPos), end_(endKey, endPos) {}
 
-  InterFileRange(FilePosition<IsLogged> begin, FilePosition<IsLogged> end) :
+  constexpr InterFileRange(FilePosition<IsLogged> begin, FilePosition<IsLogged> end) :
     begin_(begin), end_(end) {}
 
   InterFileRange() = default;
@@ -235,4 +244,8 @@ private:
     return kosak::coding::streamf(s, "[%o--%o)", o.begin_, o.end_);
   }
 };
+
+template<bool IsLogged>
+InterFileRange<IsLogged> InterFileRange<IsLogged>::everything =
+    InterFileRange<IsLogged>(FilePosition<IsLogged>::zero, FilePosition<IsLogged>::infinity);
 }  // namespace z2kplus::backend::files

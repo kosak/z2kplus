@@ -55,14 +55,6 @@ ExpandedFileKey::ExpandedFileKey(CompressedFileKey cfk) {
   year_ = raw;
 }
 
-CompressedFileKey ExpandedFileKey::compress() const {
-  auto raw = year_;
-  raw = raw * 100 + month_;
-  raw = raw * 100 + day_;
-  raw = raw * 10 + (isLogged_ ? 1 : 0);
-  return CompressedFileKey(raw);
-}
-
 std::pair<std::optional<TaggedFileKey<true>>, std::optional<TaggedFileKey<false>>>
     ExpandedFileKey::visit() const {
   std::optional<TaggedFileKey<true>> logged;

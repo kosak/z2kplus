@@ -64,7 +64,7 @@ struct TestUtil {
       const ZgramIterator *iterator, uint64_t rawZgramId,
       std::initializer_list<uint64_t> rawExpected, const FailFrame &ff);
 
-  static bool tryPopulateFile(const PathMaster &pm, const CompressedFileKey &fileKey, std::string_view text,
+  static bool tryPopulateFile(const PathMaster &pm, CompressedFileKey fileKey, std::string_view text,
       const FailFrame &ff);
 
   static bool tryParseDynamicZgrams(const std::string_view &records,
