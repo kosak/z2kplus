@@ -43,6 +43,8 @@ public:
 private:
   uint32_t raw_ = 0;
 
+  friend bool operator==(const CompressedFileKey &lhs, const CompressedFileKey &rhs);
+
   friend std::ostream &operator<<(std::ostream &s, const CompressedFileKey &o);
 };
 
