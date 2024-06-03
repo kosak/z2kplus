@@ -63,6 +63,8 @@ public:
 private:
   CompressedFileKey key_;
 
+  friend bool operator<(const TaggedFileKey &lhs, const TaggedFileKey &rhs);
+
   friend std::ostream &operator<<(std::ostream &s, const TaggedFileKey &o);
 };
 static_assert(std::is_trivially_copyable_v<TaggedFileKey<false>> &&
