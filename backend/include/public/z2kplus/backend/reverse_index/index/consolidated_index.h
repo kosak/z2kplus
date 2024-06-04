@@ -50,11 +50,14 @@ namespace internal {
 class DynamicFileState {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
-  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
+  template<FileKeyKind Kind>
+  using FileKey = z2kplus::backend::files::FileKey<Kind>;
+
 public:
-  static bool tryCreate(const PathMaster &pm, CompressedFileKey fileKey,
+  static bool tryCreate(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
       uint32_t offset, DynamicFileState *result, const FailFrame &ff);
 
   DynamicFileState();
@@ -68,14 +71,14 @@ public:
 
   const FileCloser &fileCloser() const { return fileCloser_; }
 
-  const CompressedFileKey &fileKey() const { return fileKey_; }
+  const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }
   uint32_t fileSize() const { return fileSize_; }
 
 private:
-  DynamicFileState(FileCloser fileCloser, CompressedFileKey fileKey, size_t fileSize);
+  DynamicFileState(FileCloser fileCloser, FileKey<FileKeyKind::Either> fileKey, size_t fileSize);
 
   FileCloser fileCloser_;
-  CompressedFileKey fileKey_;
+  FileKey<FileKeyKind::Either> fileKey_;
   uint32_t fileSize_ = 0;
 };
 }  // namespace internal
@@ -84,6 +87,7 @@ class ConsolidatedIndex {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::factories::LogParser::logRecordAndLocation_t logRecordAndLocation_t;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::DynamicIndex DynamicIndex;
   typedef z2kplus::backend::reverse_index::index::FrozenIndex FrozenIndex;
@@ -99,8 +103,8 @@ class ConsolidatedIndex {
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::automaton::FiniteAutomaton FiniteAutomaton;
 
-  template<bool IsLogged>
-  using FilePosition = z2kplus::backend::files::FilePosition<IsLogged>;
+  template<FileKeyKind Kind>
+  using FilePosition = z2kplus::backend::files::FilePosition<Kind>;
 
   template<typename T>
   using MappedFile =  kosak::coding::memory::MappedFile<T>;
@@ -115,7 +119,8 @@ public:
       ConsolidatedIndex *result, const FailFrame &ff);
 
   static bool tryCreate(std::shared_ptr<PathMaster> pm,
-      const FilePosition<true> &loggedStart, const FilePosition<false> &unloggedStart,
+      const FilePosition<FileKeyKind::Logged> &loggedStart,
+      const FilePosition<FileKeyKind::Unlogged> &unloggedStart,
       MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result, const FailFrame &ff);
 
   ConsolidatedIndex();
@@ -136,7 +141,8 @@ public:
       const kosak::coding::Delegate<void, const wordOff_t *, const wordOff_t *> &callback) const;
 
   bool tryCheckpoint(std::chrono::system_clock::time_point now,
-      FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition,
+      FilePosition<FileKeyKind::Logged> *loggedPosition,
+      FilePosition<FileKeyKind::Unlogged> *unloggedPosition,
       const FailFrame &ff);
 
   bool tryFind(ZgramId id, zgramOff_t *result) const;
