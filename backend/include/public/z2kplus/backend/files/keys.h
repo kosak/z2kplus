@@ -61,6 +61,9 @@ public:
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
   }
 
+  template<FileKeyKind OtherKind>
+  constexpr FileKey(FileKey<OtherKind> other);
+
   std::tuple<uint32, uint32, uint32, bool> expand() const {
     auto temp = raw_;
     bool isLogged = (temp % 10) != 0;
@@ -150,6 +153,10 @@ public:
       : fileKey_(fileKey), position_(position) {}
   constexpr FilePosition() = default;
 
+  template<FileKeyKind OtherKind>
+  constexpr FilePosition(FilePosition<OtherKind> other);
+
+
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
@@ -175,6 +182,9 @@ public:
   IntraFileRange() = default;
   IntraFileRange(FileKey<Kind> fileKey, uint32_t begin, uint32_t end) :
       fileKey_(fileKey), begin_(begin), end_(end) {}
+
+  template<FileKeyKind OtherKind>
+  IntraFileRange(IntraFileRange<OtherKind> other);
 
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t begin() const { return begin_; }
