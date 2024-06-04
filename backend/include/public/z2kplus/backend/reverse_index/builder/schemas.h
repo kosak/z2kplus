@@ -47,7 +47,7 @@ public:
       FileKey<FileKeyKind::Either>, uint32_t, uint32_t> tuple_t;
 
   static tuple_t createTuple(const Zgram &zgram,
-      const FileKey<FileKeyKind::Either> &fileKey, size_t offset, size_t size);
+      FileKey<FileKeyKind::Either> fileKey, size_t offset, size_t size);
 
   explicit Zephyrgram(const tuple_t &tuple) : tuple_(tuple) {}
 

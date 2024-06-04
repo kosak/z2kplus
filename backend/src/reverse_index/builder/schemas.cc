@@ -17,7 +17,7 @@
 namespace z2kplus::backend::reverse_index::builder {
 namespace schemas {
 Zephyrgram::tuple_t Zephyrgram::createTuple(const Zgram &zgram,
-    const CompressedFileKey &fileKey, size_t offset, size_t size) {
+    FileKey<FileKeyKind::Either> fileKey, size_t offset, size_t size) {
   const auto &zgc = zgram.zgramCore();
   return {
     zgram.zgramId(), zgram.timesecs(),
