@@ -18,8 +18,6 @@ set(COMMON_FILES
         include/public/z2kplus/backend/factories/log_parser.h
         include/public/z2kplus/backend/files/keys.h
         include/public/z2kplus/backend/files/path_master.h
-        include/public/z2kplus/backend/legacy/file_logrecord.h
-        include/public/z2kplus/backend/legacy/zephyrgram.h
         include/public/z2kplus/backend/queryparsing/parser.h
         include/public/z2kplus/backend/queryparsing/util.h
         include/public/z2kplus/backend/reverse_index/fields.h
@@ -107,8 +105,6 @@ set(COMMON_FILES
         src/factories/log_parser.cc
         src/files/keys.cc
         src/files/path_master.cc
-        src/legacy/file_logrecord.cc
-        src/legacy/zephyrgram.cc
         src/queryparsing/generated/ZarchiveParserBaseListener.h
         src/queryparsing/generated/ZarchiveLexer.h
         src/queryparsing/generated/ZarchiveParserListener.h
@@ -202,11 +198,8 @@ set(TEST_FILES
 
 set(BACKEND_MAIN src/backend_main.cc)
 
-set(LEGACY_CONVERTER_MAIN src/legacy_converter_main.cc)
-
 add_executable(test_backend ${COMMON_FILES} ${TEST_FILES})
 add_executable(backend ${COMMON_FILES} ${BACKEND_MAIN})
-add_executable(legacy_converter ${COMMON_FILES} ${LEGACY_CONVERTER_MAIN})
 
 target_include_directories(backend PUBLIC
         "/usr/local/include/antlr4-runtime" "include/public")
@@ -218,7 +211,6 @@ target_include_directories(test_backend PUBLIC
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_definitions(test_backend PUBLIC DEBUGGING=1)
   target_compile_definitions(backend PUBLIC DEBUGGING=1)
-  target_compile_definitions(legacy_converter PUBLIC DEBUGGING=1)
 endif()
 
 add_subdirectory("third_party/coding" "libcoding")
@@ -226,4 +218,3 @@ add_subdirectory("third_party/catch" "libcatch")
 
 target_link_libraries(test_backend PUBLIC coding catch antlr4-runtime pthread)
 target_link_libraries(backend PUBLIC coding antlr4-runtime pthread)
-target_link_libraries(legacy_converter PUBLIC coding antlr4-runtime pthread)
