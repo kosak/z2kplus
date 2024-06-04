@@ -29,7 +29,8 @@ using kosak::coding::FailFrame;
 using kosak::coding::ParseContext;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::text::Splitter;
-using z2kplus::backend::files::CompressedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::shared::LogRecord;
@@ -37,7 +38,7 @@ using z2kplus::backend::shared::ZgramCore;
 
 #define HERE KOSAK_CODING_HERE
 
-bool LogParser::tryParseLogFile(const PathMaster &pm, const CompressedFileKey &fileKey,
+bool LogParser::tryParseLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
     std::vector<logRecordAndLocation_t> *logRecordsAndLocations, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   MappedFile<char> mf;
@@ -49,7 +50,7 @@ bool LogParser::tryParseLogFile(const PathMaster &pm, const CompressedFileKey &f
   return true;
 }
 
-bool LogParser::tryParseLogRecords(std::string_view text, const CompressedFileKey &fileKey,
+bool LogParser::tryParseLogRecords(std::string_view text, FileKey<FileKeyKind::Either> fileKey,
     std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
     const FailFrame &ff) {
   auto splitter = Splitter::ofRecords(text, '\n');
