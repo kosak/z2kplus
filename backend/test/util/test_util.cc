@@ -53,13 +53,12 @@ using z2kplus::backend::communicator::MessageBuffer;
 using z2kplus::backend::coordinator::Coordinator;
 using z2kplus::backend::coordinator::Subscription;
 using z2kplus::backend::factories::LogParser;
-using z2kplus::backend::files::CompressedFileKey;
-using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
-using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::queryparsing::WordSplitter;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
 using z2kplus::backend::reverse_index::index::ConsolidatedIndex;
@@ -88,7 +87,7 @@ namespace z2kplus::backend::test::util {
 
 // Note: the timestamps used inside the zgrams need to be nondecreasing so as to enable
 // efficient searching.
-auto key20000101 = ExpandedFileKey::createUnsafe(2000, 1, 1, true);
+auto key20000101 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 1, true);
 const char zgrams20000101[] =
     R"([["z",[[0],946684800,"kosak","Corey Kosak",true,["new-millennium","Welcome to the new millennium!!!","d"]]]])" "\n"
     R"([["z",[[1],946684801,"kosak","Corey Kosak",true,["new-millennium","I have written a chat system for you. Do you like it?","d"]]]])" "\n"
@@ -111,7 +110,7 @@ const char zgrams20000101[] =
     R"([["z",[[23],946684810,"kosak","Corey Kosak",true,["words.Î","You are just jealous of my élite C++ skills. And C#. And C*. And C?","d"]]]])" "\n";
 
 // likes and dislikes
-auto key20000102 = ExpandedFileKey::createUnsafe(2000, 1, 2, true);
+auto key20000102 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 2, true);
 const char zgrams20000102[] =
     R"([["z",[[30],946771200,"kosak","Starbuck 2000",true,["tv.wilhelm","The reimagined Battlestar Galactica™ is the best thing ever","d"]]]])" "\n"
     // Prince Wilhelm and Corey both "like" zgram 30
@@ -129,7 +128,7 @@ const char zgrams20000102[] =
     R"([["m",[["zgrev",[[12],["feelings.Unicode","I ❤ to eat π and 𝐂𝐈𝐍𝐍𝐀𝐁𝐎𝐍 at the café","d"]]]]]])" "\n";
 
 // Reactions day. Plus a refers-to
-auto key20000103 = ExpandedFileKey::createUnsafe(2000, 1, 3, true);
+auto key20000103 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 3, true);
 const char zgrams20000103[] =
     R"xxx([["z",[[40],946857600,"simon","Simon Eriksson",true,["tv.wilhelm.delayed","I'm going to change my vote on Battlestar Galactica™","d"]]]])xxx" "\n"
     // simon changes his dislike of 30 to a like
@@ -145,20 +144,20 @@ const char zgrams20000103[] =
     // but spock dislikes 42
     R"([["m",[["rx",[[42],"👎","spock",true]]]]])" "\n";
 
-auto key20000104 = ExpandedFileKey::createUnsafe(2000, 1, 4, true);
+auto key20000104 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 4, true);
 const char zgrams20000104[] =
     R"([["z",[[50],946944000,"august","August Horn of Årnäs",true,["z2kplus","Let me be the first to say it. kosak++","d"]]]])" "\n"
     R"([["z",[[51],946944001,"kosak","Corey Kosak",true,["z2kplus","This pain, no name.","d"]]]])" "\n";
 
 // Our first graffiti zgram
-auto key20000104g = ExpandedFileKey::createUnsafe(2000, 1, 4, false);
+auto key20000104g = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 4, false);
 const char zgrams20000104g[] =
     R"([["z",[[52],946944002,"simon","Simon Eriksson",false,["graffiti.z2kplus","FAIL","d"]]]])" "\n";
 
 // Some more "the the the", and testing our MathJax rendering.
 // Kosak sets his zmojis a few times
 // T'Pring applies a bunch of k-wrongs
-auto key20000105 = ExpandedFileKey::createUnsafe(2000, 1, 5, true);
+auto key20000105 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 5, true);
 const char zgrams20000105[] =
     R"([["z",[[60],947073600,"kosak","Corey Kosak",true,["repetition","the the zamboni the the","d"]]]])" "\n"
     R"([["z",[[61],947073601,"kosak","Corey Kosak",true,["repetition","the the the the the","d"]]]])" "\n"
@@ -173,15 +172,15 @@ const char zgrams20000105[] =
     R"([["m",[["rx",[[50],"k-wrong","t'pring",true]]]]])" "\n";
 
 // It's ++ and -- day
-auto key20000106 = ExpandedFileKey::createUnsafe(2000, 1, 6, true);
+auto key20000106 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 6, true);
 const char zgrams20000106[] =
     R"([["z",[[70],947073600,"simon","Simon Eriksson",true,["appreciation","kosak++ blah kosak++","d"]]]])" "\n"
     R"([["z",[[71],947073601,"kosak","Corey Kosak",true,["appreciation.anti","kosak--","d"]]]])" "\n";
 
-auto loggedStartKey = TaggedFileKey<true>(ExpandedFileKey::createUnsafe(2000, 1, 7, true).compress());
-auto unloggedStartKey = TaggedFileKey<false>(ExpandedFileKey::createUnsafe(2000, 1, 7, false).compress());
-FilePosition<true> loggedStart(loggedStartKey, 0);
-FilePosition<false> unloggedStart(unloggedStartKey, 0);
+auto loggedStartKey = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 7, true);
+auto unloggedStartKey = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 7, false);
+FilePosition<FileKeyKind::Either> loggedStart(loggedStartKey, 0);
+FilePosition<FileKeyKind::Either> unloggedStart(unloggedStartKey, 0);
 
 // This ends up being zgramId 72
 const char dynamicZgrams[] =
@@ -237,8 +236,8 @@ bool TestUtil::trySetupConsolidatedIndex(std::shared_ptr<PathMaster> pm, Consoli
   std::vector<MetadataRecord> movedMetadata;
   auto now = std::chrono::system_clock::now();
   return tryPopulateTestFiles(*pm, ff.nest(HERE)) &&
-      IndexBuilder::tryBuild(*pm, InterFileRange<true>::everything(),
-          InterFileRange<false>::everything(), ff.nest(HERE)) &&
+      IndexBuilder::tryBuild(*pm, InterFileRange<FileKeyKind::Logged>::everything,
+          InterFileRange<FileKeyKind::Unlogged>::everything, ff.nest(HERE)) &&
       pm->tryPublishBuild(ff.nest(HERE)) &&
       frozenIndex.tryMap(pm->getIndexPath(), false, ff.nest(HERE)) &&
       ConsolidatedIndex::tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), ci,
@@ -325,7 +324,7 @@ bool TestUtil::fourWaySearchTest(const std::string_view &callerInfo, const Conso
   return searchTest(callerInfo, ci, iterator, false, &rawZgramId, selectedToUse, offset, ff.nest(HERE));
 }
 
-bool TestUtil::tryPopulateFile(const PathMaster &pm, CompressedFileKey fileKey,
+bool TestUtil::tryPopulateFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
     std::string_view text, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   return nsunix::tryEnsureBaseExists(fileName, 0755, ff.nest(HERE)) &&
@@ -398,7 +397,7 @@ bool tryPopulateTestFiles(const PathMaster &pm, const FailFrame &ff) {
 
   static_assert(fileKeys.size() == zgrams.size());
   for (size_t i = 0; i < fileKeys.size(); ++i) {
-    if (!TestUtil::tryPopulateFile(pm, fileKeys[i].compress(), zgrams[i], ff.nest(HERE))) {
+    if (!TestUtil::tryPopulateFile(pm, fileKeys[i], zgrams[i], ff.nest(HERE))) {
       return false;
     }
   }

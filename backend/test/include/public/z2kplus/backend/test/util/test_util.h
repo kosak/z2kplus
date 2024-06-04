@@ -33,7 +33,7 @@
 namespace z2kplus::backend::test::util {
 struct TestUtil {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::ConsolidatedIndex ConsolidatedIndex;
   typedef z2kplus::backend::reverse_index::iterators::ZgramIterator ZgramIterator;
@@ -42,6 +42,9 @@ struct TestUtil {
   typedef z2kplus::backend::shared::ZgramCore ZgramCore;
   typedef z2kplus::backend::shared::ZgramId ZgramId;
   typedef z2kplus::backend::util::automaton::FiniteAutomaton FiniteAutomaton;
+
+  template<FileKeyKind Kind>
+  using FileKey = z2kplus::backend::files::FileKey<Kind>;
 
   static std::u32string_view friendlyReset(kosak::coding::text::ReusableString32 *rs, std::string_view s);
 
@@ -64,8 +67,8 @@ struct TestUtil {
       const ZgramIterator *iterator, uint64_t rawZgramId,
       std::initializer_list<uint64_t> rawExpected, const FailFrame &ff);
 
-  static bool tryPopulateFile(const PathMaster &pm, CompressedFileKey fileKey, std::string_view text,
-      const FailFrame &ff);
+  static bool tryPopulateFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
+      std::string_view text, const FailFrame &ff);
 
   static bool tryParseDynamicZgrams(const std::string_view &records,
       std::vector<ZgramCore> *result, const FailFrame &ff);

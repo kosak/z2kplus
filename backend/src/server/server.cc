@@ -40,11 +40,10 @@ using z2kplus::backend::communicator::MessageBuffer;
 using z2kplus::backend::communicator::Session;
 using z2kplus::backend::coordinator::Coordinator;
 using z2kplus::backend::coordinator::Subscription;
-using z2kplus::backend::files::CompressedFileKey;
-using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::InterFileRange;
-using z2kplus::backend::files::TaggedFileKey;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
 using z2kplus::backend::reverse_index::iterators::ZgramIterator;
 using z2kplus::backend::shared::Profile;
@@ -107,7 +106,6 @@ private:
 
 struct Server::ReindexingState {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
   template<typename T>
@@ -115,13 +113,14 @@ struct Server::ReindexingState {
 
   static bool tryCreate(std::shared_ptr<PathMaster> pm,
       std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
-      InterFileRange<true> loggedRange, InterFileRange<false> unloggedRange,
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
       std::shared_ptr<ReindexingState> *result, const FailFrame &ff);
 
   ReindexingState(std::shared_ptr<PathMaster> pm,
       std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
-      InterFileRange<true> loggedRange,
-      InterFileRange<false> unloggedRange);
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange);
 
   static void run(std::shared_ptr<ReindexingState> self);
 
@@ -130,8 +129,8 @@ struct Server::ReindexingState {
 
   std::shared_ptr<PathMaster> pm_;
   std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo_;
-  InterFileRange<true> loggedRange_;
-  InterFileRange<false> unloggedRange_;
+  InterFileRange<FileKeyKind::Logged> loggedRange_;
+  InterFileRange<FileKeyKind::Unlogged> unloggedRange_;
   std::atomic<bool> done_ = false;
   std::thread activeThread_;
   std::string error_;
@@ -285,19 +284,19 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
     // 2. Checkpoint the server. This will give us the logged end position and the unlogged end position
     // 3. The unlogged start position is (now - the unlogged lifespan... typically 1 week).
 
-    FilePosition<true> loggedStartPosition;  // zero
-    ExpandedFileKey unloggedStartEfk(now - magicConstants::unloggedLifespan, false);
-    TaggedFileKey<false> unloggedStartKey(unloggedStartEfk.compress());
-    FilePosition<false> unloggedStartPosition(unloggedStartKey, 0);
+    FilePosition<FileKeyKind::Logged> loggedStartPosition;  // zero
 
-    FilePosition<true> loggedEndPosition;
-    FilePosition<false> unloggedEndPosition;
+    auto unloggedStartKey = FileKey<FileKeyKind::Unlogged>::createFromTimePoint(now - magicConstants::unloggedLifespan);
+    FilePosition<FileKeyKind::Unlogged> unloggedStartPosition(unloggedStartKey, 0);
+
+    FilePosition<FileKeyKind::Logged> loggedEndPosition;
+    FilePosition<FileKeyKind::Unlogged> unloggedEndPosition;
     if (!coordinator_.tryCheckpoint(now, &loggedEndPosition, &unloggedEndPosition, ff.nest(HERE))) {
       return false;
     }
 
-    InterFileRange<true> loggedRange(loggedStartPosition, loggedEndPosition);
-    InterFileRange<false> unloggedRange(unloggedStartPosition, unloggedEndPosition);
+    InterFileRange<FileKeyKind::Logged> loggedRange(loggedStartPosition, loggedEndPosition);
+    InterFileRange<FileKeyKind::Unlogged> unloggedRange(unloggedStartPosition, unloggedEndPosition);
 
     // Start the reindexing thread.
     return ReindexingState::tryCreate(coordinator_.pathMaster(), todo_, loggedRange,
@@ -446,7 +445,8 @@ void Server::handleSubscribeRequest(drequests::Subscribe &&subReq, Session *sess
 
 bool Server::ReindexingState::tryCreate(std::shared_ptr<PathMaster> pm,
     std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
-    InterFileRange<true> loggedRange, InterFileRange<false> unloggedRange,
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
     std::shared_ptr<ReindexingState> *result, const FailFrame &/*ff*/) {
   auto res = std::make_shared<ReindexingState>(std::move(pm), std::move(todo), loggedRange,
       unloggedRange);
@@ -457,7 +457,8 @@ bool Server::ReindexingState::tryCreate(std::shared_ptr<PathMaster> pm,
 
 Server::ReindexingState::ReindexingState(std::shared_ptr<PathMaster> pm,
     std::shared_ptr<MessageBuffer<SessionAndDRequest>> todo,
-    InterFileRange<true> loggedRange, InterFileRange<false> unloggedRange) : pm_(std::move(pm)),
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange) : pm_(std::move(pm)),
     todo_(std::move(todo)), loggedRange_(loggedRange), unloggedRange_(unloggedRange),
     done_(false) {}
 
@@ -484,14 +485,13 @@ bool Server::ReindexingState::tryRunHelper(const FailFrame &ff) {
 }
 
 bool Server::ReindexingState::tryCleanup(const FailFrame &ff) {
-  auto cb = [this](const CompressedFileKey &fk, const FailFrame &f2) {
-    ExpandedFileKey efk(fk);
-    if (efk.isLogged()) {
+  auto cb = [this](FileKey<FileKeyKind::Either> fk, const FailFrame &f2) {
+    if (fk.isLogged()) {
       return true;
     }
-    TaggedFileKey<false> tfk(fk);
+    auto [_, ufk] = fk.visit();
     auto beginFk = unloggedRange_.begin().fileKey();
-    if (!(tfk < beginFk)) {
+    if (!(*ufk < beginFk)) {
       return true;
     }
     // file key is unlogged and prior to the 'after purge' point.

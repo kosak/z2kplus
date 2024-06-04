@@ -34,8 +34,8 @@ namespace z2kplus::backend::test {
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
-using z2kplus::backend::files::CompressedFileKey;
-using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::tuple_iterators::makeAccumulator;
 using z2kplus::backend::reverse_index::builder::tuple_iterators::makeLastKeeper;
@@ -227,9 +227,9 @@ TEST_CASE("tuples: trueKeeper", "[tuples]") {
 
 TEST_CASE("tuples: serializer", "[tuples]") {
   FailRoot fr;
-  typedef std::tuple<bool, uint32_t, uint64_t, std::string_view, ZgramId, CompressedFileKey> everything_t;
+  typedef std::tuple<bool, uint32_t, uint64_t, std::string_view, ZgramId, FileKey<FileKeyKind::Either>> everything_t;
   ZgramId zgId(1234);
-  auto fk = ExpandedFileKey::createUnsafe(1999, 3, 1, true).compress();
+  auto fk = FileKey<FileKeyKind::Either>::createUnsafe(1999, 3, 1, true);
   everything_t src(true, 87, 1'234'567'890'123ULL, "kosak", zgId, fk);
 
   std::string text;

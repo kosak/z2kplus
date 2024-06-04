@@ -39,8 +39,8 @@ using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::text::ReusableString32;
 using z2kplus::backend::factories::LogParser;
-using z2kplus::backend::files::CompressedFileKey;
-using z2kplus::backend::files::ExpandedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
@@ -71,11 +71,11 @@ namespace z2kplus::backend::test {
 namespace {
 bool tryGetPathMaster(std::shared_ptr<PathMaster> *result, const FailFrame &ff);
 
-auto simpleKey0 = ExpandedFileKey::createUnsafe(2000, 1, 1, true).compress();
+auto simpleKey0 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 1, true);
 const char simpleText0[] = "" // to help CLion align the next line
   R"([["z",[[0],946703313,"kosak","Corey Kosak",true,["test","Hello this is kosak","d"]]]])" "\n";
 
-auto simpleKey1 = ExpandedFileKey::createUnsafe(2000, 1, 2, true).compress();
+auto simpleKey1 = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 2, true);
 const char simpleText1[] = "" // to help CLion align the next line
   R"([["z",[[1],946703314,"kosh","Kosh",true,["test","You are not ready","d"]]]])" "\n"
   // body revision of zgram 0
@@ -132,8 +132,9 @@ TEST_CASE("index_construction: Build Frozen Index", "[index_construction]") {
   if (!tryGetPathMaster(&pm, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey0, simpleText0, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey1, simpleText1, fr.nest(HERE)) ||
-    !IndexBuilder::tryBuild(*pm, InterFileRange<true>::everything(),
-        InterFileRange<false>::everything(), fr.nest(HERE)) ||
+    !IndexBuilder::tryBuild(*pm,
+        InterFileRange<FileKeyKind::Logged>::everything,
+        InterFileRange<FileKeyKind::Unlogged>::everything, fr.nest(HERE)) ||
     !pm->tryPublishBuild(fr.nest(HERE)) ||
     !mf.tryMap(pm->getIndexPath(), false, fr.nest(HERE))) {
     FAIL(fr);
@@ -157,8 +158,8 @@ TEST_CASE("index_construction: Probe Frozen Index", "[index_construction]") {
     !TestUtil::tryPopulateFile(*pm, simpleKey0, simpleText0, fr.nest(HERE)) ||
     !TestUtil::tryPopulateFile(*pm, simpleKey1, simpleText1, fr.nest(HERE)) ||
     !IndexBuilder::tryBuild(*pm,
-        InterFileRange<true>::everything(),
-        InterFileRange<false>::everything(),
+        InterFileRange<FileKeyKind::Logged>::everything,
+        InterFileRange<FileKeyKind::Unlogged>::everything,
         fr.nest(HERE)) ||
     !pm->tryPublishBuild(fr.nest(HERE)) ||
     !mf.tryMap(pm->getIndexPath(), false, fr.nest(HERE))) {
