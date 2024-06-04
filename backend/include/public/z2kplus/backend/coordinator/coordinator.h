@@ -61,7 +61,7 @@ struct SubComparer {
 class Coordinator {
 public:
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::reverse_index::index::ConsolidatedIndex ConsolidatedIndex;
   typedef z2kplus::backend::reverse_index::iterators::ZgramIterator ZgramIterator;
@@ -84,8 +84,8 @@ public:
   typedef z2kplus::backend::shared::protocol::message::DResponse DResponse;
   typedef z2kplus::backend::shared::protocol::message::dresponses::AckSubscribe AckSubscribe;
 
-  template<bool IsLogged>
-  using FilePosition = z2kplus::backend::files::FilePosition<IsLogged>;
+  template<FileKeyKind Kind>
+  using FilePosition = z2kplus::backend::files::FilePosition<Kind>;
 
   template<typename R, typename ...Args>
   using Delegate = kosak::coding::Delegate<R, Args...>;
@@ -131,7 +131,8 @@ public:
   void ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses);
 
   bool tryCheckpoint(std::chrono::system_clock::time_point now,
-      FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition,
+      FilePosition<FileKeyKind::Logged> *loggedPosition,
+      FilePosition<FileKeyKind::Unlogged> *unloggedPosition,
         const FailFrame &ff) {
     return index_.tryCheckpoint(now, loggedPosition, unloggedPosition, ff.nest(KOSAK_CODING_HERE));
   }
