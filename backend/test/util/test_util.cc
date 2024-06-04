@@ -177,10 +177,10 @@ const char zgrams20000106[] =
     R"([["z",[[70],947073600,"simon","Simon Eriksson",true,["appreciation","kosak++ blah kosak++","d"]]]])" "\n"
     R"([["z",[[71],947073601,"kosak","Corey Kosak",true,["appreciation.anti","kosak--","d"]]]])" "\n";
 
-auto loggedStartKey = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 7, true);
-auto unloggedStartKey = FileKey<FileKeyKind::Either>::createUnsafe(2000, 1, 7, false);
-FilePosition<FileKeyKind::Either> loggedStart(loggedStartKey, 0);
-FilePosition<FileKeyKind::Either> unloggedStart(unloggedStartKey, 0);
+auto loggedStartKey = FileKey<FileKeyKind::Logged>::createUnsafe(2000, 1, 7, true);
+auto unloggedStartKey = FileKey<FileKeyKind::Unlogged>::createUnsafe(2000, 1, 7, false);
+FilePosition<FileKeyKind::Logged> loggedStart(loggedStartKey, 0);
+FilePosition<FileKeyKind::Unlogged> unloggedStart(unloggedStartKey, 0);
 
 // This ends up being zgramId 72
 const char dynamicZgrams[] =
