@@ -23,16 +23,18 @@
 namespace z2kplus::backend::reverse_index::builder {
 class LogAnalyzer {
   typedef kosak::coding::FailFrame FailFrame;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  template<bool IsLogged>
-  using InterFileRange = z2kplus::backend::files::InterFileRange<IsLogged>;
-  template<bool IsLogged>
-  using IntraFileRange = z2kplus::backend::files::IntraFileRange<IsLogged>;
+  template<FileKeyKind Kind>
+  using InterFileRange = z2kplus::backend::files::InterFileRange<Kind>;
+  template<FileKeyKind Kind>
+  using IntraFileRange = z2kplus::backend::files::IntraFileRange<Kind>;
 
 public:
   static bool tryAnalyze(const PathMaster &pm,
-      const InterFileRange<true> &loggedRange, const InterFileRange<false> &unloggedRange,
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
       LogAnalyzer *result, const FailFrame &ff);
 
   LogAnalyzer();
@@ -44,11 +46,11 @@ public:
   const auto &sortedUnloggedRanges() const { return sortedUnloggedRanges_; }
 
 private:
-  explicit LogAnalyzer(std::vector<IntraFileRange<true>> sortedLoggedRanges,
-      std::vector<IntraFileRange<false>> sortedUnloggedRanges);
+  explicit LogAnalyzer(std::vector<IntraFileRange<FileKeyKind::Logged>> sortedLoggedRanges,
+      std::vector<IntraFileRange<FileKeyKind::Unlogged>> sortedUnloggedRanges);
 
-  std::vector<IntraFileRange<true>> sortedLoggedRanges_;
-  std::vector<IntraFileRange<false>> sortedUnloggedRanges_;
+  std::vector<IntraFileRange<FileKeyKind::Logged>> sortedLoggedRanges_;
+  std::vector<IntraFileRange<FileKeyKind::Unlogged>> sortedUnloggedRanges_;
 
   friend std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o);
 };
