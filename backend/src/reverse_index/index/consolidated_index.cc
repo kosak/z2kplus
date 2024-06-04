@@ -72,26 +72,25 @@ namespace userMetadata = z2kplus::backend::shared::userMetadata;
 namespace zgMetadata = z2kplus::backend::shared::zgMetadata;
 
 namespace {
-bool tryCreateOrAppendToLogFile(const PathMaster &pm, CompressedFileKey fileKey, uint32_t offset,
+bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
     FileCloser *fc, const FailFrame &ff);
 
 bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
     const FailFrame &ff);
 
 bool tryReadAllDynamicFiles(const PathMaster &pm,
-    const std::vector<IntraFileRange<true>> &loggedKeys,
-    const std::vector<IntraFileRange<false>> &unloggedKeys,
+    const std::vector<IntraFileRange<FileKeyKind::Logged>> &loggedKeys,
+    const std::vector<IntraFileRange<FileKeyKind::Unlogged>> &unloggedKeys,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
 
-template<bool IsLogged>
-FilePosition<IsLogged> calcStart(const std::vector<IntraFileRange<IsLogged>> &ranges,
+template<FileKeyKind Kind>
+FilePosition<Kind> calcStart(const std::vector<IntraFileRange<Kind>> &ranges,
     std::chrono::system_clock::time_point now) {
-  ExpandedFileKey efk(now, IsLogged);
-  TaggedFileKey<IsLogged> tfk(efk.compress());
-  FilePosition<IsLogged> proposedStart(tfk, 0);
+  auto fk = FileKey<Kind>::createFromTimePoint(now);
+  FilePosition<Kind> proposedStart(fk, 0);
 
   if (!ranges.empty()) {
-    FilePosition<IsLogged> lastUsed(ranges.back().fileKey(), ranges.back().end());
+    FilePosition<Kind> lastUsed(ranges.back().fileKey(), ranges.back().end());
     if (proposedStart < lastUsed) {
       proposedStart = lastUsed;
     }
@@ -110,8 +109,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
 
-  InterFileRange<true> loggedRange(frozenIndex.get()->loggedEnd(), {});
-  InterFileRange<false> unloggedRange(frozenIndex.get()->unloggedEnd(), {});
+  InterFileRange<FileKeyKind::Logged> loggedRange(frozenIndex.get()->loggedEnd(),
+      FilePosition<FileKeyKind::Logged>::infinity);
+  InterFileRange<FileKeyKind::Unlogged> unloggedRange(frozenIndex.get()->unloggedEnd(),
+      FilePosition<FileKeyKind::Unlogged>::infinity);
   if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
     return false;
   }
@@ -135,14 +136,15 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
 }
 
 bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
-    const FilePosition<true> &loggedStart, const FilePosition<false> &unloggedStart,
+    const FilePosition<FileKeyKind::Logged> &loggedStart,
+    const FilePosition<FileKeyKind::Unlogged> &unloggedStart,
     MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result,
     const FailFrame &ff) {
   internal::DynamicFileState loggedState;
   internal::DynamicFileState unloggedState;
-  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart.fileKey().key(), loggedStart.position(),
+  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart.fileKey(), loggedStart.position(),
       &loggedState, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm, unloggedStart.fileKey().key(), unloggedStart.position(),
+      !internal::DynamicFileState::tryCreate(*pm, unloggedStart.fileKey(), unloggedStart.position(),
           &unloggedState, ff.nest(HERE))) {
     return false;
   }
@@ -464,9 +466,10 @@ bool PlusPlusManager::tryFinish(const FailFrame &ff) {
 }
 
 bool ConsolidatedIndex::tryCheckpoint(std::chrono::system_clock::time_point now,
-    FilePosition<true> *loggedPosition, FilePosition<false> *unloggedPosition, const FailFrame &/*ff*/) {
-  *loggedPosition = FilePosition<true>(TaggedFileKey<true>(loggedState_.fileKey()), loggedState_.fileSize());
-  *unloggedPosition = FilePosition<false>(TaggedFileKey<false>(unloggedState_.fileKey()), unloggedState_.fileSize());
+    FilePosition<FileKeyKind::Logged> *loggedPosition,
+    FilePosition<FileKeyKind::Unlogged> *unloggedPosition, const FailFrame &/*ff*/) {
+  *loggedPosition = FilePosition<FileKeyKind::Logged>(loggedState_.fileKey(), loggedState_.fileSize());
+  *unloggedPosition = FilePosition<FileKeyKind::Logged>(unloggedState_.fileKey(), unloggedState_.fileSize());
   return true;
 }
 
@@ -859,7 +862,7 @@ bool ConsolidatedIndex::tryDetermineLogged(const MetadataRecord &mr, bool *isLog
   if (zgramId.has_value() && !tryFind(*zgramId, &zgramOff)) {
     return ff.failf(HERE, "Failed to look up zgram id %o", zgramId);
   }
-  *isLogged = ExpandedFileKey(getZgramInfo(zgramOff).location().fileKey()).isLogged();
+  *isLogged = getZgramInfo(zgramOff).location().fileKey().isLogged();
   return true;
 }
 
@@ -879,8 +882,8 @@ bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState
 }
 
 bool tryReadAllDynamicFiles(const PathMaster &pm,
-    const std::vector<IntraFileRange<true>> &loggedKeys,
-    const std::vector<IntraFileRange<false>> &unloggedKeys,
+    const std::vector<IntraFileRange<FileKeyKind::Logged>> &loggedKeys,
+    const std::vector<IntraFileRange<FileKeyKind::Unlogged>> &unloggedKeys,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff) {
   // We have an ordering problem. For a given DateAndPartKey, zgrams might be arbitrarily
   // distributed between logged and unlogged. For example zgram 100 might be logged, and zgram 101
@@ -923,16 +926,13 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
     return lExtractor.zg_->zgramId() < rExtractor.zg_->zgramId();
   };
 
-  for (const auto &ifr : loggedKeys) {
-    auto path = pm.getPlaintextPath(ifr.fileKey().key());
-    if (!LogParser::tryParseLogFile(pm, ifr.fileKey().key(), result, ff.nest(HERE))) {
-      return false;
-    }
-  }
+  auto allIfrs = makeReservedVector<IntraFileRange<FileKeyKind::Either>>(loggedKeys.size() + unloggedKeys.size());
+  allIfrs.insert(allIfrs.end(), loggedKeys.begin(), loggedKeys.end());
+  allIfrs.insert(allIfrs.end(), unloggedKeys.begin(), unloggedKeys.end());
 
-  for (const auto &ifr : unloggedKeys) {
-    auto path = pm.getPlaintextPath(ifr.fileKey().key());
-    if (!LogParser::tryParseLogFile(pm, ifr.fileKey().key(), result, ff.nest(HERE))) {
+  for (const auto &ifr : allIfrs) {
+    auto path = pm.getPlaintextPath(ifr.fileKey());
+    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
       return false;
     }
   }
@@ -943,7 +943,7 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
 }  // namespace
 
 namespace internal {
-bool DynamicFileState::tryCreate(const PathMaster &pm, CompressedFileKey fileKey,
+bool DynamicFileState::tryCreate(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
     uint32_t offset, DynamicFileState *result, const FailFrame &ff) {
   FileCloser fc;
   if (!tryCreateOrAppendToLogFile(pm, fileKey, offset, &fc, ff.nest(HERE))) {
@@ -955,13 +955,13 @@ bool DynamicFileState::tryCreate(const PathMaster &pm, CompressedFileKey fileKey
 DynamicFileState::DynamicFileState() = default;
 DynamicFileState::DynamicFileState(DynamicFileState &&) noexcept = default;
 DynamicFileState &DynamicFileState::operator=(DynamicFileState &&) noexcept = default;
-DynamicFileState::DynamicFileState(FileCloser fileCloser, CompressedFileKey fileKey, size_t fileSize) :
+DynamicFileState::DynamicFileState(FileCloser fileCloser, FileKey<FileKeyKind::Either> fileKey, size_t fileSize) :
     fileCloser_(std::move(fileCloser)), fileKey_(fileKey), fileSize_(fileSize) {}
 DynamicFileState::~DynamicFileState() = default;
 }  // namespace internal
 
 namespace {
-bool tryCreateOrAppendToLogFile(const PathMaster &pm, CompressedFileKey fileKey, uint32_t offset,
+bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
     FileCloser *fc, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   bool exists;

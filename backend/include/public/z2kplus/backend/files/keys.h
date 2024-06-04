@@ -56,6 +56,8 @@ public:
     return FileKey(raw);
   }
 
+  static FileKey createFromTimePoint(std::chrono::system_clock::time_point);
+
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
   }
 
@@ -75,6 +77,10 @@ public:
   }
 
   uint32_t raw() const { return raw_; }
+
+  bool isLogged() const {
+    return (raw_ & 1) != 0;
+  }
 
 private:
   explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
