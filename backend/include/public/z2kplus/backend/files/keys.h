@@ -28,112 +28,83 @@
 #include "kosak/coding/failures.h"
 
 namespace z2kplus::backend::files {
+enum class FileKeyKind { Logged, Unlogged, Either };
 
 // Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
 // refers to a file in the database.
 // This is blitted inside the index.
-class CompressedFileKey {
-  using FailFrame = kosak::coding::FailFrame;
+// For extra programming safety, is templated into one of three partitions:
+// Logged, Unlogged, Either
+template<FileKeyKind Kind>
+class FileKey {
 public:
-  CompressedFileKey() = default;
-  explicit constexpr CompressedFileKey(uint32_t raw) : raw_(raw) {}
+  static constexpr FileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
+    auto raw = year;
+    raw = raw * 100 + month;
+    raw = raw * 100 + day;
+    raw = raw * 10 + (isLogged ? 1 : 0);
+    return createUnsafe(raw);
+  }
+
+  static constexpr FileKey createUnsafe(uint32_t raw) {
+    if (Kind == FileKeyKind::Logged && ((raw & 1) == 0)) {
+      throw std::runtime_error("raw value not Logged kind");
+    }
+    if (Kind == FileKeyKind::Unlogged && ((raw & 1) == 1)) {
+      throw std::runtime_error("raw value not Unlogged kind");
+    }
+    return FileKey(raw);
+  }
+
+  constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
+  }
+
+  void expand(uint32_t *year, uint32_t *month, uint32_t *day, bool *isLogged) {
+    auto temp = raw_;
+    *isLogged = (temp % 10) != 0;
+    temp /= 10;
+
+    *day = temp % 100;
+    temp /= 100;
+
+    *month = temp % 100;
+    temp /= 100;
+
+    *year = temp;
+  }
 
   uint32_t raw() const { return raw_; }
 
 private:
+  explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
+
   uint32_t raw_ = 0;
 
-  friend bool operator==(const CompressedFileKey &lhs, const CompressedFileKey &rhs);
-
-  friend std::ostream &operator<<(std::ostream &s, const CompressedFileKey &o);
-};
-
-static_assert(std::is_trivially_copyable_v<CompressedFileKey> &&
-    std::has_unique_object_representations_v<CompressedFileKey>);
-
-// A compressed file key, but tagged with the Logged boolean, in order to participate
-// in the more typesafe data structures below.
-template<bool IsLogged>
-class TaggedFileKey {
-public:
-  constexpr TaggedFileKey() : key_(IsLogged ? 1 : 0) {}
-  explicit constexpr TaggedFileKey(CompressedFileKey key) : key_(key) {}
-
-  const CompressedFileKey &key() const { return key_; }
-  uint32_t raw() const { return key_.raw(); }
-
-private:
-  CompressedFileKey key_;
-
-  friend bool operator<(const TaggedFileKey &lhs, const TaggedFileKey &rhs);
-
-  friend std::ostream &operator<<(std::ostream &s, const TaggedFileKey &o);
-};
-static_assert(std::is_trivially_copyable_v<TaggedFileKey<false>> &&
-    std::has_unique_object_representations_v<TaggedFileKey<false>>);
-static_assert(std::is_trivially_copyable_v<TaggedFileKey<true>> &&
-    std::has_unique_object_representations_v<TaggedFileKey<true>>);
-
-// The expanded version of the CompressedFileKey. Less space-efficient but easier
-// to work with.
-class ExpandedFileKey {
-  using FailFrame = kosak::coding::FailFrame;
-public:
-  static bool tryCreate(uint32_t year, uint32_t month, uint32_t day, bool logged,
-      ExpandedFileKey *result, const FailFrame &failFrame);
-
-  static constexpr ExpandedFileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day,
-      bool isLogged) noexcept {
-    return {year, month, day, isLogged};
+  friend bool operator==(const FileKey &lhs, const FileKey &rhs) {
+    return lhs.raw_ == rhs.raw_;
   }
 
-  ExpandedFileKey(std::chrono::system_clock::time_point now, bool isLogged);
-
-  ExpandedFileKey() = default;
-  explicit ExpandedFileKey(CompressedFileKey cfk);
-
-  constexpr CompressedFileKey compress() const {
-    auto raw = year_;
-    raw = raw * 100 + month_;
-    raw = raw * 100 + day_;
-    raw = raw * 10 + (isLogged_ ? 1 : 0);
-    return CompressedFileKey(raw);
-  }
-
-  std::pair<std::optional<TaggedFileKey<true>>, std::optional<TaggedFileKey<false>>> visit() const;
-
-  size_t year() const { return year_; }
-  size_t month() const { return month_; }
-  size_t day() const { return day_; }
-  bool isLogged() const { return isLogged_; }
-
-private:
-  constexpr ExpandedFileKey(uint32_t year, uint32_t month, uint32_t day, bool isLogged) noexcept :
-    year_(year), month_(month), day_(day), isLogged_(isLogged) {}
-
-  uint32_t year_ = 0;
-  uint32_t month_ = 0;
-  uint32_t day_ = 0;
-  bool isLogged_ = false;
-
-  friend std::ostream &operator<<(std::ostream &s, const ExpandedFileKey &o);
+  friend std::ostream &operator<<(std::ostream &s, const FileKey &o);
 };
+
+static_assert(std::is_trivially_copyable_v<FileKey<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<FileKey<FileKeyKind::Either>>);
 
 // Defines the start and end of a zgram or metadata record, either logged or unlogged.
 // It is used inside ZgramInfo. This class is blittable.
 class LogLocation {
 public:
   LogLocation() = default;
-  LogLocation(CompressedFileKey fileKey, uint32_t begin, uint32_t end) :
+  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t begin, uint32_t end) :
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
-  const CompressedFileKey &fileKey() const { return fileKey_; }
+  const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }
   uint32_t begin() const { return begin_; }
   uint32_t end() const { return end_; }
 
 private:
   // Which fulltext file this zgram lives in.
-  CompressedFileKey fileKey_;
+  FileKey<FileKeyKind::Either> fileKey_;
   // The character position of start of the zgram in the fulltext file.
   uint32_t begin_ = 0;
   // The character position of the end of the zgram in the fulltext file.
@@ -152,30 +123,24 @@ static_assert(std::is_trivially_copyable_v<LogLocation> &&
 // track of the end of the logged and unlogged databases at the time the
 // FrozenIndex was created. It is templated for extra programming safety.
 // This class is blittable.
-template<bool IsLogged>
+template<FileKeyKind Kind>
 class FilePosition {
   using FailFrame = kosak::coding::FailFrame;
 
 public:
-  static FilePosition zero() {
-    return FilePosition(TaggedFileKey<IsLogged>(), 0);
-  }
+  static FilePosition zero;
+  static FilePosition infinity;
 
-  static FilePosition infinity() {
-    ExpandedFileKey efk = ExpandedFileKey::createUnsafe(9999, 12, 31, IsLogged);
-    return FilePosition(TaggedFileKey<IsLogged>(efk.compress()), 0);
-  }
-
-  constexpr FilePosition(TaggedFileKey<IsLogged> fileKey, uint32_t position)
+  constexpr FilePosition(FileKey<Kind> fileKey, uint32_t position)
       : fileKey_(fileKey), position_(position) {}
   constexpr FilePosition() = default;
 
-  const TaggedFileKey<IsLogged> &fileKey() const { return fileKey_; }
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
 private:
   // Which fulltext file this zgram lives in.
-  TaggedFileKey<IsLogged> fileKey_;
+  FileKey<Kind> fileKey_;
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
@@ -185,27 +150,24 @@ private:
     return kosak::coding::streamf(s, "%o:%o", o.fileKey_, o.position_);
   }
 };
-
-static_assert(std::is_trivially_copyable_v<FilePosition<false>> &&
-    std::has_unique_object_representations_v<FilePosition<false>>);
-static_assert(std::is_trivially_copyable_v<FilePosition<true>> &&
-    std::has_unique_object_representations_v<FilePosition<true>>);
+static_assert(std::is_trivially_copyable_v<FilePosition<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<FilePosition<FileKeyKind::Either>>);
 
 // Defines a byte range [begin,end) inside a file in the database.
-template<bool IsLogged>
+template<FileKeyKind Kind>
 class IntraFileRange {
 public:
   IntraFileRange() = default;
-  IntraFileRange(TaggedFileKey<IsLogged> fileKey, uint32_t begin, uint32_t end) :
+  IntraFileRange(FileKey<Kind> fileKey, uint32_t begin, uint32_t end) :
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
-  const auto &fileKey() const { return fileKey_; }
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t begin() const { return begin_; }
   uint32_t end() const { return end_; }
 
 private:
   // The file being referred to.
-  TaggedFileKey<IsLogged> fileKey_;
+  FileKey<Kind> fileKey_;
   // The inclusive start of the range.
   uint32_t begin_ = 0;
   // The exclusive end of the range.
@@ -215,25 +177,21 @@ private:
     return kosak::coding::streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
   }
 };
-static_assert(std::is_trivially_copyable_v<IntraFileRange<false>> &&
-    std::has_unique_object_representations_v<IntraFileRange<false>>);
-static_assert(std::is_trivially_copyable_v<IntraFileRange<true>> &&
-    std::has_unique_object_representations_v<IntraFileRange<true>>);
+static_assert(std::is_trivially_copyable_v<IntraFileRange<FileKeyKind::Either>> &&
+    std::has_unique_object_representations_v<IntraFileRange<FileKeyKind::Either>>);
 
 // Defines a range across files. This is used as a parameter to define the whole
 // valid range of {logged, unlogged} zgrams for a method to look at.
-template<bool IsLogged>
+template<FileKeyKind Kind>
 class InterFileRange {
 public:
-  static InterFileRange everything() {
-    return InterFileRange(FilePosition<IsLogged>::zero(), FilePosition<IsLogged>::infinity());
-  }
+  static InterFileRange everything;
 
-  constexpr InterFileRange(TaggedFileKey<IsLogged> beginKey, uint32_t beginPos,
-      TaggedFileKey<IsLogged> endKey, uint32_t endPos) :
+  constexpr InterFileRange(FileKey<Kind> beginKey, uint32_t beginPos,
+      FileKey<Kind> endKey, uint32_t endPos) :
       begin_(beginKey, beginPos), end_(endKey, endPos) {}
 
-  constexpr InterFileRange(FilePosition<IsLogged> begin, FilePosition<IsLogged> end) :
+  constexpr InterFileRange(FilePosition<Kind> begin, FilePosition<Kind> end) :
     begin_(begin), end_(end) {}
 
   InterFileRange() = default;
@@ -242,16 +200,16 @@ public:
 //  InterFileRange(const FilePosition &begin, const FilePosition &end) :
 //      begin_(begin), end_(end) {}
 
-  const FilePosition<IsLogged> &begin() const { return begin_; }
-  const FilePosition<IsLogged> &end() const { return end_; }
+  const FilePosition<Kind> &begin() const { return begin_; }
+  const FilePosition<Kind> &end() const { return end_; }
 
   InterFileRange intersectWith(const InterFileRange &other) const;
 
   bool empty() const;
 
 private:
-  FilePosition<IsLogged> begin_;
-  FilePosition<IsLogged> end_;
+  FilePosition<Kind> begin_;
+  FilePosition<Kind> end_;
 
   friend std::ostream &operator<<(std::ostream &s, const InterFileRange &o) {
     return kosak::coding::streamf(s, "[%o--%o)", o.begin_, o.end_);
