@@ -26,13 +26,15 @@ using kosak::coding::Delegate;
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::text::tryParseDecimal;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 namespace nsunix = kosak::coding::nsunix;
 
 #define HERE KOSAK_CODING_HERE
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff);
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff);
 bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
     std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
     std::string_view *residual, const FailFrame &ff);
@@ -82,16 +84,15 @@ PathMaster::PathMaster(Private, std::string loggedRoot, std::string unloggedRoot
     scratchRoot_(std::move(scratchRoot)), mediaRoot_(std::move(mediaRoot)) {}
 PathMaster::~PathMaster() = default;
 
-std::string PathMaster::getPlaintextPath(const CompressedFileKey &fileKey) const {
-  ExpandedFileKey efk(fileKey);
-  auto result = efk.isLogged() ? loggedRoot_ : unloggedRoot_;
+std::string PathMaster::getPlaintextPath(FileKey<FileKeyKind::Either> fileKey) const {
+  auto [yyyy, mm, dd, logged] = fileKey.expand();
+  auto result = logged ? loggedRoot_ : unloggedRoot_;
 
   // yyyy/mm/yyyymmdd.logged
   // yyyy/mm/yyyymmdd.unlogged
   char buffer[128];
-  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04zu/%02zu/%04zu%02zu%02zu.%s",
-      efk.year(), efk.month(), efk.year(), efk.month(), efk.day(),
-      efk.isLogged() ? "logged" : "unlogged");
+  snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04u/%02u/%04u%02u%02u.%s",
+      yyyy, mm, yyyy, mm, dd, logged ? "logged" : "unlogged");
 
   result.append(buffer);
   return result;
@@ -110,7 +111,7 @@ std::string PathMaster::getScratchPathFor(std::string_view name) const {
 }
 
 bool PathMaster::tryGetPlaintexts(
-    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff) const {
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff) const {
   return tryGetPlaintextsHelper(loggedRoot_, true, cb, ff.nest(HERE)) &&
       tryGetPlaintextsHelper(unloggedRoot_, false, cb, ff.nest(HERE));
 }
@@ -123,7 +124,7 @@ bool PathMaster::tryPublishBuild(const FailFrame &ff) const {
 
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
-    const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb, const FailFrame &ff) {
+    const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff) {
   // example: 2000/01/20000104.unlogged.000
   auto myCallback = [expectLogged, &cb](std::string_view fullName, bool isDir, const FailFrame &f2) {
     if (isDir) {
@@ -181,11 +182,9 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
       return f3.failf(HERE, "Subdir parts inconsistent; got %o vs %o in %o", yyyyMMdd, reconstructed,
           fullName);
     }
-    ExpandedFileKey efk;
-    if (!ExpandedFileKey::tryCreate(year, month, day, logged, &efk, f3.nest(HERE))) {
-      return false;
-    }
-    return cb(efk.compress(), f3.nest(HERE));
+
+    auto fk = FileKey<FileKeyKind::Either>::createUnsafe(year, month, day, logged);
+    return cb(fk, f3.nest(HERE));
   };
   return nsunix::tryEnumerateFilesAndDirsRecursively(root, &myCallback, ff.nest(HERE));
 }
