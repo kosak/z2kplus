@@ -75,7 +75,8 @@ namespace {
 bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
     FileCloser *fc, const FailFrame &ff);
 
-bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
+template<FileKeyKind Kind>
+bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState<Kind> *state,
     const FailFrame &ff);
 
 bool tryReadAllDynamicFiles(const PathMaster &pm,
@@ -140,11 +141,11 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
     const FilePosition<FileKeyKind::Unlogged> &unloggedStart,
     MappedFile<FrozenIndex> frozenIndex, ConsolidatedIndex *result,
     const FailFrame &ff) {
-  internal::DynamicFileState loggedState;
-  internal::DynamicFileState unloggedState;
-  if (!internal::DynamicFileState::tryCreate(*pm, loggedStart.fileKey(), loggedStart.position(),
+  internal::DynamicFileState<FileKeyKind::Logged> loggedState;
+  internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState;
+  if (!internal::DynamicFileState<FileKeyKind::Logged>::tryCreate(*pm, loggedStart.fileKey(), loggedStart.position(),
       &loggedState, ff.nest(HERE)) ||
-      !internal::DynamicFileState::tryCreate(*pm, unloggedStart.fileKey(), unloggedStart.position(),
+      !internal::DynamicFileState<FileKeyKind::Unlogged>::tryCreate(*pm, unloggedStart.fileKey(), unloggedStart.position(),
           &unloggedState, ff.nest(HERE))) {
     return false;
   }
@@ -156,9 +157,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
 
 ConsolidatedIndex::ConsolidatedIndex() = default;
 
-ConsolidatedIndex::ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm,
-    MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
-    internal::DynamicFileState &&unloggedState) :
+ConsolidatedIndex::ConsolidatedIndex(std::shared_ptr<PathMaster> pm,
+    MappedFile<FrozenIndex> frozenIndex,
+    internal::DynamicFileState<FileKeyKind::Logged> loggedState,
+    internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState) :
     pm_(std::move(pm)),
     frozenIndex_(std::move(frozenIndex)),
     loggedState_(std::move(loggedState)), unloggedState_(std::move(unloggedState)),
@@ -469,7 +471,7 @@ bool ConsolidatedIndex::tryCheckpoint(std::chrono::system_clock::time_point now,
     FilePosition<FileKeyKind::Logged> *loggedPosition,
     FilePosition<FileKeyKind::Unlogged> *unloggedPosition, const FailFrame &/*ff*/) {
   *loggedPosition = FilePosition<FileKeyKind::Logged>(loggedState_.fileKey(), loggedState_.fileSize());
-  *unloggedPosition = FilePosition<FileKeyKind::Logged>(unloggedState_.fileKey(), unloggedState_.fileSize());
+  *unloggedPosition = FilePosition<FileKeyKind::Unlogged>(unloggedState_.fileKey(), unloggedState_.fileSize());
   return true;
 }
 
@@ -872,7 +874,8 @@ bool ConsolidatedIndex::tryAppendAndFlush(std::string_view logged, std::string_v
 }
 
 namespace {
-bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState *state,
+template<FileKeyKind Kind>
+bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState<Kind> *state,
     const FailFrame &ff) {
   if (!nsunix::tryWriteAll(state->fileCloser().get(), buffer.data(), buffer.size(), ff.nest(HERE))) {
     return false;
@@ -941,24 +944,6 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
   return true;
 }
 }  // namespace
-
-namespace internal {
-bool DynamicFileState::tryCreate(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
-    uint32_t offset, DynamicFileState *result, const FailFrame &ff) {
-  FileCloser fc;
-  if (!tryCreateOrAppendToLogFile(pm, fileKey, offset, &fc, ff.nest(HERE))) {
-    return false;
-  }
-  *result = DynamicFileState(std::move(fc), fileKey, offset);
-  return true;
-}
-DynamicFileState::DynamicFileState() = default;
-DynamicFileState::DynamicFileState(DynamicFileState &&) noexcept = default;
-DynamicFileState &DynamicFileState::operator=(DynamicFileState &&) noexcept = default;
-DynamicFileState::DynamicFileState(FileCloser fileCloser, FileKey<FileKeyKind::Either> fileKey, size_t fileSize) :
-    fileCloser_(std::move(fileCloser)), fileKey_(fileKey), fileSize_(fileSize) {}
-DynamicFileState::~DynamicFileState() = default;
-}  // namespace internal
 
 namespace {
 bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,

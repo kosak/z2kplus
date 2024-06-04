@@ -47,23 +47,24 @@
 // dynamic - A DynamicIndex, having new zgrams and new/modified metadata.
 namespace z2kplus::backend::reverse_index::index {
 namespace internal {
-class DynamicFileState {
+class DynamicFileStateBase {
+protected:
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::nsunix::FileCloser FileCloser;
   typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
 
-  template<FileKeyKind Kind>
-  using FileKey = z2kplus::backend::files::FileKey<Kind>;
+  template<z2kplus::backend::files::FileKeyKind Kind2>
+  using FileKey = z2kplus::backend::files::FileKey<Kind2>;
+
+  static bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
+      FileCloser *fc, const FailFrame &ff);
 
 public:
-  static bool tryCreate(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
-      uint32_t offset, DynamicFileState *result, const FailFrame &ff);
-
-  DynamicFileState();
-  DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
-  DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
-  ~DynamicFileState();
+  DynamicFileStateBase();
+  DECLARE_COPY_AND_ASSIGN(DynamicFileStateBase);
+  DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileStateBase);
+  ~DynamicFileStateBase();
 
   void advance(uint32_t bytes) {
     fileSize_ += bytes;
@@ -71,15 +72,40 @@ public:
 
   const FileCloser &fileCloser() const { return fileCloser_; }
 
-  const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }
+protected:
+  DynamicFileStateBase(FileCloser fileCloser, size_t fileSize) : fileCloser_(std::move(fileCloser)),
+    fileSize_(fileSize) {}
+
+  FileCloser fileCloser_;
+  uint32_t fileSize_ = 0;
+};
+
+template<z2kplus::backend::files::FileKeyKind Kind>
+class DynamicFileState : public DynamicFileStateBase {
+public:
+  static bool tryCreate(const PathMaster &pm, FileKey<Kind> fileKey,
+      uint32_t offset, DynamicFileState *result, const FailFrame &ff) {
+    FileCloser fc;
+    if (!tryCreateOrAppendToLogFile(pm, fileKey, offset, &fc, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = DynamicFileState(std::move(fc), fileKey, offset);
+    return true;
+  }
+
+  DynamicFileState() = default;
+  DEFINE_COPY_AND_ASSIGN(DynamicFileState);
+  DEFINE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
+  ~DynamicFileState() = default;
+
+  const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t fileSize() const { return fileSize_; }
 
 private:
-  DynamicFileState(FileCloser fileCloser, FileKey<FileKeyKind::Either> fileKey, size_t fileSize);
+  DynamicFileState(FileCloser fileCloser, FileKey<Kind> fileKey, size_t fileSize) :
+      DynamicFileStateBase(std::move(fileCloser), fileSize), fileKey_(fileKey) {}
 
-  FileCloser fileCloser_;
-  FileKey<FileKeyKind::Either> fileKey_;
-  uint32_t fileSize_ = 0;
+  FileKey<Kind> fileKey_;
 };
 }  // namespace internal
 
@@ -183,9 +209,10 @@ public:
   ZgramCache &zgramCache() { return zgramCache_; }
 
 private:
-  ConsolidatedIndex(std::shared_ptr<PathMaster> &&pm,
-      MappedFile<FrozenIndex> &&frozenIndex, internal::DynamicFileState &&loggedState,
-      internal::DynamicFileState &&unloggedState);
+  ConsolidatedIndex(std::shared_ptr<PathMaster> pm,
+      MappedFile<FrozenIndex> frozenIndex,
+      internal::DynamicFileState<FileKeyKind::Logged> loggedState,
+      internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState);
 
   bool tryAddZgramsHelper(std::chrono::system_clock::time_point now, const Profile &profile,
       std::vector<ZgramCore> &&zgcs, std::vector<Zephyrgram> *zgrams, const FailFrame &ff);
@@ -203,9 +230,9 @@ private:
   DynamicIndex dynamicIndex_;
 
   // Log for the freshly-arrived logged zgrams and metadata
-  internal::DynamicFileState loggedState_;
+  internal::DynamicFileState<FileKeyKind::Logged> loggedState_;
   // Log for the freshly-arrived unlogged zgrams and metadata
-  internal::DynamicFileState unloggedState_;
+  internal::DynamicFileState<FileKeyKind::Unlogged> unloggedState_;
 
   ZgramCache zgramCache_;
 };

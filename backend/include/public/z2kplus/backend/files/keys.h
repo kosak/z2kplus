@@ -64,7 +64,9 @@ public:
   }
 
   template<FileKeyKind OtherKind>
-  constexpr FileKey(FileKey<OtherKind> other);
+  constexpr FileKey(FileKey<OtherKind> other) : raw_(other.raw()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
 
   std::pair<std::optional<FileKey<FileKeyKind::Logged>>, std::optional<FileKey<FileKeyKind::Unlogged>>> visit() const;
 
@@ -96,6 +98,11 @@ private:
 
   friend bool operator==(const FileKey &lhs, const FileKey &rhs) {
     return lhs.raw_ == rhs.raw_;
+  }
+
+  friend bool operator<(const FileKey &lhs, const FileKey &rhs) {
+    static_assert(Kind != FileKeyKind::Either);
+    return lhs.raw_ < rhs.raw_;
   }
 
   friend std::ostream &operator<<(std::ostream &s, const FileKey &o) {
@@ -161,8 +168,10 @@ public:
   constexpr FilePosition() = default;
 
   template<FileKeyKind OtherKind>
-  constexpr FilePosition(FilePosition<OtherKind> other);
-
+  constexpr FilePosition(FilePosition<OtherKind> other) : fileKey_(other.fileKey()),
+    position_(other.position()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
 
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
@@ -253,4 +262,8 @@ private:
     return kosak::coding::streamf(s, "[%o--%o)", o.begin_, o.end_);
   }
 };
+
+template<FileKeyKind Kind>
+InterFileRange<Kind> InterFileRange<Kind>::everything(FilePosition<Kind>::zero,
+    FilePosition<Kind>::infinity);
 }  // namespace z2kplus::backend::files
