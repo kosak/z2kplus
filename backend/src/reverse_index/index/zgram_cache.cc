@@ -26,7 +26,8 @@
 
 using kosak::coding::FailFrame;
 using kosak::coding::memory::MappedFile;
-using z2kplus::backend::files::CompressedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::IntraFileRange;
 using z2kplus::backend::shared::LogRecord;
 using z2kplus::backend::shared::ZgramId;
@@ -72,7 +73,7 @@ bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
   });
 
   MappedFile<const char> currentFile;
-  CompressedFileKey currentFileKey;
+  FileKey<FileKeyKind::Either> currentFileKey;
   for (const auto &[zgramId, location, index] : todo) {
     // If first time, or the file key is different from the file we have open, open a new file.
     if (currentFile.get() == nullptr || currentFileKey.raw() != location.fileKey().raw()) {

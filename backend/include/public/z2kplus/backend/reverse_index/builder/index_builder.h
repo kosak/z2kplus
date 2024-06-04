@@ -21,17 +21,19 @@
 
 namespace z2kplus::backend::reverse_index::builder {
 class IndexBuilder {
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef kosak::coding::FailFrame FailFrame;
-  template<bool IsLogged>
-  using InterFileRange = z2kplus::backend::files::InterFileRange<IsLogged>;
+  template<FileKeyKind Kind>
+  using InterFileRange = z2kplus::backend::files::InterFileRange<Kind>;
 
 public:
   IndexBuilder() = delete;
 
   static bool tryClearScratchDirectory(const PathMaster &pm, const FailFrame &ff);
   static bool tryBuild(const PathMaster &pm,
-      const InterFileRange<true> &loggedRange, const InterFileRange<false> &unloggedRange,
+      const InterFileRange<FileKeyKind::Logged> &loggedRange,
+      const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
       const FailFrame &ff);
 };
 }   // namespace z2kplus::backend::reverse_index::builder
