@@ -23,27 +23,26 @@
 using kosak::coding::FailFrame;
 using kosak::coding::streamf;
 using kosak::coding::nsunix::FileCloser;
-using z2kplus::backend::files::CompressedFileKey;
-using z2kplus::backend::files::ExpandedFileKey;
-using z2kplus::backend::files::TaggedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::IntraFileRange;
 namespace nsunix = kosak::coding::nsunix;
 
 namespace z2kplus::backend::reverse_index::builder {
 LogAnalyzer::LogAnalyzer() = default;
-LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange<true>> sortedLoggedRanges,
-    std::vector<IntraFileRange<false>> sortedUnloggedRanges) :
+LogAnalyzer::LogAnalyzer(std::vector<IntraFileRange<FileKeyKind::Logged>> sortedLoggedRanges,
+    std::vector<IntraFileRange<FileKeyKind::Unlogged>> sortedUnloggedRanges) :
     sortedLoggedRanges_(std::move(sortedLoggedRanges)),
     sortedUnloggedRanges_(std::move(sortedUnloggedRanges)) {}
 LogAnalyzer::LogAnalyzer(LogAnalyzer &&) noexcept = default;
 LogAnalyzer &LogAnalyzer::operator=(LogAnalyzer &&) noexcept = default;
 LogAnalyzer::~LogAnalyzer() = default;
 
-template<bool IsLogged>
-void processFile(const InterFileRange<IsLogged> &universe, TaggedFileKey<IsLogged> key,
-    uint32_t begin, uint32_t end, std::vector<IntraFileRange<IsLogged>> *result) {
-  InterFileRange<IsLogged> inter(key, begin, key, end);
+template<FileKeyKind Kind>
+void processFile(const InterFileRange<Kind> &universe, FileKey<Kind> key,
+    uint32_t begin, uint32_t end, std::vector<IntraFileRange<Kind>> *result) {
+  InterFileRange<Kind> inter(key, begin, key, end);
   auto intersection = universe.intersectWith(inter);
   if (!intersection.empty()) {
     passert(intersection.begin().fileKey().raw() == intersection.end().fileKey().raw());
@@ -52,13 +51,12 @@ void processFile(const InterFileRange<IsLogged> &universe, TaggedFileKey<IsLogge
 }
 
 bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
-    const InterFileRange<true> &loggedRange,
-    const InterFileRange<false> &unloggedRange,
+    const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange,
     LogAnalyzer *result, const FailFrame &ff) {
-  std::vector<IntraFileRange<true>> includedLoggedRanges;
-  std::vector<IntraFileRange<false>> includedUnloggedRanges;
-  auto cbKeys = [&](
-      const CompressedFileKey &key, const FailFrame &f2) {
+  std::vector<IntraFileRange<FileKeyKind::Logged>> includedLoggedRanges;
+  std::vector<IntraFileRange<FileKeyKind::Unlogged>> includedUnloggedRanges;
+  auto cbKeys = [&](FileKey<FileKeyKind::Either> key, const FailFrame &f2) {
     auto filename = pm.getPlaintextPath(key);
     FileCloser fc;
     struct stat stat = {};
@@ -67,8 +65,7 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
       return false;
     }
 
-    ExpandedFileKey efk(key);
-    auto [loggedKey, unloggedKey] = efk.visit();
+    auto [loggedKey, unloggedKey] = key.visit();
     if (loggedKey.has_value()) {
       processFile(loggedRange, *loggedKey, 0, stat.st_size, &includedLoggedRanges);
     } else {

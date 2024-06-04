@@ -66,6 +66,8 @@ public:
   template<FileKeyKind OtherKind>
   constexpr FileKey(FileKey<OtherKind> other);
 
+  std::pair<std::optional<FileKey<FileKeyKind::Logged>>, std::optional<FileKey<FileKeyKind::Unlogged>>> visit() const;
+
   std::tuple<uint32, uint32, uint32, bool> expand() const {
     auto temp = raw_;
     bool isLogged = (temp % 10) != 0;
