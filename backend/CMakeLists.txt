@@ -203,8 +203,6 @@ add_executable(backend ${COMMON_FILES} ${BACKEND_MAIN})
 
 target_include_directories(backend PUBLIC
         "/usr/local/include/antlr4-runtime" "include/public")
-target_include_directories(legacy_converter PUBLIC
-        "/usr/local/include/antlr4-runtime" "include/public")
 target_include_directories(test_backend PUBLIC
         "/usr/local/include/antlr4-runtime" "include/public" "test/include/public")
 
