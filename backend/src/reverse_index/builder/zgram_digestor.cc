@@ -462,7 +462,7 @@ bool DigesterThread::addZgramRow(const schemas::Zephyrgram &zgv, std::string_vie
 
   ++zgramOff_;
 
-  LogLocation location(zgv.fileKey(), zgv.offset(), zgv.size());
+  LogLocation location(zgv.fileKey(), zgv.offset(), zgv.size(), "approved");
   ZgramInfo zgInfo;
   return ZgramInfo::tryCreate(zgv.timesecs(), location, originalWordOff, zgv.zgramId(),
       numTokens[0], numTokens[1], numTokens[2], numTokens[3], &zgInfo, ff.nest(HERE)) &&

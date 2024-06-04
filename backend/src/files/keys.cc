@@ -41,7 +41,7 @@ namespace z2kplus::backend::files {
 //}
 
 std::ostream &operator<<(std::ostream &s, const LogLocation &o) {
-  streamf(s, "%o:[%o-%o)", o.fileKey_, o.begin_, o.end_);
+  streamf(s, "%o offset %o size %o", o.fileKey_, o.offset_, o.size_);
   return s;
 }
 }  // namespace z2kplus::backend::files

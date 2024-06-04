@@ -29,7 +29,6 @@ using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::text::ReusableString32;
 using kosak::coding::text::tryConvertUtf8ToUtf32;
-using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::LogLocation;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::queryparsing::WordSplitter;

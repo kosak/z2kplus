@@ -84,10 +84,10 @@ bool ZgramCache::tryLookupOrResolve(const PathMaster &pm,
       }
     }
 
-    if (location.end() > currentFile.byteSize()) {
+    if (location.offset() + location.size() > currentFile.byteSize()) {
       return ff.failf(HERE, "What happened? %o vs cf.size %o", location, currentFile.byteSize());
     }
-    std::string_view sr(currentFile.get() + location.begin(), location.end() - location.begin());
+    std::string_view sr(currentFile.get() + location.offset(), location.size());
     LogRecord lr;
     if (!LogParser::tryParseLogRecord(sr, &lr, ff.nest(HERE))) {
       return false;

@@ -62,7 +62,7 @@ bool LogParser::tryParseLogRecords(std::string_view text, FileKey<FileKeyKind::E
     if (!tryParseLogRecord(line, &logRecord, ff.nest(HERE))) {
       return ff.failf(HERE, "...at record %o (offset %o, size %o)", nextIndex, offset, line.size());
     }
-    LogLocation location(fileKey, offset, offset + line.size());
+    LogLocation location(fileKey, offset, line.size(), "approved");
     logRecordsAndLocations->emplace_back(std::move(logRecord), location);
     ++nextIndex;
     offset += line.size() + 1;

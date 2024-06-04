@@ -72,9 +72,6 @@ namespace userMetadata = z2kplus::backend::shared::userMetadata;
 namespace zgMetadata = z2kplus::backend::shared::zgMetadata;
 
 namespace {
-bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
-    FileCloser *fc, const FailFrame &ff);
-
 template<FileKeyKind Kind>
 bool tryAppendAndFlushHelper(std::string_view buffer, internal::DynamicFileState<Kind> *state,
     const FailFrame &ff);
@@ -280,24 +277,28 @@ ConsolidatedIndex::tryAddZgramsHelper(std::chrono::system_clock::time_point now,
         std::move(zgc));
     nextZgramId = nextZgramId.next();
 
-    internal::DynamicFileState *fs;
+    FileKey<FileKeyKind::Either> fileKey;
+    uint32_t fileSize;
     std::string *buf;
     if (isLogged) {
-      fs = &loggedState_;
+      fileKey = loggedState_.fileKey();
+      fileSize = loggedState_.fileSize();
       buf = &loggedBuffer;
     } else {
-      fs = &unloggedState_;
+      fileKey = unloggedState_.fileKey();
+      fileSize = unloggedState_.fileSize();
       buf = &unloggedBuffer;
     }
 
     LogRecord logRecord(std::move(zgram));
-    auto startBufferSize = buf->size();
+    auto bufSizeBefore = buf->size();
     if (!tryAppendJson(logRecord, buf, ff.nest(HERE))) {
       return false;
     }
     buf->push_back('\n');
-    auto recordSize = buf->size() - startBufferSize;
-    LogLocation location(fs->fileKey(), fs->fileSize() + startBufferSize, recordSize);
+    auto bufSizeAfter = buf->size();
+    auto size = bufSizeAfter - bufSizeBefore;
+    LogLocation location(fileKey, fileSize + bufSizeBefore, size, "approved");
 
     cooked.emplace_back(std::move(logRecord), location);
   }
@@ -945,9 +946,9 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
 }
 }  // namespace
 
-namespace {
-bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey, uint32_t offset,
-    FileCloser *fc, const FailFrame &ff) {
+namespace internal {
+bool DynamicFileStateBase::tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
+    uint32_t offset, FileCloser *fc, const FailFrame &ff) {
   auto fileName = pm.getPlaintextPath(fileKey);
   bool exists;
   if (!nsunix::tryExists(fileName, &exists, ff.nest(HERE))) {
@@ -967,5 +968,5 @@ bool tryCreateOrAppendToLogFile(const PathMaster &pm, FileKey<FileKeyKind::Eithe
   return nsunix::tryEnsureBaseExists(fileName, 0700, ff.nest(HERE)) &&
     nsunix::tryOpen(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0600, fc, ff.nest(HERE));
 }
-}  // namespace
+}  // namespace internal
 }  // namespace z2kplus::backend::reverse_index::index

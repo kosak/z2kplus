@@ -127,20 +127,20 @@ FileKey<Kind> FileKey<Kind>::infinity = FileKey<Kind>::createUnsafe(9999, 12, 31
 class LogLocation {
 public:
   LogLocation() = default;
-  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t begin, uint32_t end) :
-      fileKey_(fileKey), begin_(begin), end_(end) {}
+  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t offset, uint32_t size, const char *zamboniTime) :
+      fileKey_(fileKey), offset_(offset), size_(size) {}
 
   const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }
-  uint32_t begin() const { return begin_; }
-  uint32_t end() const { return end_; }
+  uint32_t offset() const { return offset_; }
+  uint32_t size() const { return size_; }
 
 private:
   // Which fulltext file this zgram lives in.
   FileKey<FileKeyKind::Either> fileKey_;
-  // The character position of start of the zgram in the fulltext file.
-  uint32_t begin_ = 0;
-  // The character position of the end of the zgram in the fulltext file.
-  uint32_t end_ = 0;
+  // The character position of start of the record in the fulltext file.
+  uint32_t offset_ = 0;
+  // The number of bytes in this record
+  uint32_t size_ = 0;
 
   [[maybe_unused]]
   uint32_t padding_ = 0;
