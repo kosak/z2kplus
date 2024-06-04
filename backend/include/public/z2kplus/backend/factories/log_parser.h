@@ -32,20 +32,23 @@
 namespace z2kplus::backend::factories {
 struct LogParser {
   typedef kosak::coding::FailFrame FailFrame;
-  typedef z2kplus::backend::files::CompressedFileKey CompressedFileKey;
+  typedef z2kplus::backend::files::FileKeyKind FileKeyKind;
   typedef z2kplus::backend::files::LogLocation LogLocation;
   typedef z2kplus::backend::files::PathMaster PathMaster;
   typedef z2kplus::backend::shared::LogRecord LogRecord;
+
+  template<FileKeyKind Kind>
+  using FileKey = z2kplus::backend::files::FileKey<Kind>;
 
   LogParser() = delete;
 
   typedef std::pair<LogRecord, LogLocation> logRecordAndLocation_t;
 
-  static bool tryParseLogFile(const PathMaster &pm, const CompressedFileKey &fileKey,
+  static bool tryParseLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
       std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
       const FailFrame &ff);
 
-  static bool tryParseLogRecords(std::string_view text, const CompressedFileKey &fileKey,
+  static bool tryParseLogRecords(std::string_view text, FileKey<FileKeyKind::Either> fileKey,
       std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
       const FailFrame &ff);
 

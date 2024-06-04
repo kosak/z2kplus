@@ -59,18 +59,19 @@ public:
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
   }
 
-  void expand(uint32_t *year, uint32_t *month, uint32_t *day, bool *isLogged) {
+  std::tuple<uint32, uint32, uint32, bool> expand() const {
     auto temp = raw_;
-    *isLogged = (temp % 10) != 0;
+    bool isLogged = (temp % 10) != 0;
     temp /= 10;
 
-    *day = temp % 100;
+    uint32_t day = temp % 100;
     temp /= 100;
 
-    *month = temp % 100;
+    uint32_t month = temp % 100;
     temp /= 100;
 
-    *year = temp;
+    uint32_t year = temp;
+    return std::make_tuple(year, month, day, isLogged);
   }
 
   uint32_t raw() const { return raw_; }
@@ -84,7 +85,15 @@ private:
     return lhs.raw_ == rhs.raw_;
   }
 
-  friend std::ostream &operator<<(std::ostream &s, const FileKey &o);
+  friend std::ostream &operator<<(std::ostream &s, const FileKey &o) {
+    // yyyymmdd.{logged,unlogged}
+    // Plenty of space
+    char buffer[64];
+    auto [y, m, d, l] = o.expand();
+    snprintf(buffer, STATIC_ARRAYSIZE(buffer), "%04u%02u%02u.%s",
+        y, m, d, l ? "logged" : "unlogged");
+    return s << buffer;
+  }
 };
 
 static_assert(std::is_trivially_copyable_v<FileKey<FileKeyKind::Either>> &&

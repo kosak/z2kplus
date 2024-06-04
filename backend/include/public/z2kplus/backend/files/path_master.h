@@ -41,13 +41,13 @@ public:
   DISALLOW_MOVE_COPY_AND_ASSIGN(PathMaster);
   ~PathMaster();
 
-  std::string getPlaintextPath(const CompressedFileKey &fileKey) const;
+  std::string getPlaintextPath(FileKey<FileKeyKind::Either> fileKey) const;
   std::string getIndexPath() const;
 
   std::string getScratchIndexPath() const;
   std::string getScratchPathFor(std::string_view name) const;
 
-  bool tryGetPlaintexts(const Delegate<bool, const CompressedFileKey &, const FailFrame &> &cb,
+  bool tryGetPlaintexts(const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb,
       const FailFrame &ff) const;
 
   bool tryPublishBuild(const FailFrame &ff) const;
