@@ -45,7 +45,8 @@ using kosak::coding::nsunix::FileCloser;
 using kosak::coding::memory::BufferedWriter;
 using kosak::coding::sorting::KeyOptions;
 using kosak::coding::sorting::SortOptions;
-using z2kplus::backend::files::CompressedFileKey;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::FilePosition;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::queryparsing::WordSplitter;
@@ -133,8 +134,8 @@ bool IndexBuilder::tryClearScratchDirectory(const PathMaster &pm, const FailFram
 // 1. Concatenate all the plaintexts and sort by key to make plaintext.sorted
 // 2. Scan this to make canonicalStringPool.unsorted
 // 3. Sort to make
-bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &loggedRange,
-    const InterFileRange<false> &unloggedRange, const FailFrame &ff) {
+bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<FileKeyKind::Logged> &loggedRange,
+    const InterFileRange<FileKeyKind::Unlogged> &unloggedRange, const FailFrame &ff) {
   LogAnalyzer lazr;
   LogSplitterResult lsr;
   if (!LogAnalyzer::tryAnalyze(pm, loggedRange, unloggedRange, &lazr, ff.nest(HERE)) ||
@@ -169,15 +170,15 @@ bool IndexBuilder::tryBuild(const PathMaster &pm, const InterFileRange<true> &lo
   }
 
   // Default to minimum key.
-  FilePosition<true> loggedEnd;
-  FilePosition<false> unloggedEnd;
+  FilePosition<FileKeyKind::Logged> loggedEnd;
+  FilePosition<FileKeyKind::Unlogged> unloggedEnd;
   if (!lazr.sortedLoggedRanges().empty()) {
     const auto &back = lazr.sortedLoggedRanges().back();
-    loggedEnd = FilePosition<true>(back.fileKey(), back.end());
+    loggedEnd = FilePosition<FileKeyKind::Logged>(back.fileKey(), back.end());
   }
   if (!lazr.sortedUnloggedRanges().empty()) {
     const auto &back = lazr.sortedUnloggedRanges().back();
-    unloggedEnd = FilePosition<false>(back.fileKey(), back.end());
+    unloggedEnd = FilePosition<FileKeyKind::Unlogged>(back.fileKey(), back.end());
   }
 
   new((void*)start) FrozenIndex(loggedEnd, unloggedEnd,
