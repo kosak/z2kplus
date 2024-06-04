@@ -38,6 +38,8 @@ enum class FileKeyKind { Logged, Unlogged, Either };
 template<FileKeyKind Kind>
 class FileKey {
 public:
+  static FileKey infinity;
+
   static constexpr FileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
     auto raw = year;
     raw = raw * 100 + month;
@@ -108,6 +110,9 @@ private:
 static_assert(std::is_trivially_copyable_v<FileKey<FileKeyKind::Either>> &&
     std::has_unique_object_representations_v<FileKey<FileKeyKind::Either>>);
 
+template<FileKeyKind Kind>
+FileKey<Kind> FileKey<Kind>::infinity = FileKey<Kind>::createUnsafe(9999, 12, 31, Kind == FileKeyKind::Logged);
+
 // Defines the start and end of a zgram or metadata record, either logged or unlogged.
 // It is used inside ZgramInfo. This class is blittable.
 class LogLocation {
@@ -174,6 +179,12 @@ private:
 };
 static_assert(std::is_trivially_copyable_v<FilePosition<FileKeyKind::Either>> &&
     std::has_unique_object_representations_v<FilePosition<FileKeyKind::Either>>);
+
+template<FileKeyKind Kind>
+FilePosition<Kind> FilePosition<Kind>::zero;
+
+template<FileKeyKind Kind>
+FilePosition<Kind> FilePosition<Kind>::infinity(FileKey<Kind>::infinity, 0);
 
 // Defines a byte range [begin,end) inside a file in the database.
 template<FileKeyKind Kind>
