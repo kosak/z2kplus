@@ -100,7 +100,9 @@ class WaitForOauthToken {
     s.off("message", this._messageHandler);
     s.off("error", this._errorHandler);
     s.off("close", this._closeHandler);
-    zamboni7.newClient(ws, userId, fragments);
+
+    const fragments = this._chunker.residual();
+    this._owner.newClient(ws, userId, fragments);
   }
 }
 
