@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {OAuth2Client, VerifyIdTokenOptions} from "google-auth-library";
 import {Profile} from "../shared/protocol/profile";
 import {ServerProfile} from "./config/server_profile";
 import {ProfileManager} from "./profile_manager";
@@ -21,6 +22,7 @@ import {CRequest} from "../shared/protocol/control/crequest";
 import * as ws from "ws";
 import {Chunker} from "../shared/chunker";
 import {assertArrayOfLength, assertString} from "../shared/json_util";
+import {LoginTicket} from "google-auth-library/build/src/auth/loginticket";
 
 export class ClientManager {
   private readonly profileManager: ProfileManager;
@@ -44,10 +46,10 @@ export class ClientManager {
     new Client(id, this.serverProfile, clientSocket, profile, residual);
   }
 
-  oauthClient(clientSocket: ws.WebSocket) {
+  oauthClient(clientSocket: ws.WebSocket, oauthClientId: string) {
     const id = this.nextFreeClientId++;
     console.log(`ClientManager making new OauthClient handler ${id}`);
-    new WaitForOauthToken(this, id, clientSocket);
+    new WaitForOauthToken(this, id, clientSocket, oauthClientId);
   }
 }
 
@@ -64,7 +66,7 @@ class WaitForOauthToken {
   private readonly _closeHandler: (reason: string) => void;
 
   constructor(private readonly _owner: ClientManager, private readonly id: number,
-      private readonly _socket: ws.WebSocket) {
+      private readonly _socket: ws.WebSocket, private readonly _oauthClientId: string) {
     this._logger = new Logger(`OAuthClient ${id}`);
     this._chunker = new Chunker();
     // painful
@@ -91,9 +93,9 @@ class WaitForOauthToken {
       const firstMessageValue = JSON.parse(firstMessageText);
       const asArray = assertArrayOfLength(firstMessageValue, 1);
       const idToken = assertString(asArray[0]);
-      (async () => await this.verifyId(idToken))();
+      this.verifyId(idToken);
     } catch (e) {
-      console.log("Caught exception", e);
+      this._logger.log("Caught exception", e);
       this.close();
       return;
     }
@@ -113,22 +115,35 @@ class WaitForOauthToken {
     this._socket.close(1000);
   }
 
-  private async verifyId(idToken: string) {
-    const client = new OAuth2Client();
-    const ticket = await client.verifyIdToken({
+  private verifyId(idToken: string) {
+    if (idToken.startsWith("HACK:")) {
+      this.proceedWithUser(idToken.substring(5));
+      return;
+    }
+    const oa2c = new OAuth2Client();
+    const options = {
       idToken: idToken,
-      audience: CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
+      audience: this._oauthClientId,  // Specify the CLIENT_ID of the app that accesses the backend
       // Or, if multiple clients access the backend:
       //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
-    });
-    const payload = ticket.getPayload();
-    const userId = payload['sub'] as string;
+    } as VerifyIdTokenOptions;
+    oa2c.verifyIdToken(options, (err: Error | null, login?: LoginTicket) => this.verifyIdCallback(err, login));
+  }
+
+  private verifyIdCallback(err: Error | null, login?: LoginTicket) {
+    if (err !== null) {
+      this._logger.log(`Error from verifyIdToken: ${err.message}`);
+      this.close();
+      return;
+    }
+    this._logger.log(`verifyIdToken seemingly successful`);
+    const payload = login!.getPayload();
+    const userId = payload!['sub'] as string;
+    this.proceedWithUser(userId);
+  }
+
+  private proceedWithUser(userId: string) {
     this._logger.log(`I think userId is ${userId}`);
-    // If the request specified a Google Workspace domain:
-    // const domain = payload['hd'];
-
-    // everything successful, detach events and punt back to ClientManager
-
     const s = this._socket;
     s.off("message", this._messageHandler);
     s.off("error", this._errorHandler);
