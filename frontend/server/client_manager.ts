@@ -19,6 +19,8 @@ import {BackendManager} from "./backend_manager";
 import {Logger} from "../shared/logger";
 import {CRequest} from "../shared/protocol/control/crequest";
 import * as ws from "ws";
+import {Chunker} from "../shared/chunker";
+import {assertArrayOfLength, assertString} from "../shared/json_util";
 
 export class ClientManager {
   private readonly profileManager: ProfileManager;
@@ -53,11 +55,13 @@ export class ClientManager {
 // 4. if not, punt
 // 5. if so, detach your callbacks, call newClient, but give it your leftover junk in the chunker
 class WaitForOauthToken {
+  private readonly _chunker: Chunker;
   private readonly _messageHandler: (data: ws.RawData, isBinary: boolean) => void;
   private readonly _errorHandler: (reason: string) => void;
   private readonly _closeHandler: (reason: string) => void;
 
   constructor(private readonly _owner: ClientManager, private readonly _socket: ws.WebSocket) {
+    this._chunker = new Chunker();
     // painful
     this._messageHandler = (data, isBinary) => this.handleMessageFromFrontend(data, isBinary);
     this._errorHandler = () => this.handleCloseFromFrontend(`error`);
@@ -72,17 +76,22 @@ class WaitForOauthToken {
   private handleMessageFromFrontend(data: ws.RawData, isBinary: boolean) {
     this._logger.log(`Got frontend message`, data);
     const message = data.toString();
-    this._chunker.push(message);
-    if (!this._chunker.tryPop(whatever)) {
+    this._chunker.pushBack(message);
+    const firstMessageText = this._chunker.tryUnwrapNext();
+    if (firstMessageText === undefined) {
       return;
     }
 
-    if (!tryParseJson(whatever)) {
+    try {
+      const firstMessageValue = JSON.parse(firstMessageText);
+      const asArray = assertArrayOfLength(firstMessageValue, 1);
+      const idToken = assertString(asArray[0]);
+      (async () => await this.verifyId(idToken))();
+    } catch (e) {
+      console.log("Caught exception", e);
+      this.close();
       return;
     }
-
-    const zmaboniId = foo.bar;
-    const stupid = await verify(zamb);
   }
 
   private handleCloseFromFrontend(reason: string) {
@@ -100,16 +109,16 @@ class WaitForOauthToken {
     this._socket.close(1000);
   }
 
-  private async verifyId() {
+  private async verifyId(idToken: string) {
     const client = new OAuth2Client();
     const ticket = await client.verifyIdToken({
-      idToken: token,
+      idToken: idToken,
       audience: CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
       // Or, if multiple clients access the backend:
       //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
     });
     const payload = ticket.getPayload();
-    const userid = payload['sub'];
+    const userId = payload['sub'];
     // If the request specified a Google Workspace domain:
     // const domain = payload['hd'];
 
@@ -120,8 +129,8 @@ class WaitForOauthToken {
     s.off("error", this._errorHandler);
     s.off("close", this._closeHandler);
 
-    const fragments = this._chunker.residual();
-    this._owner.newClient(ws, userId, fragments);
+    const residual = this._chunker.residual;
+    this._owner.newClient(ws, userId, residual);
   }
 }
 
