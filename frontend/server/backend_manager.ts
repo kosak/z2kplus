@@ -63,6 +63,9 @@ export class BackendManager {
   }
 
   sendFragment(rawText: string) {
+    if (rawText.length === 0) {
+      return;
+    }
     if (this.socket === undefined) {
       this.pending.push(rawText);
     } else {

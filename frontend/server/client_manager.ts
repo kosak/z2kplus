@@ -31,7 +31,7 @@ export class ClientManager {
     this.nextFreeClientId = 0;
   }
 
-  newClient(clientSocket: ws.WebSocket, userId: string) {
+  newClient(clientSocket: ws.WebSocket, userId: string, residual: string) {
     const profile = this.profileManager.tryGetProfile(userId);
     if (profile === undefined) {
       console.log(`ClientManager can't find profile for ${userId}. Something is broken.`);
@@ -41,11 +41,13 @@ export class ClientManager {
 
     const id = this.nextFreeClientId++;
     console.log(`ClientManager making new Client handler ${id} for userid ${userId}`);
-    new Client(id, this.serverProfile, clientSocket, profile);
+    new Client(id, this.serverProfile, clientSocket, profile, residual);
   }
 
   oauthClient(clientSocket: ws.WebSocket) {
-    new WaitForOauthToken(this, clientSocket);
+    const id = this.nextFreeClientId++;
+    console.log(`ClientManager making new OauthClient handler ${id}`);
+    new WaitForOauthToken(this, id, clientSocket);
   }
 }
 
@@ -55,12 +57,15 @@ export class ClientManager {
 // 4. if not, punt
 // 5. if so, detach your callbacks, call newClient, but give it your leftover junk in the chunker
 class WaitForOauthToken {
+  private readonly _logger: Logger;
   private readonly _chunker: Chunker;
   private readonly _messageHandler: (data: ws.RawData, isBinary: boolean) => void;
   private readonly _errorHandler: (reason: string) => void;
   private readonly _closeHandler: (reason: string) => void;
 
-  constructor(private readonly _owner: ClientManager, private readonly _socket: ws.WebSocket) {
+  constructor(private readonly _owner: ClientManager, private readonly id: number,
+      private readonly _socket: ws.WebSocket) {
+    this._logger = new Logger(`OAuthClient ${id}`);
     this._chunker = new Chunker();
     // painful
     this._messageHandler = (data, isBinary) => this.handleMessageFromFrontend(data, isBinary);
@@ -105,7 +110,6 @@ class WaitForOauthToken {
   }
 
   private close() {
-    this._backendManager.close();
     this._socket.close(1000);
   }
 
@@ -118,7 +122,8 @@ class WaitForOauthToken {
       //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
     });
     const payload = ticket.getPayload();
-    const userId = payload['sub'];
+    const userId = payload['sub'] as string;
+    this._logger.log(`I think userId is ${userId}`);
     // If the request specified a Google Workspace domain:
     // const domain = payload['hd'];
 
@@ -130,25 +135,29 @@ class WaitForOauthToken {
     s.off("close", this._closeHandler);
 
     const residual = this._chunker.residual;
-    this._owner.newClient(ws, userId, residual);
+    this._owner.newClient(this._socket, userId, residual);
   }
 }
 
 // We don't do much except forward messages to and from the backend.
 class Client {
   constructor(
-    private readonly _id: number,
+    id: number,
     serverProfile: ServerProfile,
     private readonly _socket: ws.WebSocket,
-    profile: Profile) {
+    profile: Profile,
+    residual: string) {
 
-    this._logger = new Logger(`Client ${_id}`);
+    this._logger = new Logger(`Client ${id}`);
     this._backendManager = new BackendManager(serverProfile, s => this.handleFragmentFromBackend(s),
         s => this.handleCloseFromBackend(s));
 
     // Send a Hello to the backend
     const hello = CRequest.createHello(profile);
     this._backendManager.sendCRequest(hello);
+
+    // Send residual fragments, if any, to the backend
+    this._backendManager.sendFragment(residual);
 
     const s = this._socket;
     s.on("message", (data, isBinary) => this.handleMessageFromFrontend(data, isBinary));
