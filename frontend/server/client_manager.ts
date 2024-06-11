@@ -40,7 +40,67 @@ export class ClientManager {
     const id = this.nextFreeClientId++;
     console.log(`ClientManager making new Client handler ${id} for userid ${userId}`);
     new Client(id, this.serverProfile, clientSocket, profile);
-    // I don't *think* I need to keep the Client variable around to avoid GC, do I?
+  }
+
+  oauthClient(clientSocket: ws.WebSocket) {
+    new WaitForOauthToken(clientSocket);
+  }
+}
+
+// 1. hook up events to the socket
+// 2. start assembling messages
+// 3. When you get a complete oauth thing, see if you can accept it
+// 4. if not, punt
+// 5. if so, detach your callbacks, call newClient, but give it your leftover junk in the chunker
+class WaitForOauthToken {
+  constructor(private readonly _socket: ws.WebSocket) {
+    const s = this._socket;
+
+    // painful
+    this._messageHandler = (data, isBinary) => this.handleMessageFromFrontend(data, isBinary);
+    this._errorHanlder_ = () => this.handleCloseFromFrontend(`error`);
+    this._closeHandler_ = () => this.handleCloseFromFrontend(`close`));
+
+    s.on("message", this._messageHandler);
+    s.on("error", this._errorHandler);
+    s.on("close", this._closeHandler);
+  }
+
+  private handleMessageFromFrontend(data: ws.RawData, isBinary: boolean) {
+    this._logger.log(`Got frontend message`, data);
+    const message = data.toString();
+    this._chunker.push(message);
+    if (!this._chunker.tryPop(whatever)) {
+      return;
+    }
+
+    if (!tryParseJson(whatever)) {
+      return;
+    }
+
+    const zmaboniId = foo.bar;
+    const stupid = await verify(zamb);
+  }
+
+  private async verifyId() {
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
+      // Or, if multiple clients access the backend:
+      //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
+    });
+    const payload = ticket.getPayload();
+    const userid = payload['sub'];
+    // If the request specified a Google Workspace domain:
+    // const domain = payload['hd'];
+
+    // everything successful, detach events and punt back to ClientManager
+
+    s.off("message", this._messageHandler);
+    s.off("error", this._errorHandler);
+    s.off("close", this._closeHandler);
+    zamboni7.newClient(ws, userId, fragments);
   }
 }
 

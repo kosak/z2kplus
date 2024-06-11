@@ -232,6 +232,11 @@ class Server {
       this.clientManager.newClient(ws, userId);
     });
 
+    expressApp.ws("/api2", (ws, req) => {
+      this.clientManager.oauthClient(ws);
+    });
+
+
     server.listen(this.serverProfile.httpsPort);
   }
 
