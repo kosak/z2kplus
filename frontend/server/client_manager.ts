@@ -43,7 +43,7 @@ export class ClientManager {
   }
 
   oauthClient(clientSocket: ws.WebSocket) {
-    new WaitForOauthToken(clientSocket);
+    new WaitForOauthToken(this, clientSocket);
   }
 }
 
@@ -53,14 +53,17 @@ export class ClientManager {
 // 4. if not, punt
 // 5. if so, detach your callbacks, call newClient, but give it your leftover junk in the chunker
 class WaitForOauthToken {
-  constructor(private readonly _socket: ws.WebSocket) {
-    const s = this._socket;
+  private readonly _messageHandler: (data: ws.RawData, isBinary: boolean) => void;
+  private readonly _errorHandler: (reason: string) => void;
+  private readonly _closeHandler: (reason: string) => void;
 
+  constructor(private readonly _owner: ClientManager, private readonly _socket: ws.WebSocket) {
     // painful
     this._messageHandler = (data, isBinary) => this.handleMessageFromFrontend(data, isBinary);
-    this._errorHanlder_ = () => this.handleCloseFromFrontend(`error`);
-    this._closeHandler_ = () => this.handleCloseFromFrontend(`close`));
+    this._errorHandler = () => this.handleCloseFromFrontend(`error`);
+    this._closeHandler = () => this.handleCloseFromFrontend(`close`);
 
+    const s = this._socket;
     s.on("message", this._messageHandler);
     s.on("error", this._errorHandler);
     s.on("close", this._closeHandler);
@@ -82,6 +85,21 @@ class WaitForOauthToken {
     const stupid = await verify(zamb);
   }
 
+  private handleCloseFromFrontend(reason: string) {
+    this._logger.log(`Got frontend close ${reason}`);
+    this.close();
+  }
+
+  private handleCloseFromBackend(reason: string) {
+    this._logger.log(`Got backend close ${reason}`);
+    this.close();
+  }
+
+  private close() {
+    this._backendManager.close();
+    this._socket.close(1000);
+  }
+
   private async verifyId() {
     const client = new OAuth2Client();
     const ticket = await client.verifyIdToken({
@@ -97,6 +115,7 @@ class WaitForOauthToken {
 
     // everything successful, detach events and punt back to ClientManager
 
+    const s = this._socket;
     s.off("message", this._messageHandler);
     s.off("error", this._errorHandler);
     s.off("close", this._closeHandler);
