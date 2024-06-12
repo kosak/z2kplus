@@ -63,6 +63,7 @@ export class ClientManager {
 class WaitForOauthToken {
   private readonly _logger: Logger;
   private readonly _chunker: Chunker;
+  private _receivedFirstMessage: boolean;
   private readonly _messageHandler: (data: ws.RawData, isBinary: boolean) => void;
   private readonly _errorHandler: (reason: string) => void;
   private readonly _closeHandler: (reason: string) => void;
@@ -71,6 +72,7 @@ class WaitForOauthToken {
       private readonly _socket: ws.WebSocket, private readonly _oauthClientId: string) {
     this._logger = new Logger(`OAuthClient ${id}`);
     this._chunker = new Chunker();
+    this._receivedFirstMessage = false;
     // painful
     this._messageHandler = (data, isBinary) => this.handleMessageFromFrontend(data, isBinary);
     this._errorHandler = () => this.handleCloseFromFrontend(`error`);
@@ -83,19 +85,28 @@ class WaitForOauthToken {
   }
 
   private handleMessageFromFrontend(data: ws.RawData, isBinary: boolean) {
-    this._logger.log(`Got frontend message`, data);
+    this._logger.log(`Got next frontend fragment`, data);
     const message = data.toString();
     this._chunker.pushBack(message);
+
+    if (this._receivedFirstMessage) {
+      this._logger.log(`The first message is still being processed. Caching this fragment:`, data);
+      return;
+    }
+
     const firstMessageText = this._chunker.tryUnwrapNext();
     if (firstMessageText === undefined) {
       return;
     }
 
+    this._receivedFirstMessage = true;
+    this._logger.log(`Got full first message. Processing.`, firstMessageText);
+
     try {
       const firstMessageValue = JSON.parse(firstMessageText);
       const creq = CRequest.tryParseJson(firstMessageValue);
       if (creq.tag !== crequestInfo.Tag.Auth) {
-        throw new Error(`Expected an Auth message here, got ${creq.tag}`);
+        throw new Error(`Expected first message to be an Auth message, got ${creq.tag}`);
       }
       this.verifyId((creq.payload as crequests.Auth).token);
     } catch (e) {
