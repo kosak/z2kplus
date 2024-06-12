@@ -62,7 +62,7 @@ class Server {
   constructor(private readonly serverProfile: ServerProfile) {
     this.authorizationManager = new AuthorizationManager(serverProfile.googleProfilesFile,
         serverProfile.saltedPasswordsFile);
-    this.clientManager = new ClientManager(serverProfile);
+    this.clientManager = new ClientManager(this.authorizationManager, serverProfile);
     this.makeHttpsServer();
     this.makeHttpServer();
     console.log(`Listening on HTTPS ${serverProfile.httpsPort} and redirecting` +

@@ -18,17 +18,19 @@ import {ServerProfile} from "./config/server_profile";
 import {ProfileManager} from "./profile_manager";
 import {BackendManager} from "./backend_manager";
 import {Logger} from "../shared/logger";
-import {CRequest} from "../shared/protocol/control/crequest";
+import {CRequest, crequestInfo, crequests} from "../shared/protocol/control/crequest";
 import * as ws from "ws";
 import {Chunker} from "../shared/chunker";
 import {assertArrayOfLength, assertString} from "../shared/json_util";
 import {LoginTicket} from "google-auth-library/build/src/auth/loginticket";
+import {AuthorizationManager} from "./authorization_manager";
 
 export class ClientManager {
   private readonly profileManager: ProfileManager;
   private nextFreeClientId: number;
 
-  constructor(private readonly serverProfile: ServerProfile) {
+  constructor(readonly authorizationManager: AuthorizationManager,
+      private readonly serverProfile: ServerProfile) {
     this.profileManager = new ProfileManager(serverProfile.z2kPlusProfilesFile);
     this.nextFreeClientId = 0;
   }
@@ -91,9 +93,11 @@ class WaitForOauthToken {
 
     try {
       const firstMessageValue = JSON.parse(firstMessageText);
-      const asArray = assertArrayOfLength(firstMessageValue, 1);
-      const idToken = assertString(asArray[0]);
-      this.verifyId(idToken);
+      const creq = CRequest.tryParseJson(firstMessageValue);
+      if (creq.tag !== crequestInfo.Tag.Auth) {
+        throw new Error(`Expected an Auth message here, got ${creq.tag}`);
+      }
+      this.verifyId((creq.payload as crequests.Auth).token);
     } catch (e) {
       this._logger.log("Caught exception", e);
       this.close();
@@ -138,7 +142,15 @@ class WaitForOauthToken {
     }
     this._logger.log(`verifyIdToken seemingly successful`);
     const payload = login!.getPayload();
-    const userId = payload!['sub'] as string;
+    const profileId = payload!['sub'] as string;
+    this._logger.log(`profileId is ${profileId}`);
+
+    const userId = this._owner.authorizationManager.tryGetUserIdFromGoogleProfileId(profileId);
+    if (userId === undefined) {
+      this._logger.log(`Can't find corresponding userId`);
+      this.close();
+      return;
+    }
     this.proceedWithUser(userId);
   }
 
