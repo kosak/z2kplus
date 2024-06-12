@@ -244,6 +244,8 @@ export class CRequest {
 
   static tryParseJson(item: any) {
     const variant = assertAndDestructure1(item, i => assertArrayOfLength(i, 2));
+    console.log('hi variant is');
+    console.log(variant);
     const [tag, item1] = assertAndDestructure2(variant, i => assertEnum<crequestInfo.Tag>(i), i => i);
     let payload: crequestInfo.payload_t;
     switch (tag) {
