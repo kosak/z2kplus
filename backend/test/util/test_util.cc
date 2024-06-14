@@ -342,6 +342,7 @@ bool TestUtil::tryParseDynamicZgrams(const std::string_view &records, std::vecto
     if (!tryParseJson(&ctx, &zgc, ff.nest(HERE))) {
       return false;
     }
+    debug("So painful: --%o-- ==%o==", zgc.instance(), zgc.body()); // ##REMOVE##
     result->emplace_back(std::move(zgc));
   }
   return true;
