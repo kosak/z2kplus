@@ -166,7 +166,7 @@ private:
   // The number of bytes in this record
   uint32_t size_ = 0;
 
-  [[maybe_unused]]
+  // [[maybe_unused]]
   uint32_t padding_ = 0;
 
   friend std::ostream &operator<<(std::ostream &s, const LogLocation &zg);
