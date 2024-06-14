@@ -117,15 +117,17 @@ public:
     return (raw_ & 1) != 0;
   }
 
-  int compare(const FileKey &other) const {
-    static_assert(Kind != FileKeyKind::Either);
-    return kosak::coding::compare(&raw_, &other.raw_);
-  }
-
 private:
   uint32_t raw_ = 0;
 
-  DEFINE_ALL_COMPARISON_OPERATORS(FileKey);
+  friend bool operator<(const FileKey &lhs, const FileKey &rhs) {
+    static_assert(Kind != FileKeyKind::Either);
+    return lhs.raw_ < rhs.raw_;
+  }
+
+  friend bool operator==(const FileKey &lhs, const FileKey &rhs) {
+    return lhs.raw_ == rhs.raw_;
+  }
 
   friend std::ostream &operator<<(std::ostream &s, const FileKey &o) {
     // yyyymmdd.{logged,unlogged}
@@ -198,21 +200,26 @@ public:
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
-  int compare(const FilePosition &other) const {
-    int difference = fileKey_.compare(other.fileKey_);
-    if (difference != 0) {
-      return difference;
-    }
-    return kosak::coding::compare(&position_, &other.position_);
-  }
-
 private:
   // Which fulltext file this zgram lives in.
   FileKey<Kind> fileKey_;
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
-  DEFINE_ALL_COMPARISON_OPERATORS(FilePosition);
+  friend bool operator<(const FilePosition &lhs, const FilePosition &rhs) {
+    static_assert(Kind != FileKeyKind::Either);
+    if (lhs.fileKey_ < rhs.fileKey_) {
+      return true;
+    }
+    if (rhs.fileKey_ < lhs.fileKey_) {
+      return false;
+    }
+    return lhs.position_ < rhs.position_;
+  }
+
+  friend bool operator==(const FilePosition &lhs, const FilePosition &rhs) {
+    return lhs.fileKey_ == rhs.fileKey_ && lhs.position_ == rhs.position_;
+  }
 
   friend std::ostream &operator<<(std::ostream &s, const FilePosition &o) {
     return kosak::coding::streamf(s, "%o:%o", o.fileKey_, o.position_);
