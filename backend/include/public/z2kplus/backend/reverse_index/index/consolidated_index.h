@@ -62,7 +62,7 @@ protected:
 
 public:
   DynamicFileStateBase();
-  DECLARE_COPY_AND_ASSIGN(DynamicFileStateBase);
+  DISALLOW_COPY_AND_ASSIGN(DynamicFileStateBase);
   DECLARE_MOVE_COPY_AND_ASSIGN(DynamicFileStateBase);
   ~DynamicFileStateBase();
 
@@ -71,6 +71,7 @@ public:
   }
 
   const FileCloser &fileCloser() const { return fileCloser_; }
+  uint32_t fileSize() const { return fileSize_; }
 
 protected:
   DynamicFileStateBase(FileCloser fileCloser, size_t fileSize) : fileCloser_(std::move(fileCloser)),
@@ -94,12 +95,11 @@ public:
   }
 
   DynamicFileState() = default;
-  DEFINE_COPY_AND_ASSIGN(DynamicFileState);
+  DISALLOW_COPY_AND_ASSIGN(DynamicFileState);
   DEFINE_MOVE_COPY_AND_ASSIGN(DynamicFileState);
   ~DynamicFileState() = default;
 
   const FileKey<Kind> &fileKey() const { return fileKey_; }
-  uint32_t fileSize() const { return fileSize_; }
 
 private:
   DynamicFileState(FileCloser fileCloser, FileKey<Kind> fileKey, size_t fileSize) :

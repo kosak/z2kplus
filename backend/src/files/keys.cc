@@ -44,4 +44,14 @@ std::ostream &operator<<(std::ostream &s, const LogLocation &o) {
   streamf(s, "%o offset %o size %o", o.fileKey_, o.offset_, o.size_);
   return s;
 }
+
+namespace internal {
+uint32_t timePointToRaw(std::chrono::system_clock::time_point timePoint, bool isLogged) {
+  std::time_t tt = std::chrono::system_clock::to_time_t(timePoint);
+  struct tm tm = {};
+  (void)gmtime_r(&tt, &tm);
+  auto temp = FileKey<FileKeyKind::Either>::createUnsafe(tm.tm_year, tm.tm_mon + 1, tm.tm_mday, isLogged);
+  return temp.raw();
+}
+}  // namespace internal
 }  // namespace z2kplus::backend::files

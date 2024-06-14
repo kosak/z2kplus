@@ -30,6 +30,10 @@
 namespace z2kplus::backend::files {
 enum class FileKeyKind { Logged, Unlogged, Either };
 
+namespace internal {
+uint32_t timePointToRaw(std::chrono::system_clock::time_point timePoint, bool isLogged);
+}  // namespace internal
+
 // Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
 // refers to a file in the database.
 // This is blitted inside the index.
@@ -37,6 +41,9 @@ enum class FileKeyKind { Logged, Unlogged, Either };
 // Logged, Unlogged, Either
 template<FileKeyKind Kind>
 class FileKey {
+private:
+  explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
+
 public:
   static FileKey infinity;
 
@@ -45,7 +52,7 @@ public:
     raw = raw * 100 + month;
     raw = raw * 100 + day;
     raw = raw * 10 + (isLogged ? 1 : 0);
-    return createUnsafe(raw);
+    return FileKey(raw);
   }
 
   static constexpr FileKey createUnsafe(uint32_t raw) {
@@ -55,10 +62,15 @@ public:
     if (Kind == FileKeyKind::Unlogged && ((raw & 1) == 1)) {
       throw std::runtime_error("raw value not Unlogged kind");
     }
-    return FileKey(raw);
+    FileKey<Kind> temp(raw);
+    return temp;
   }
 
-  static FileKey createFromTimePoint(std::chrono::system_clock::time_point);
+  static FileKey createFromTimePoint(std::chrono::system_clock::time_point timePoint) {
+    static_assert(Kind != FileKeyKind::Either);
+    auto raw = internal::timePointToRaw(timePoint, Kind == FileKeyKind::Logged);
+    return FileKey(raw);
+  }
 
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
   }
@@ -68,7 +80,21 @@ public:
     static_assert(Kind == FileKeyKind::Either);
   }
 
-  std::pair<std::optional<FileKey<FileKeyKind::Logged>>, std::optional<FileKey<FileKeyKind::Unlogged>>> visit() const;
+  constexpr std::pair<std::optional<FileKey<FileKeyKind::Logged>>, std::optional<FileKey<FileKeyKind::Unlogged>>> visit() const {
+    if constexpr (Kind == FileKeyKind::Logged) {
+      return {*this, {}};
+    } else if constexpr (Kind == FileKeyKind::Unlogged) {
+      return {{}, *this};
+    } else if constexpr (Kind == FileKeyKind::Either) {
+      if (isLogged()) {
+        return {FileKey<FileKeyKind::Logged>::createUnsafe(raw_), {}};
+      } else {
+        return {{}, FileKey<FileKeyKind::Unlogged>::createUnsafe(raw_)};
+      }
+    } else {
+      throw std::runtime_error("Impossible: unexpected case");
+    }
+  }
 
   std::tuple<uint32, uint32, uint32, bool> expand() const {
     auto temp = raw_;
@@ -91,19 +117,15 @@ public:
     return (raw_ & 1) != 0;
   }
 
-private:
-  explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
+  int compare(const FileKey &other) const {
+    static_assert(Kind != FileKeyKind::Either);
+    return kosak::coding::compare(&raw_, &other.raw_);
+  }
 
+private:
   uint32_t raw_ = 0;
 
-  friend bool operator==(const FileKey &lhs, const FileKey &rhs) {
-    return lhs.raw_ == rhs.raw_;
-  }
-
-  friend bool operator<(const FileKey &lhs, const FileKey &rhs) {
-    static_assert(Kind != FileKeyKind::Either);
-    return lhs.raw_ < rhs.raw_;
-  }
+  DEFINE_ALL_COMPARISON_OPERATORS(FileKey);
 
   friend std::ostream &operator<<(std::ostream &s, const FileKey &o) {
     // yyyymmdd.{logged,unlogged}
@@ -176,13 +198,21 @@ public:
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t position() const { return position_; }
 
+  int compare(const FilePosition &other) const {
+    int difference = fileKey_.compare(other.fileKey_);
+    if (difference != 0) {
+      return difference;
+    }
+    return kosak::coding::compare(&position_, &other.position_);
+  }
+
 private:
   // Which fulltext file this zgram lives in.
   FileKey<Kind> fileKey_;
   // The character position of start of zgram in the fulltext file.
   uint32_t position_ = 0;
 
-  friend bool operator<(const FilePosition &lhs, const FilePosition &rhs);
+  DEFINE_ALL_COMPARISON_OPERATORS(FilePosition);
 
   friend std::ostream &operator<<(std::ostream &s, const FilePosition &o) {
     return kosak::coding::streamf(s, "%o:%o", o.fileKey_, o.position_);
@@ -206,7 +236,10 @@ public:
       fileKey_(fileKey), begin_(begin), end_(end) {}
 
   template<FileKeyKind OtherKind>
-  IntraFileRange(IntraFileRange<OtherKind> other);
+  IntraFileRange(const IntraFileRange<OtherKind> &other) :
+    fileKey_(other.fileKey()), begin_(other.begin()), end_(other.end()) {
+    static_assert(Kind == FileKeyKind::Either);
+  }
 
   const FileKey<Kind> &fileKey() const { return fileKey_; }
   uint32_t begin() const { return begin_; }
@@ -252,7 +285,9 @@ public:
 
   InterFileRange intersectWith(const InterFileRange &other) const;
 
-  bool empty() const;
+  bool empty() const {
+    return begin_ == end_;
+  }
 
 private:
   FilePosition<Kind> begin_;

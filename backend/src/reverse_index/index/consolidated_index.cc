@@ -968,5 +968,10 @@ bool DynamicFileStateBase::tryCreateOrAppendToLogFile(const PathMaster &pm, File
   return nsunix::tryEnsureBaseExists(fileName, 0700, ff.nest(HERE)) &&
     nsunix::tryOpen(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0600, fc, ff.nest(HERE));
 }
+
+DynamicFileStateBase::DynamicFileStateBase() = default;
+DynamicFileStateBase::DynamicFileStateBase(DynamicFileStateBase &&other) noexcept = default;
+DynamicFileStateBase &DynamicFileStateBase::operator=(DynamicFileStateBase &&other) noexcept = default;
+DynamicFileStateBase::~DynamicFileStateBase() = default;
 }  // namespace internal
 }  // namespace z2kplus::backend::reverse_index::index
