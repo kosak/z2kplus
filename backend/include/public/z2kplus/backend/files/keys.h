@@ -290,7 +290,15 @@ public:
   const FilePosition<Kind> &begin() const { return begin_; }
   const FilePosition<Kind> &end() const { return end_; }
 
-  InterFileRange intersectWith(const InterFileRange &other) const;
+  InterFileRange intersectWith(const InterFileRange &other) const {
+    auto newBegin = std::max(begin_, other.begin_);
+    auto newEnd = std::min(end_, other.end_);
+    if (newEnd < newBegin) {
+      // Ranges don't intersect; return empty.
+      return {end_, end_};
+    }
+    return {newBegin, newEnd};
+  }
 
   bool empty() const {
     return begin_ == end_;
