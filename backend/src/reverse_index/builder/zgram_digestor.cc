@@ -615,6 +615,14 @@ bool tryGatherZgramInfos(const std::vector<std::string> &zgInfoNames, SimpleAllo
       ++dest;
     }
   }
+
+  for (size_t i = 1; i < totalNumElements; ++i) {
+    const auto &prev = start[i - 1];
+    const auto &self = start[i];
+    if (self.zgramId() <= prev.zgramId()) {
+      return ff.failf(HERE, "%o is out of order with respect to %o", self.zgramId(), prev.zgramId());
+    }
+  }
   *result = FrozenVector<ZgramInfo>(start, totalNumElements);
   return true;
 }

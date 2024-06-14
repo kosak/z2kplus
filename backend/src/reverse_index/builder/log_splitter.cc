@@ -164,24 +164,33 @@ bool LogSplitter::split(const PathMaster &pm,
   auto allRanges = makeReservedVector<IntraFileRange<FileKeyKind::Either>>(loggedRanges.size() + unloggedRanges.size());
   allRanges.insert(allRanges.end(), loggedRanges.begin(), loggedRanges.end());
   allRanges.insert(allRanges.end(), unloggedRanges.begin(), unloggedRanges.end());
+  std::sort(allRanges.begin(), allRanges.end(), byCanonical);
 
-  auto shardSize = allRanges.size() / numShards;
-  auto excess = allRanges.size() % numShards;
-  const auto *lastShardEnd = allRanges.data();
+  const auto *prevShardEnd = allRanges.data();
+  const auto *allShardEnd = &*allRanges.end();
   std::vector<std::shared_ptr<SplitterThread>> sts(numShards);
   for (size_t i = 0; i != numShards; ++i) {
-    auto bonusWork = excess != 0 ? 1 : 0;
-    auto newShardEnd = lastShardEnd + shardSize + bonusWork;
-    excess -= bonusWork;
+    auto divisor = numShards - i;
+    auto shardSize = (allShardEnd - prevShardEnd) / divisor;
+    auto newShardEnd = prevShardEnd + shardSize;
 
-    std::vector<IntraFileRange<FileKeyKind::Either>> rangesForShard(lastShardEnd, newShardEnd);
+    if (prevShardEnd != newShardEnd && newShardEnd != allShardEnd) {
+      // Shard is non-empty and not the last shard
+      const auto *back = newShardEnd - 1;
+      if (back->canonicalRaw() == newShardEnd->canonicalRaw()) {
+        // Don't let logged and unlogged zgrams of the same date fall into different shards.
+        ++newShardEnd;
+      }
+    }
+
+    std::vector<IntraFileRange<FileKeyKind::Either>> rangesForShard(prevShardEnd, newShardEnd);
     if (!SplitterThread::tryCreate(i, pm, sis, std::move(rangesForShard), &sts[i], ff.nest(HERE))) {
       return false;
     }
-    lastShardEnd = newShardEnd;
+    prevShardEnd = newShardEnd;
   }
 
-  if (lastShardEnd != &*allRanges.end()) {
+  if (prevShardEnd != allShardEnd) {
     return ff.fail(HERE, "Programming error");
   }
 
