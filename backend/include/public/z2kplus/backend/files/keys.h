@@ -113,6 +113,8 @@ public:
 
   uint32_t raw() const { return raw_; }
 
+  uint32_t canonicalRaw() const { return raw_ & ~1; }
+
   bool isLogged() const {
     return (raw_ & 1) != 0;
   }

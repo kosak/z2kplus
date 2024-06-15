@@ -164,7 +164,9 @@ bool LogSplitter::split(const PathMaster &pm,
   auto allRanges = makeReservedVector<IntraFileRange<FileKeyKind::Either>>(loggedRanges.size() + unloggedRanges.size());
   allRanges.insert(allRanges.end(), loggedRanges.begin(), loggedRanges.end());
   allRanges.insert(allRanges.end(), unloggedRanges.begin(), unloggedRanges.end());
-  std::sort(allRanges.begin(), allRanges.end(), byCanonical);
+  std::sort(allRanges.begin(), allRanges.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.fileKey().canonicalRaw() < rhs.fileKey().canonicalRaw();
+  });
 
   const auto *prevShardEnd = allRanges.data();
   const auto *allShardEnd = &*allRanges.end();
@@ -177,7 +179,7 @@ bool LogSplitter::split(const PathMaster &pm,
     if (prevShardEnd != newShardEnd && newShardEnd != allShardEnd) {
       // Shard is non-empty and not the last shard
       const auto *back = newShardEnd - 1;
-      if (back->canonicalRaw() == newShardEnd->canonicalRaw()) {
+      if (back->fileKey().canonicalRaw() == newShardEnd->fileKey().canonicalRaw()) {
         // Don't let logged and unlogged zgrams of the same date fall into different shards.
         ++newShardEnd;
       }
@@ -202,6 +204,10 @@ bool LogSplitter::split(const PathMaster &pm,
     return false;
   }
 
+  // We don't have to sort the zgrams because they are already sorted in the
+  // log files. The only complication is that logged and unlogged zgrams are
+  // in different files. But so long as the logged/unlogged zgrams for a given
+  // day are processed by the same shard, they will be fine.
   auto gatherAndMoveInputs = [&sts](NameAndWriter SplitterThread::*field) {
     auto result = makeReservedVector<std::string>(sts.size());
     for (const auto &st : sts) {
