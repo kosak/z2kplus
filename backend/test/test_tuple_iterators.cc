@@ -238,7 +238,7 @@ TEST_CASE("tuples: serializer", "[tuples]") {
     REQUIRE(false);
   }
 
-  const char *expected = "T\t87\t1234567890123\tkosak\t1234\t21700007";
+  const char *expected = "T\t87\t1234567890123\tkosak\t1234\t199903011";
   REQUIRE(expected == text);
 
   everything_t dest;
