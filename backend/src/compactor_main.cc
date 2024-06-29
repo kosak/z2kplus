@@ -49,14 +49,34 @@ namespace magicConstants = z2kplus::backend::shared::magicConstants;
 #define HERE KOSAK_CODING_HERE
 
 namespace {
-class OldFileKey {
+struct OldFileKey {
+  OldFileKey(size_t year, size_t month, size_t day, size_t part, bool isLogged) :
+      year_(year), month_(month), day_(day), part_(part), isLogged_(isLogged) {}
 
+  size_t year_ = 0;
+  size_t month_ = 0;
+  size_t day_ = 0;
+  size_t part_ = 0;
+  bool isLogged_ = false;
+
+  friend bool operator<(const OldFileKey &lhs, const OldFileKey &rhs) {
+    auto diff = kosak::coding::compare(&lhs.year_, &rhs.year_);
+    if (diff != 0) return diff < 0;
+    diff = kosak::coding::compare(&lhs.month_, &rhs.month_);
+    if (diff != 0) return diff < 0;
+    diff = kosak::coding::compare(&lhs.day_, &rhs.day_);
+    if (diff != 0) return diff < 0;
+    diff = kosak::coding::compare(&lhs.part_, &rhs.part_);
+    if (diff != 0) return diff < 0;
+    diff = kosak::coding::compare(&lhs.isLogged_, &rhs.isLogged_);
+    return diff < 0;
+  }
 };
 bool tryRun(int argc, char **argv, const FailFrame &ff);
 
 bool tryGetLegacyPlaintexts(const std::string &loggedRoot, const std::string &unloggedRoot,
     const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff);
-bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
+bool tryGetLegacyPlaintextsHelper(const std::string &root, bool expectLogged,
     const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff);
 bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
     std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
@@ -90,12 +110,20 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
      !tryGetLegacyPlaintexts(pm->loggedRoot(), pm->unloggedRoot(), &cb, ff.nest(HERE))) {
     return false;
   }
+  std::sort(fileKeys.begin(), fileKeys.end());
+
+  std::map<OldFileKey, std::vector<OldFileKey>> grouped;
+  for (const auto &fk : fileKeys) {
+    OldFileKey canonical(fk.year_, fk.month_, fk.day_, 0, fk.isLogged_);
+    grouped[canonical].push_back(fk);
+  }
+  return true;
 }
 
 bool tryGetLegacyPlaintexts(const std::string &loggedRoot, const std::string &unloggedRoot,
     const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff) {
-  return tryGetPlaintextsHelper(loggedRoot, true, cb, ff.nest(HERE)) &&
-      tryGetPlaintextsHelper(unloggedRoot, false, cb, ff.nest(HERE));
+  return tryGetLegacyPlaintextsHelper(loggedRoot, true, cb, ff.nest(HERE)) &&
+      tryGetLegacyPlaintextsHelper(unloggedRoot, false, cb, ff.nest(HERE));
 }
 
 bool tryGetLegacyPlaintextsHelper(const std::string &root, bool expectLogged,
