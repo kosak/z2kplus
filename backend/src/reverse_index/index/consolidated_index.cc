@@ -123,7 +123,7 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
     return false;
   }
 
-  warn("logged=%o, unlogged%=o, loggedStart=%o, unloggedStart=%o",
+  warn("logged=%o, unlogged=%o, loggedStart=%o, unloggedStart=%o",
       analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges(), loggedStart, unloggedStart);
   ConsolidatedIndex ci;
   std::vector<DynamicIndex::logRecordAndLocation_t> records;
