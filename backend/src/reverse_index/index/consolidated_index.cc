@@ -82,18 +82,26 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
 
 template<FileKeyKind Kind>
-bool tryCalcStart(const std::vector<IntraFileRange<Kind>> &ranges,
+bool tryCalcStart(const FilePosition<Kind> &frozenRangeEnd,
+    const std::vector<IntraFileRange<Kind>> &dynamicRanges,
     std::chrono::system_clock::time_point now, FilePosition<Kind> *result, const FailFrame &ff) {
   FileKey<Kind> fk;
   if (!FileKey<Kind>::tryCreateFromTimePoint(now, &fk, ff.nest(HERE))) {
     return false;
   }
+  // Proposed start based on 'now'.
   FilePosition<Kind> proposedStart(fk, 0);
 
-  if (!ranges.empty()) {
-    FilePosition<Kind> lastUsed(ranges.back().fileKey(), ranges.back().end());
-    if (proposedStart < lastUsed) {
-      proposedStart = lastUsed;
+  // Move it forward if the frozen end is later.
+  if (proposedStart < frozenRangeEnd) {
+    proposedStart = frozenRangeEnd;
+  }
+
+  if (!dynamicRanges.empty()) {
+    FilePosition<Kind> dynamicRangeEnd(dynamicRanges.back().fileKey(), dynamicRanges.back().end());
+    if (proposedStart < dynamicRangeEnd) {
+      // Move it forward if the dynamic end is later.
+      proposedStart = dynamicRangeEnd;
     }
   }
   *result = proposedStart;
@@ -111,8 +119,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
 
-  warn("Frozen index: index goes up to logged=%o, unlogged=%o", frozenIndex.get()->loggedEnd(),
-      frozenIndex.get()->unloggedEnd());
+  auto loggedEnd = frozenIndex.get()->loggedEnd();
+  auto unloggedEnd = frozenIndex.get()->unloggedEnd();
+
+  warn("Frozen index: index goes up to logged=%o, unlogged=%o", loggedEnd, unloggedEnd);
 
   InterFileRange<FileKeyKind::Logged> loggedRange(frozenIndex.get()->loggedEnd(),
       FilePosition<FileKeyKind::Logged>::infinity);
@@ -121,8 +131,8 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   FilePosition<FileKeyKind::Logged> loggedStart;
   FilePosition<FileKeyKind::Unlogged> unloggedStart;
   if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE)) ||
-      !tryCalcStart(analyzer.sortedLoggedRanges(), now, &loggedStart, ff.nest(HERE)) ||
-      !tryCalcStart(analyzer.sortedUnloggedRanges(), now, &unloggedStart, ff.nest(HERE))) {
+      !tryCalcStart(loggedEnd, analyzer.sortedLoggedRanges(), now, &loggedStart, ff.nest(HERE)) ||
+      !tryCalcStart(unloggedEnd, analyzer.sortedUnloggedRanges(), now, &unloggedStart, ff.nest(HERE))) {
     return false;
   }
 

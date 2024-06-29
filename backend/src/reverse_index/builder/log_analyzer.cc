@@ -87,6 +87,6 @@ bool LogAnalyzer::tryAnalyze(const PathMaster &pm,
 }
 
 std::ostream &operator<<(std::ostream &s, const LogAnalyzer &o) {
-  return streamf(s, "sorted=%o\nunsorted=%o", o.sortedLoggedRanges_, o.sortedUnloggedRanges_);
+  return streamf(s, "logged=%o\nunlogged=%o", o.sortedLoggedRanges_, o.sortedUnloggedRanges_);
 }
 }  // namespace z2kplus::backend::reverse_index::builder
