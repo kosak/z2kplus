@@ -34,6 +34,8 @@ using kosak::coding::memory::MappedFile;
 using kosak::coding::streamf;
 using kosak::coding::text::tryParseDecimal;
 using z2kplus::backend::coordinator::Coordinator;
+using z2kplus::backend::files::FileKey;
+using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
@@ -117,6 +119,26 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
     OldFileKey canonical(fk.year_, fk.month_, fk.day_, 0, fk.isLogged_);
     grouped[canonical].push_back(fk);
   }
+
+  for (const auto &[group, keys] : grouped) {
+    auto destFk = FileKey<FileKeyKind::Either>::createUnsafe(group.year_, group.month_, group.day_, group.isLogged_);
+    auto srcPrefix = pm->getPlaintextPath(destFk);
+    auto destFilename = pm->getPlaintextPath(destFk);
+
+    std::string allContents;
+    for (const auto &key : keys) {
+      char fakeSuffix[32];
+      snprintf(fakeSuffix, sizeof(fakeSuffix), ".%03d", (int)key.part_);
+      auto srcFilename = srcPrefix + fakeSuffix;
+
+      std::string contents;
+      if (!nsunix::tryReadAll(srcFilename, &contents, ff.nest(HERE))) {
+        return false;
+      }
+      allContents += contents;
+    }
+  }
+
   return true;
 }
 
