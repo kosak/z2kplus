@@ -137,6 +137,9 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
       }
       allContents += contents;
     }
+    if (!nsunix::tryWriteAll(destFilename, allContents, ff.nest(HERE))) {
+      return false;
+    }
   }
 
   return true;
