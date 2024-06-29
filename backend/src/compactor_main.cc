@@ -18,6 +18,7 @@
 #include "kosak/coding/coding.h"
 #include "kosak/coding/failures.h"
 #include "kosak/coding/memory/mapped_file.h"
+#include "kosak/coding/text/conversions.h"
 #include "z2kplus/backend/coordinator/coordinator.h"
 #include "z2kplus/backend/server/server.h"
 #include "z2kplus/backend/files/path_master.h"
@@ -26,12 +27,13 @@
 #include "z2kplus/backend/reverse_index/index/frozen_index.h"
 #include "z2kplus/backend/shared/magic_constants.h"
 
+using kosak::coding::Delegate;
 using kosak::coding::FailFrame;
 using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::streamf;
+using kosak::coding::text::tryParseDecimal;
 using z2kplus::backend::coordinator::Coordinator;
-using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
@@ -47,9 +49,17 @@ namespace magicConstants = z2kplus::backend::shared::magicConstants;
 #define HERE KOSAK_CODING_HERE
 
 namespace {
+class OldFileKey {
+
+};
 bool tryRun(int argc, char **argv, const FailFrame &ff);
-bool tryStartServer(std::shared_ptr<PathMaster> pm, std::shared_ptr<Server> *result,
-    const FailFrame &ff);
+
+bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
+    const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff);
+bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
+    std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
+    std::string_view *residual, const FailFrame &ff);
+bool maybeConsume(std::string_view src, std::string_view prefix, std::string_view *residual);
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -69,9 +79,9 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
   }
 
   std::shared_ptr<PathMaster> pm;
-  std::shared_ptr<Server> server;
   if (!PathMaster::tryCreate(argv[1], &pm, ff.nest(HERE)) ||
       !tryStartServer(std::move(pm), &server, ff.nest(HERE))) {
+    pm->tryGetPlaintexts()
     return false;
   }
 
@@ -87,35 +97,107 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
   return server->tryStop(ff.nest(HERE));
 }
 
-bool tryStartServer(std::shared_ptr<PathMaster> pm, std::shared_ptr<Server> *result,
-    const FailFrame &ff) {
-  bool exists;
-  auto indexName = pm->getIndexPath();
-  if (!nsunix::tryExists(indexName, &exists, ff.nest(HERE))) {
-    return false;
-  }
+bool tryGetLegacyPlaintexts(const std::string &loggedRoot, const std::string &unloggedRoot,
+    const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff) {
+  return tryGetPlaintextsHelper(loggedRoot, true, cb, ff.nest(HERE)) &&
+      tryGetPlaintextsHelper(unloggedRoot, false, cb, ff.nest(HERE));
+}
 
-  if (!exists) {
-    // Since there's no index file, it would be safe to purge old graffiti here.
-    // Otherwise it will be purged at the next index rebuild.
-    if (!IndexBuilder::tryClearScratchDirectory(*pm, ff.nest(HERE)) ||
-        !IndexBuilder::tryBuild(*pm,
-            InterFileRange<true>::everything(),
-            InterFileRange<false>::everything(), ff.nest(HERE)) ||
-        !pm->tryPublishBuild(ff.nest(HERE))) {
+bool tryGetLegacyPlaintextsHelper(const std::string &root, bool expectLogged,
+    const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff) {
+  // example: 2000/01/20000104.unlogged
+  auto myCallback = [expectLogged, &cb](std::string_view fullName, bool isDir, const FailFrame &f2) {
+    if (isDir) {
+      return true;
+    }
+    auto contextCb = [fullName](std::ostream &s) {
+      s << "While processing " << fullName;
+    };
+    auto f3 = f2.nestWithDelegate(HERE, &contextCb);
+
+    size_t pos = fullName.size();
+    for (size_t i = 0; i < 3; ++i) {
+      if (pos == 0) {
+        return f3.failf(HERE, "Ran off the front of: %o", fullName);
+      }
+      pos = fullName.find_last_of('/', pos - 1);
+      if (pos == std::string_view::npos) {
+        return f3.failf(HERE, "This pathname does not have enough trailing pieces for me to parse: %o", fullName);
+      }
+    }
+    auto suffix = fullName.substr(pos + 1);
+    std::string_view yearRes, monthRes, yyyyMMddRes;
+    size_t year, month, yyyyMMdd;
+
+    if (!tryParseRestrictedDecimal("year", suffix, "", 1970, 2100 + 1,
+        &year, &yearRes, f3.nest(HERE)) ||
+        !tryParseRestrictedDecimal("month", yearRes, "/", 1, 12 + 1,
+            &month, &monthRes, f3.nest(HERE)) ||
+        !tryParseRestrictedDecimal("yyyyMMdd", monthRes, "/", 19700101, 21001231 + 1,
+            &yyyyMMdd, &yyyyMMddRes, f3.nest(HERE))) {
       return false;
     }
-  }
 
-  ConsolidatedIndex ci;
-  Coordinator coordinator;
-  auto now = std::chrono::system_clock::now();
-  if (!ConsolidatedIndex::tryCreate(pm, now, &ci, ff.nest(HERE)) ||
-      !Coordinator::tryCreate(std::move(pm), std::move(ci), &coordinator, ff.nest(HERE)) ||
-      !Server::tryCreate(std::move(coordinator), magicConstants::listenPort, result,
-          ff.nest(HERE))) {
+    bool logged;
+    std::string_view loggedRes;
+    if (maybeConsume(yyyyMMddRes, ".logged", &loggedRes)) {
+      logged = true;
+    } else if (maybeConsume(yyyyMMddRes, ".unlogged", &loggedRes)) {
+      logged = false;
+    } else {
+      return f3.failf(HERE, "Can't find logged/unlogged indicator in %o", fullName);
+    }
+
+    if (expectLogged != logged) {
+      return f3.failf(HERE, "Expected this directory to have logged=%o. Got logged=%o", expectLogged, logged);
+    }
+
+    size_t part;
+    std::string_view residual;
+    if (!tryParseRestrictedDecimal("part", loggedRes, ".", 0, 1000, &part, &residual, f3.nest(HERE))) {
+      return false;
+    }
+
+    if (!residual.empty()) {
+      return f3.failf(HERE, R"(Trailing matter "%o" found, was supposed to be empty)", loggedRes);
+    }
+
+    auto day = yyyyMMdd % 100;
+    auto reconstructed = (year * 100 + month) * 100 + day;
+    if (yyyyMMdd != reconstructed) {
+      return f3.failf(HERE, "Subdir parts inconsistent; got %o vs %o in %o", yyyyMMdd, reconstructed,
+          fullName);
+    }
+
+    auto fk = OldFileKey(year, month, day, part, logged);
+    return cb(fk, f3.nest(HERE));
+  };
+  return nsunix::tryEnumerateFilesAndDirsRecursively(root, &myCallback, ff.nest(HERE));
+}
+
+bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
+    std::string_view expectedPrefix, size_t beginValue, size_t endValue, size_t *result,
+    std::string_view *residual, const FailFrame &ff) {
+  std::string_view temp;
+  if (!maybeConsume(src, expectedPrefix, &temp)) {
+    return ff.failf(HERE, "%o did not start with %o", src, expectedPrefix);
+  }
+  if (!tryParseDecimal(temp, result, residual, ff.nest(HERE))) {
     return false;
   }
+  if (*result < beginValue || *result >= endValue) {
+    return ff.failf(HERE, "Expected %o in the range [%o..%o), got %o", humanReadable, beginValue,
+        endValue, *result);
+  }
+  return true;
+}
+
+bool maybeConsume(std::string_view src, std::string_view prefix, std::string_view *residual) {
+  if (src.size() < prefix.size() ||
+      src.substr(0, prefix.size()) != prefix) {
+    return false;
+  }
+  *residual = src.substr(prefix.size());
   return true;
 }
 }  // namespace

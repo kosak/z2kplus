@@ -125,7 +125,7 @@ bool PathMaster::tryPublishBuild(const FailFrame &ff) const {
 namespace {
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
     const Delegate<bool, FileKey<FileKeyKind::Either>, const FailFrame &> &cb, const FailFrame &ff) {
-  // example: 2000/01/20000104.unlogged.000
+  // example: 2000/01/20000104.unlogged
   auto myCallback = [expectLogged, &cb](std::string_view fullName, bool isDir, const FailFrame &f2) {
     if (isDir) {
       return true;
