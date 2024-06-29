@@ -53,6 +53,8 @@ public:
   bool tryPublishBuild(const FailFrame &ff) const;
 
   const std::string &scratchRoot() const { return scratchRoot_; }
+  const std::string &loggedRoot() const { return loggedRoot_; }
+  const std::string &unloggedRoot() const { return unloggedRoot_; }
 
 private:
   std::string loggedRoot_;

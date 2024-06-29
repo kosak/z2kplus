@@ -54,6 +54,8 @@ class OldFileKey {
 };
 bool tryRun(int argc, char **argv, const FailFrame &ff);
 
+bool tryGetLegacyPlaintexts(const std::string &loggedRoot, const std::string &unloggedRoot,
+    const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff);
 bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
     const Delegate<bool, OldFileKey, const FailFrame &> &cb, const FailFrame &ff);
 bool tryParseRestrictedDecimal(const char *humanReadable, std::string_view src,
@@ -79,22 +81,15 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
   }
 
   std::shared_ptr<PathMaster> pm;
+  std::vector<OldFileKey> fileKeys;
+  auto cb = [&fileKeys](OldFileKey fk, const FailFrame &) {
+    fileKeys.push_back(fk);
+    return true;
+  };
   if (!PathMaster::tryCreate(argv[1], &pm, ff.nest(HERE)) ||
-      !tryStartServer(std::move(pm), &server, ff.nest(HERE))) {
-    pm->tryGetPlaintexts()
+     !tryGetLegacyPlaintexts(pm->loggedRoot(), pm->unloggedRoot(), &cb, ff.nest(HERE))) {
     return false;
   }
-
-  while (true) {
-    std::cout << "Server is running. Enter STOP to stop.\n";
-
-    std::string s;
-    std::getline(std::cin, s);
-    if (s == "STOP") {
-      break;
-    }
-  }
-  return server->tryStop(ff.nest(HERE));
 }
 
 bool tryGetLegacyPlaintexts(const std::string &loggedRoot, const std::string &unloggedRoot,
