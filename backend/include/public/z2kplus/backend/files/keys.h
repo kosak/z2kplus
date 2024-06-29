@@ -31,8 +31,8 @@ namespace z2kplus::backend::files {
 enum class FileKeyKind { Logged, Unlogged, Either };
 
 namespace internal {
-bool tryCreateFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
-    FileKey);
+bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
+    uint32_t *result, const kosak::coding::FailFrame &ff);
 bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, FileKeyKind kind,
     const kosak::coding::FailFrame &ff);
 }  // namespace internal
@@ -82,8 +82,13 @@ public:
   static bool tryCreateFromTimePoint(std::chrono::system_clock::time_point timePoint,
       FileKey *result, const FailFrame &ff) {
     static_assert(Kind != FileKeyKind::Either);
-    return internal::tryCreateFromTimePoint(timePoint, Kind == FileKeyKind::Logged,
-        result, ff.nest(KOSAK_CODING_HERE));
+    uint32_t raw;
+    if (!internal::tryCreateRawFromTimePoint(timePoint, Kind == FileKeyKind::Logged,
+        &raw, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = FileKey<Kind>(raw);
+    return true;
   }
 
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {

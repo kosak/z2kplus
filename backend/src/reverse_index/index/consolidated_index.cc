@@ -82,9 +82,9 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
 
 template<FileKeyKind Kind>
-FilePosition<Kind> tryCalcStart(const std::vector<IntraFileRange<Kind>> &ranges,
-    std::chrono::system_clock::time_point now, const FailFrame &ff) {
-  FileKey<Kind>::fk;
+bool tryCalcStart(const std::vector<IntraFileRange<Kind>> &ranges,
+    std::chrono::system_clock::time_point now, FilePosition<Kind> *result, const FailFrame &ff) {
+  FileKey<Kind> fk;
   if (!FileKey<Kind>::tryCreateFromTimePoint(now, &fk, ff.nest(HERE))) {
     return false;
   }
@@ -96,7 +96,8 @@ FilePosition<Kind> tryCalcStart(const std::vector<IntraFileRange<Kind>> &ranges,
       proposedStart = lastUsed;
     }
   }
-  return proposedStart;
+  *result = proposedStart;
+  return true;
 }
 }  // namespace
 
@@ -114,12 +115,13 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
       FilePosition<FileKeyKind::Logged>::infinity);
   InterFileRange<FileKeyKind::Unlogged> unloggedRange(frozenIndex.get()->unloggedEnd(),
       FilePosition<FileKeyKind::Unlogged>::infinity);
-  if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE))) {
+  FilePosition<FileKeyKind::Logged> loggedStart;
+  FilePosition<FileKeyKind::Unlogged> unloggedStart;
+  if (!LogAnalyzer::tryAnalyze(*pm, loggedRange, unloggedRange, &analyzer, ff.nest(HERE)) ||
+      !tryCalcStart(analyzer.sortedLoggedRanges(), now, &loggedStart, ff.nest(HERE)) ||
+      !tryCalcStart(analyzer.sortedUnloggedRanges(), now, &unloggedStart, ff.nest(HERE))) {
     return false;
   }
-
-  auto loggedStart = calcStart(analyzer.sortedLoggedRanges(), now);
-  auto unloggedStart = calcStart(analyzer.sortedUnloggedRanges(), now);
 
   warn("logged=%o, unlogged%=o, loggedStart=%o, unloggedStart=%o",
       analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges(), loggedStart, unloggedStart);
