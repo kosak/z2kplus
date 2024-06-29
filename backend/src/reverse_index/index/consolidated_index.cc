@@ -111,6 +111,9 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
   // Populate the dynamic index with all files newer than those in the frozen index.
   LogAnalyzer analyzer;
 
+  warn("Frozen index: index goes up to logged=%o, unlogged=%o", frozenIndex.get()->loggedEnd(),
+      frozenIndex.get()->unloggedEnd());
+
   InterFileRange<FileKeyKind::Logged> loggedRange(frozenIndex.get()->loggedEnd(),
       FilePosition<FileKeyKind::Logged>::infinity);
   InterFileRange<FileKeyKind::Unlogged> unloggedRange(frozenIndex.get()->unloggedEnd(),
@@ -123,8 +126,10 @@ bool ConsolidatedIndex::tryCreate(std::shared_ptr<PathMaster> pm,
     return false;
   }
 
-  warn("logged=%o, unlogged=%o, loggedStart=%o, unloggedStart=%o",
-      analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges(), loggedStart, unloggedStart);
+  warn("Dynamic index: new data is at logged=%o, unlogged=%o",
+      analyzer.sortedLoggedRanges(), analyzer.sortedUnloggedRanges());
+  warn("Dynamic index: new data will be written starting at loggedStart=%o, unloggedStart=%o",
+      loggedStart, unloggedStart);
   ConsolidatedIndex ci;
   std::vector<DynamicIndex::logRecordAndLocation_t> records;
   if (!tryCreate(std::move(pm), loggedStart, unloggedStart, std::move(frozenIndex), &ci, ff.nest(HERE)) ||
