@@ -196,12 +196,13 @@ set(TEST_FILES
         test/util/test_util.cc
         )
 
-set(BACKEND_MAIN src/backend_main.cc)
-
 add_executable(test_backend ${COMMON_FILES} ${TEST_FILES})
-add_executable(backend ${COMMON_FILES} ${BACKEND_MAIN})
+add_executable(backend ${COMMON_FILES} src/backend_main.cc)
+add_executable(compactor ${COMMON_FILES} src/compactor_main.cc)
 
 target_include_directories(backend PUBLIC
+        "/usr/local/include/antlr4-runtime" "include/public")
+target_include_directories(compactor PUBLIC
         "/usr/local/include/antlr4-runtime" "include/public")
 target_include_directories(test_backend PUBLIC
         "/usr/local/include/antlr4-runtime" "include/public" "test/include/public")
@@ -209,6 +210,7 @@ target_include_directories(test_backend PUBLIC
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_definitions(test_backend PUBLIC DEBUGGING=1)
   target_compile_definitions(backend PUBLIC DEBUGGING=1)
+  target_compile_definitions(compactor PUBLIC DEBUGGING=1)
 endif()
 
 add_subdirectory("third_party/coding" "libcoding")
@@ -216,3 +218,4 @@ add_subdirectory("third_party/catch" "libcatch")
 
 target_link_libraries(test_backend PUBLIC coding catch antlr4-runtime pthread)
 target_link_libraries(backend PUBLIC coding antlr4-runtime pthread)
+target_link_libraries(compactor PUBLIC coding antlr4-runtime pthread)

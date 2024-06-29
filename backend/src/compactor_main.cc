@@ -31,7 +31,7 @@ using kosak::coding::FailRoot;
 using kosak::coding::memory::MappedFile;
 using kosak::coding::streamf;
 using z2kplus::backend::coordinator::Coordinator;
-using z2kplus::backend::files::FileKeyKind;
+using z2kplus::backend::files::CompressedFileKey;
 using z2kplus::backend::files::InterFileRange;
 using z2kplus::backend::files::PathMaster;
 using z2kplus::backend::reverse_index::builder::IndexBuilder;
@@ -100,9 +100,8 @@ bool tryStartServer(std::shared_ptr<PathMaster> pm, std::shared_ptr<Server> *res
     // Otherwise it will be purged at the next index rebuild.
     if (!IndexBuilder::tryClearScratchDirectory(*pm, ff.nest(HERE)) ||
         !IndexBuilder::tryBuild(*pm,
-            InterFileRange<FileKeyKind::Logged>::everything,
-            InterFileRange<FileKeyKind::Unlogged>::everything,
-            ff.nest(HERE)) ||
+            InterFileRange<true>::everything(),
+            InterFileRange<false>::everything(), ff.nest(HERE)) ||
         !pm->tryPublishBuild(ff.nest(HERE))) {
       return false;
     }
