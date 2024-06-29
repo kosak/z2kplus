@@ -26,32 +26,50 @@ using kosak::coding::FailRoot;
 #define HERE KOSAK_CODING_HERE
 
 namespace z2kplus::backend::files {
-//std::pair<std::optional<TaggedFileKey<true>>, std::optional<TaggedFileKey<false>>>
-//    ExpandedFileKey::visit() const {
-//  std::optional<TaggedFileKey<true>> logged;
-//  std::optional<TaggedFileKey<false>> unlogged;
-//
-//  if (isLogged_) {
-//    logged = TaggedFileKey<true>(compress());
-//  } else {
-//    unlogged = TaggedFileKey<false>(compress());
-//  }
-//
-//  return std::make_pair(logged, unlogged);
-//}
-
 std::ostream &operator<<(std::ostream &s, const LogLocation &o) {
   streamf(s, "%o offset %o size %o", o.fileKey_, o.offset_, o.size_);
   return s;
 }
 
+namespace {
+bool tryCheckRange(const char *what, size_t value, size_t begin, size_t end, const FailFrame &ff) {
+  if ((value < begin) || (value >= end)) {
+    return ff.failf(HERE, "{0} not in rangge [%o,%o)", value, begin, end);
+  }
+  return true;
+}
+}  // namespace
+
 namespace internal {
-uint32_t timePointToRaw(std::chrono::system_clock::time_point timePoint, bool isLogged) {
+bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, FileKeyKind kind,
+    const kosak::coding::FailFrame &ff) {
+  if (!tryCheckRange("year", year, 1970, 2100 + 1, ff.nest(HERE)) ||
+      !tryCheckRange("month", month, 1, 12 + 1, ff.nest(HERE)) ||
+      !tryCheckRange("day", year, 1, 31 + 1, ff.nest(HERE))) {
+    return false;
+  }
+  auto allowLogged = kind != FileKeyKind::Unlogged;
+  auto allowUnlogged = kind != FileKeyKind::Logged;
+  if ((isLogged && !allowLogged) || (!isLogged && !allowUnlogged)) {
+    return ff.failf(HERE, "isLogged is %o but kind is %o", isLogged, (int)kind);
+  }
+  return true;
+}
+
+bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
+    uint32_t *result, const FailFrame &ff) {
   std::time_t tt = std::chrono::system_clock::to_time_t(timePoint);
   struct tm tm = {};
   (void)gmtime_r(&tt, &tm);
-  auto temp = FileKey<FileKeyKind::Either>::createUnsafe(tm.tm_year, tm.tm_mon + 1, tm.tm_mday, isLogged);
-  return temp.raw();
+  auto year = tm.tm_year + 1900;
+  auto month = tm.tm_mon + 1;
+  auto day = tm.tm_mday;
+  auto kind = isLogged ? FileKeyKind::Logged : FileKeyKind::Unlogged;
+  if (!tryValidate(year, month, day, isLogged, kind, ff.nest(HERE))) {
+    return false;
+  }
+  *result = FileKey<FileKeyKind::Either>::createUnsafe2(year, month, day, isLogged).raw();
+  return true;
 }
 }  // namespace internal
 }  // namespace z2kplus::backend::files

@@ -31,10 +31,10 @@ namespace z2kplus::backend::files {
 enum class FileKeyKind { Logged, Unlogged, Either };
 
 namespace internal {
-bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
-    uint32_t *result, const kosak::coding::FailFrame &ff);
 bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, FileKeyKind kind,
     const kosak::coding::FailFrame &ff);
+bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
+    uint32_t *result, const kosak::coding::FailFrame &ff);
 }  // namespace internal
 
 // Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
