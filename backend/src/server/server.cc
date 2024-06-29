@@ -298,6 +298,9 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
     InterFileRange<FileKeyKind::Logged> loggedRange(loggedStartPosition, loggedEndPosition);
     InterFileRange<FileKeyKind::Unlogged> unloggedRange(unloggedStartPosition, unloggedEndPosition);
 
+    warn("OK loggedRange is %o", loggedRange);
+    warn("and unloggedRange is %o", unloggedRange);
+
     // Start the reindexing thread.
     return ReindexingState::tryCreate(coordinator_.pathMaster(), todo_, loggedRange,
         unloggedRange, &reindexingState_, ff.nest(HERE));
