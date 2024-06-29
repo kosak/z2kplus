@@ -34,7 +34,7 @@ std::ostream &operator<<(std::ostream &s, const LogLocation &o) {
 namespace {
 bool tryCheckRange(const char *what, size_t value, size_t begin, size_t end, const FailFrame &ff) {
   if ((value < begin) || (value >= end)) {
-    return ff.failf(HERE, "{0} not in rangge [%o,%o)", value, begin, end);
+    return ff.failf(HERE, "{%o} not in range [%o,%o)", value, begin, end);
   }
   return true;
 }
@@ -45,7 +45,7 @@ bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, Fil
     const kosak::coding::FailFrame &ff) {
   if (!tryCheckRange("year", year, 1970, 2100 + 1, ff.nest(HERE)) ||
       !tryCheckRange("month", month, 1, 12 + 1, ff.nest(HERE)) ||
-      !tryCheckRange("day", year, 1, 31 + 1, ff.nest(HERE))) {
+      !tryCheckRange("day", day, 1, 31 + 1, ff.nest(HERE))) {
     return false;
   }
   auto allowLogged = kind != FileKeyKind::Unlogged;
@@ -68,7 +68,7 @@ bool tryCreateRawFromTimePoint(std::chrono::system_clock::time_point timePoint, 
   if (!tryValidate(year, month, day, isLogged, kind, ff.nest(HERE))) {
     return false;
   }
-  *result = FileKey<FileKeyKind::Either>::createUnsafe2(year, month, day, isLogged).raw();
+  *result = FileKey<FileKeyKind::Either>::createUnsafe(year, month, day, isLogged).raw();
   return true;
 }
 }  // namespace internal

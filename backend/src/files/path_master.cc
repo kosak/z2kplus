@@ -183,7 +183,10 @@ bool tryGetPlaintextsHelper(const std::string &root, bool expectLogged,
           fullName);
     }
 
-    auto fk = FileKey<FileKeyKind::Either>::createUnsafe(year, month, day, logged);
+    FileKey<FileKeyKind::Either> fk;
+    if (!FileKey<FileKeyKind::Either>::tryCreate(year, month, day, logged, &fk, f3.nest(HERE))) {
+      return false;
+    }
     return cb(fk, f3.nest(HERE));
   };
   return nsunix::tryEnumerateFilesAndDirsRecursively(root, &myCallback, ff.nest(HERE));

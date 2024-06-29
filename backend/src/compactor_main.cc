@@ -121,7 +121,11 @@ bool tryRun(int argc, char **argv, const FailFrame &ff) {
   }
 
   for (const auto &[group, keys] : grouped) {
-    auto destFk = FileKey<FileKeyKind::Either>::createUnsafe(group.year_, group.month_, group.day_, group.isLogged_);
+    FileKey<FileKeyKind::Either> destFk;
+    if (!FileKey<FileKeyKind::Either>::tryCreate(group.year_, group.month_, group.day_, group.isLogged_,
+        &destFk, ff.nest(HERE))) {
+      return false;
+    }
     auto srcPrefix = pm->getPlaintextPath(destFk);
     auto destFilename = pm->getPlaintextPath(destFk);
 

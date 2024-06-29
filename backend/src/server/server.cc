@@ -286,7 +286,11 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
 
     FilePosition<FileKeyKind::Logged> loggedStartPosition;  // zero
 
-    auto unloggedStartKey = FileKey<FileKeyKind::Unlogged>::createFromTimePoint(now - magicConstants::unloggedLifespan);
+    FileKey<FileKeyKind::Unlogged> unloggedStartKey;
+    if (!FileKey<FileKeyKind::Unlogged>::tryCreateFromTimePoint(now - magicConstants::unloggedLifespan,
+      &unloggedStartKey, ff.nest(HERE))) {
+      return false;
+    }
     FilePosition<FileKeyKind::Unlogged> unloggedStartPosition(unloggedStartKey, 0);
 
     FilePosition<FileKeyKind::Logged> loggedEndPosition;

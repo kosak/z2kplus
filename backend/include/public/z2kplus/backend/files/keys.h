@@ -56,11 +56,11 @@ public:
     if (!internal::tryValidate(year, month, day, isLogged, Kind, ff.nest(KOSAK_CODING_HERE))) {
       return false;
     }
-    *result = createUnsafe2(year, month, day, isLogged);
+    *result = createUnsafe(year, month, day, isLogged);
     return true;
   }
 
-  static constexpr FileKey createUnsafe2(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
+  static constexpr FileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
     auto raw = year;
     raw = raw * 100 + month;
     raw = raw * 100 + day;
