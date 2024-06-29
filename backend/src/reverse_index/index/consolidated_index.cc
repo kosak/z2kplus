@@ -82,9 +82,12 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
     std::vector<DynamicIndex::logRecordAndLocation_t> *result, const FailFrame &ff);
 
 template<FileKeyKind Kind>
-FilePosition<Kind> calcStart(const std::vector<IntraFileRange<Kind>> &ranges,
-    std::chrono::system_clock::time_point now) {
-  auto fk = FileKey<Kind>::createFromTimePoint(now);
+FilePosition<Kind> tryCalcStart(const std::vector<IntraFileRange<Kind>> &ranges,
+    std::chrono::system_clock::time_point now, const FailFrame &ff) {
+  FileKey<Kind>::fk;
+  if (!FileKey<Kind>::tryCreateFromTimePoint(now, &fk, ff.nest(HERE))) {
+    return false;
+  }
   FilePosition<Kind> proposedStart(fk, 0);
 
   if (!ranges.empty()) {

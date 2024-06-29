@@ -31,7 +31,10 @@ namespace z2kplus::backend::files {
 enum class FileKeyKind { Logged, Unlogged, Either };
 
 namespace internal {
-uint32_t timePointToRaw(std::chrono::system_clock::time_point timePoint, bool isLogged);
+bool tryCreateFromTimePoint(std::chrono::system_clock::time_point timePoint, bool isLogged,
+    FileKey);
+bool tryValidate(uint32_t year, uint32_t month, uint32_t day, bool isLogged, FileKeyKind kind,
+    const kosak::coding::FailFrame &ff);
 }  // namespace internal
 
 // Defines a key (yyyy, mm, dd, {logged=true, unlogged=false}) that uniquely
@@ -41,13 +44,23 @@ uint32_t timePointToRaw(std::chrono::system_clock::time_point timePoint, bool is
 // Logged, Unlogged, Either
 template<FileKeyKind Kind>
 class FileKey {
-private:
+  using FailFrame = kosak::coding::FailFrame;
+
   explicit constexpr FileKey(uint32_t raw) : raw_(raw) {}
 
 public:
   static FileKey infinity;
 
-  static constexpr FileKey createUnsafe(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
+  static bool tryCreate(uint32_t year, uint32_t month, uint32_t day, bool isLogged,
+      FileKey *result, const FailFrame &ff) {
+    if (!internal::tryValidate(year, month, day, isLogged, Kind, ff.nest(KOSAK_CODING_HERE))) {
+      return false;
+    }
+    *result = createUnsafe2(year, month, day, isLogged);
+    return true;
+  }
+
+  static constexpr FileKey createUnsafe2(uint32_t year, uint32_t month, uint32_t day, bool isLogged) {
     auto raw = year;
     raw = raw * 100 + month;
     raw = raw * 100 + day;
@@ -66,10 +79,11 @@ public:
     return temp;
   }
 
-  static FileKey createFromTimePoint(std::chrono::system_clock::time_point timePoint) {
+  static bool tryCreateFromTimePoint(std::chrono::system_clock::time_point timePoint,
+      FileKey *result, const FailFrame &ff) {
     static_assert(Kind != FileKeyKind::Either);
-    auto raw = internal::timePointToRaw(timePoint, Kind == FileKeyKind::Logged);
-    return FileKey(raw);
+    return internal::tryCreateFromTimePoint(timePoint, Kind == FileKeyKind::Logged,
+        result, ff.nest(KOSAK_CODING_HERE));
   }
 
   constexpr FileKey() : raw_(Kind == FileKeyKind::Logged ? 1 : 0) {
