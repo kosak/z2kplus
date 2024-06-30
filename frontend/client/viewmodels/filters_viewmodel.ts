@@ -13,39 +13,22 @@
 // limitations under the License.
 
 import {Filter} from "../../shared/protocol/misc";
-const moment = require("moment");
+import {Z2kState} from "../z2kstate";
 
 export class FiltersViewModel {
-    private readonly filters: {[uniqueId: string]: Filter}
+    private filters: Filter[];
 
-    constructor() {
-        this.filters = {};
+    constructor(readonly state: Z2kState) {
+        this.filters = [];
     }
 
-    add(filter: Filter) {
-        const nowMillis = Date.now();
-        const expirationMillis = filter.expirationSecs * 1000;
-        if (nowMillis >= expirationMillis) {
-            return;
-        }
-        const delay = expirationMillis - nowMillis;
-        const id = filter.id;
-        this.filters[id] = filter;
-        console.log("Adding filter: " + filter);
-        console.log(filter);
-        console.log(delay);
-        if (delay < 2147483647) {
-            setTimeout(() => { delete this.filters[id]; }, delay);
-        }
-    }
-
-    remove(id: string) {
-        delete this.filters[id];
+    reset(filters: Filter[]) {
+        this.filters = filters;
     }
 
     matchesAny(strongOnly: boolean, sender: string, instance: string) {
         // Because there are so few filters, we don't bother to be efficient
-        for (const [key, filter] of Object.entries(this.filters)) {
+        for (const filter of this.filters) {
             if (matches(filter, sender, instance, strongOnly)) {
                 return true;
             }
@@ -53,8 +36,12 @@ export class FiltersViewModel {
         return false;
     }
 
+    get allFilterViewModels() {
+        return this.allFilters.map(f => new FilterViewModel(this, this.state, f));
+    }
+
     get allFilters() {
-        return Object.values(this.filters).map(f => new FilterViewModel(this, f));
+        return this.filters;
     }
 }
 
@@ -75,11 +62,7 @@ function matches(filter: Filter, sender: string, instance: string, strongOnly: b
 }
 
 export class FilterViewModel {
-    constructor(readonly owner: FiltersViewModel, readonly filter: Filter) {}
-
-    get id() {
-        return this.filter.id;
-    }
+    constructor(readonly owner: FiltersViewModel, readonly state: Z2kState, readonly filter: Filter) {}
 
     get sender() {
         return this.filter.sender;
@@ -97,35 +80,26 @@ export class FilterViewModel {
         return this.filter.strong;
     }
 
-    get expirationSecs() {
-        return this.filter.expirationSecs;
-    }
-
     get humanReadableDescription() {
         const items: string[] = [];
         if (this.sender !== undefined) {
-            items.push(`sender:"${this.sender}"`);
+            items.push(this.sender);
         }
         if (this.instanceExact !== undefined) {
-            items.push(`instance:"${this.instanceExact}"`);
+            items.push(`"${this.instanceExact}"`);
         }
         if (this.instancePrefix !== undefined) {
-            items.push(`instance starts with:"${this.instancePrefix}"`);
+            items.push(`"${this.instancePrefix}"...`);
         }
         if (items.length === 0) {
-            return "(match all)";
+            return "[nothing]";
         }
         const joined = items.join(",");
         const weakOrStrong = this.strong ? "strong" : "weak";
         return `${joined} [${weakOrStrong}]`;
     }
 
-    get humanReadableExpiration() {
-        const m = moment.unix(this.expirationSecs);
-        return m.format("lll");
-    }
-
     removeSelf() {
-        this.owner.remove(this.id);
+        this.state.removeFilter(this.filter);
     }
 }

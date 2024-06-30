@@ -396,6 +396,9 @@ void Server::handleNonSubRequest(DRequest &&req, Subscription *sub,
     void operator()(drequests::GetSpecificZgrams &&o) const {
       coordinator_->getSpecificZgrams(sub_, std::move(o), responses_);
     }
+    void operator()(drequests::ProposeFilters &&o) const {
+      coordinator_->proposeFilters(sub_, std::move(o), responses_);
+    }
     void operator()(drequests::Ping &&o) const {
       coordinator_->ping(sub_, std::move(o), responses_);
     }

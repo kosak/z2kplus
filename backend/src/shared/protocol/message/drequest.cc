@@ -97,6 +97,18 @@ std::ostream &operator<<(std::ostream &s, const GetSpecificZgrams &o) {
 }
 DEFINE_TYPICAL_JSON(GetSpecificZgrams, zgramIds_);
 
+ProposeFilters::ProposeFilters() = default;
+ProposeFilters::ProposeFilters(uint64_t basedOnVersion, bool theseFiltersAreNew, std::vector<Filter> filters) :
+  basedOnVersion_(basedOnVersion), theseFiltersAreNew_(theseFiltersAreNew), filters_(std::move(filters)) {}
+ProposeFilters::ProposeFilters(ProposeFilters &&) noexcept = default;
+ProposeFilters &ProposeFilters::operator=(ProposeFilters &&) noexcept = default;
+ProposeFilters::~ProposeFilters() = default;
+
+std::ostream &operator<<(std::ostream &s, const ProposeFilters &o) {
+  return streamf(s, "ProposeFilters(%o, %o, %o)", o.basedOnVersion_, o.theseFiltersAreNew_, o.filters_);
+}
+DEFINE_TYPICAL_JSON(ProposeFilters, basedOnVersion_, theseFiltersAreNew_, filters_);
+
 std::ostream &operator<<(std::ostream &s, const Ping &o) {
   return streamf(s, "Ping(%o)", o.cookie_);
 }
@@ -106,13 +118,14 @@ DEFINE_VARIANT_JSON(DRequestPayloadHolder, drequestPayload_t);
 }  // namespace drequests
 
 DRequest::DRequest() = default;
-DRequest::DRequest(drequests::CheckSyntax &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::Subscribe &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::GetMoreZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::PostZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::PostMetadata &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::GetSpecificZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::Ping &&o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::CheckSyntax o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::Subscribe o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::GetMoreZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostMetadata o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::GetSpecificZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::ProposeFilters o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::Ping o) : payload_(std::move(o)) {}
 DRequest::DRequest(DRequest &&) noexcept = default;
 DRequest &DRequest::operator=(DRequest &&) noexcept = default;
 DRequest::~DRequest() = default;

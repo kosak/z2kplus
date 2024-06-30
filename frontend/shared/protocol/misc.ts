@@ -1,4 +1,4 @@
-// Copyright 2023 The Z2K Plus+ Authors
+// Copyright 2023-2024 The Z2K Plus+ Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import {
-  assertAndDestructure2, assertAndDestructure6, assertArrayOfLength,
-  assertBoolean, assertEnum, assertNumber, assertString, optionalToJson, optionalTryParseJson,
+  assertAndDestructure2, assertAndDestructure4, assertArray, assertArrayOfLength,
+  assertBoolean, assertNumber, assertString, optionalToJson, optionalTryParseJson,
 } from "../json_util";
-import {booleanCompare, IComparable} from "../utility";
+import {booleanCompare, IComparable, intercalate} from "../utility";
 
 export class Unit implements IComparable<Unit> {
   private static readonly instance = new Unit();
@@ -98,35 +98,47 @@ export class Estimates {
 
 export class Filter {
   constructor(
-      readonly id: string,
       readonly sender: string | undefined, readonly instanceExact: string | undefined,
-      readonly instancePrefix: string | undefined, readonly strong: boolean,
-      readonly expirationSecs: number) {
+      readonly instancePrefix: string | undefined, readonly strong: boolean) {
   }
 
   toJson() {
     return [
-        this.id,
         optionalToJson(this.sender, i => i),
         optionalToJson(this.instanceExact, i => i),
         optionalToJson(this.instancePrefix, i => i),
-        this.strong,
-        this.expirationSecs];
+        this.strong];
   }
 
   static tryParseJson(item: any) {
-    let [id, sd, ix, ip, st, ex] = assertAndDestructure6(item,
-        assertString,
+    const [sd, ix, ip, st] = assertAndDestructure4(item,
         i => optionalTryParseJson(i, assertString),
         i => optionalTryParseJson(i, assertString),
         i => optionalTryParseJson(i, assertString),
-        assertBoolean,
-        assertNumber);
-    return new Filter(id, sd, ix, ip, st, ex);
+        assertBoolean);
+    return new Filter(sd, ix, ip, st);
   }
 
   toString() {
-    return `Filter(${this.id}, ${this.sender}, ${this.instanceExact}, ${this.instancePrefix}, ${this.strong}, ` +
-      `${this.expirationSecs})`;
+    return `Filter(${this.sender}, ${this.instanceExact}, ${this.instancePrefix}, ${this.strong}`;
+  }
+}
+
+export class LocalStorageFilters {
+  constructor(readonly version: number, readonly filters: Filter[]) {}
+
+  toJson() {
+    return [this.version, this.filters.map(f => f.toJson())];
+  }
+
+  static tryParseJson(item: any) {
+    const [v, fs] = assertAndDestructure2(item, assertNumber, assertArray);
+    const filters = fs.map(Filter.tryParseJson);
+    return new LocalStorageFilters(v, filters);
+  }
+
+  toString() {
+    const text = intercalate(", ", x => x.toString(), this.filters);
+    return `LocalStorageFilters(${this.version}, ${text})`;
   }
 }

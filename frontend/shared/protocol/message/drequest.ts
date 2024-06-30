@@ -16,15 +16,17 @@ import {MetadataRecord, SearchOrigin, ZgramCore, ZgramId} from "../zephyrgram";
 import {
   assertAndDestructure1,
   assertAndDestructure2,
+  assertAndDestructure3,
   assertAndDestructure4,
   assertArray,
   assertBoolean,
   assertEnum,
   assertNumber,
-  assertString
+  assertString, optionalToJson, optionalTryParseJson
 }
   from "../../json_util";
-import {makeCommaSeparatedList, Optional, Pair, staticFail} from "../../utility";
+import {intercalate, makeCommaSeparatedList, Optional, Pair, staticFail} from "../../utility";
+import {Filter} from "../misc";
 
 export namespace drequests {
   export class CheckSyntax {
@@ -148,7 +150,34 @@ export namespace drequests {
     }
   }
 
-  export class Ping {
+  export class ProposeFilters {
+    constructor(public readonly basedOnVersion: number, public readonly theseFiltersAreNew: boolean,
+        public readonly filters: Filter[]) {
+    }
+
+    toJson() {
+      return [
+        this.basedOnVersion,
+        this.theseFiltersAreNew,
+        this.filters.map(f => f.toJson())
+      ];
+    }
+
+    static tryParseJson(item: any) {
+      const [bov, fan, fs] = assertAndDestructure3(item,
+          assertNumber, assertBoolean, assertArray);
+      const filters = fs.map(Filter.tryParseJson);
+      return new ProposeFilters(bov, fan, filters);
+    }
+
+    toString() {
+      var filtersList = intercalate(", ", f => f.toString(), this.filters);
+      return `Filter(${this.basedOnVersion}, ${this.theseFiltersAreNew}, ${filtersList})`;
+    }
+  }
+
+
+export class Ping {
     constructor(readonly cookie: number) {
     }
 
@@ -177,10 +206,12 @@ namespace drequestInfo {
     GetMoreZgrams = "GetMoreZgrams",
     // Post new zgrams
     PostZgrams = "PostZgrams",
-    // Get specific zgrams that you happen to care about (e.g. those that appear in a refers-to)
-    GetSpecificZgrams = "GetSpecificZgrams",
     // Post new metadata
     PostMetadata = "PostMetadata",
+    // Get specific zgrams that you happen to care about (e.g. those that appear in a refers-to)
+    GetSpecificZgrams = "GetSpecificZgrams",
+    // Propose new filters
+    ProposeFilters = "ProposeFilters",
     // For debugging. A round-trip to the server. When you get the Ack back, you know that the
     // server has processed all your requests up through the Ack.
     Ping = "Ping",
@@ -188,7 +219,7 @@ namespace drequestInfo {
 
   export type payload_t = drequests.CheckSyntax | drequests.Subscribe |
       drequests.GetMoreZgrams | drequests.PostZgrams | drequests.PostMetadata |
-      drequests.GetSpecificZgrams | drequests.Ping;
+      drequests.GetSpecificZgrams | drequests.ProposeFilters | drequests.Ping;
 
   export interface ICheckSyntax {
     readonly tag: Tag.CheckSyntax;
@@ -210,14 +241,19 @@ namespace drequestInfo {
     readonly payload: drequests.PostZgrams;
   }
 
+  export interface IPostMetadata {
+    readonly tag: Tag.PostMetadata;
+    readonly payload: drequests.PostMetadata;
+  }
+
   export interface IGetSpecificZgrams {
     readonly tag: Tag.GetSpecificZgrams;
     readonly payload: drequests.GetSpecificZgrams;
   }
 
-  export interface IPostMetadata {
-    readonly tag: Tag.PostMetadata;
-    readonly payload: drequests.PostMetadata;
+  export interface IProposeFilters {
+    readonly tag: Tag.ProposeFilters;
+    readonly payload: drequests.ProposeFilters;
   }
 
   export interface IPing {
@@ -238,13 +274,15 @@ namespace drequestInfo {
 
     visitPostMetadata(o: drequests.PostMetadata): TResult;
 
+    visitProposeFilters(o: drequests.ProposeFilters): TResult;
+
     visitPing(o: drequests.Ping): TResult;
   }
 }  // namespace drequestInfo
 
 export type IDRequest = drequestInfo.ICheckSyntax | drequestInfo.ISubscribe |
     drequestInfo.IGetMoreZgrams | drequestInfo.IPostZgrams | drequestInfo.IGetSpecificZgrams |
-    drequestInfo.IPostMetadata | drequestInfo.IPing;
+    drequestInfo.IPostMetadata | drequestInfo.IProposeFilters | drequestInfo.IPing;
 
 export class DRequest {
   static createCheckSyntax(query: string) {
@@ -261,11 +299,15 @@ export class DRequest {
   static createPostZgrams(zgPairs: Pair<ZgramCore, Optional<ZgramId>>[]) {
     return new DRequest(drequestInfo.Tag.PostZgrams, new drequests.PostZgrams(zgPairs));
   }
+  static createGetSpecificZgrams(zgramIds: ZgramId[]) {
+    return new DRequest(drequestInfo.Tag.GetSpecificZgrams, new drequests.GetSpecificZgrams(zgramIds));
+  }
   static createPostMetadata(metadata: MetadataRecord[]) {
     return new DRequest(drequestInfo.Tag.PostMetadata, new drequests.PostMetadata(metadata));
   }
-  static createGetSpecificZgrams(zgramIds: ZgramId[]) {
-    return new DRequest(drequestInfo.Tag.GetSpecificZgrams, new drequests.GetSpecificZgrams(zgramIds));
+  static createProposeFilters(basedOnVersion: number, theseFiltersAreNew: boolean, filters: Filter[]) {
+    return new DRequest(drequestInfo.Tag.ProposeFilters, new drequests.ProposeFilters(basedOnVersion,
+        theseFiltersAreNew, filters));
   }
   static createPing(cookie: number) {
     return new DRequest(drequestInfo.Tag.Ping, new drequests.Ping(cookie));
@@ -283,6 +325,7 @@ export class DRequest {
       case drequestInfo.Tag.PostZgrams: return visitor.visitPostZgrams(idreq.payload);
       case drequestInfo.Tag.PostMetadata: return visitor.visitPostMetadata(idreq.payload);
       case drequestInfo.Tag.GetSpecificZgrams: return visitor.visitGetSpecificZgrams(idreq.payload);
+      case drequestInfo.Tag.ProposeFilters: return visitor.visitProposeFilters(idreq.payload);
       case drequestInfo.Tag.Ping: return visitor.visitPing(idreq.payload);
       default: staticFail(idreq);
     }
@@ -309,6 +352,7 @@ export class DRequest {
       case drequestInfo.Tag.PostZgrams: payload = drequests.PostZgrams.tryParseJson(item1); break;
       case drequestInfo.Tag.PostMetadata: payload = drequests.PostMetadata.tryParseJson(item1); break;
       case drequestInfo.Tag.GetSpecificZgrams: payload = drequests.GetSpecificZgrams.tryParseJson(item1); break;
+      case drequestInfo.Tag.ProposeFilters: payload = drequests.ProposeFilters.tryParseJson(item1); break;
       case drequestInfo.Tag.Ping: payload = drequests.Ping.tryParseJson(item1); break;
       default: throw staticFail(tag);
     }

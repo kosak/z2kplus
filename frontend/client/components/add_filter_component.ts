@@ -20,18 +20,9 @@ export const addFilterComponent = {
     },
     template: `
       <div>
-      <div v-for="item in self.whichChoices" class="form-check form-check-inline">
+      <div v-for="item in self.whichFilters" class="form-check form-check-inline">
         <label class="form-check-label">
-          <input tabIndex="-1" class="form-check-input" type="radio" v-model="self.which" :value="item.tag">
-          {{ item.text }}
-        </label>
-      </div>
-      </div>
-
-      <div>
-      <div v-for="item in self.whichDurations" class="form-check form-check-inline">
-        <label class="form-check-label">
-          <input tabIndex="-1" class="form-check-input" type="radio" v-model="self.duration" :value="item.tag">
+          <input tabIndex="-1" class="form-check-input" type="checkbox" v-model="item.selected">
           {{ item.text }}
         </label>
       </div>

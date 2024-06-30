@@ -23,6 +23,7 @@ import {DRequest} from "../../shared/protocol/message/drequest";
 import {nextTick} from "vue";
 import {PlusPlusesViewModel} from "./pluspluses_viewmodel";
 import {AddFilterViewModel} from "./add_filter_viewmodel";
+import {SessionStatus} from "../session_status";
 
 const moment = require("moment")
 
@@ -43,7 +44,8 @@ export class ZgramViewModel {
     refersTo: ZgramId | undefined;
     referLookupRequested: boolean;
 
-    constructor(private state: Z2kState, private readonly zgram: Zephyrgram) {
+    constructor(private state: Z2kState, private readonly sessionStatus: SessionStatus,
+        private readonly zgram: Zephyrgram) {
         this.zgramVersions = [zgram.zgramCore];
         this.versionSelector = 0;
         this.maxVersion = 0;
@@ -128,6 +130,9 @@ export class ZgramViewModel {
     }
 
     get weaklyHidden() {
+        if (!this.sessionStatus.filtersEnabled) {
+            return false;
+        }
         if (this.weaklyHiddenOverride) {
             return false;
         }
@@ -135,6 +140,9 @@ export class ZgramViewModel {
     }
 
     get stronglyHidden() {
+        if (!this.sessionStatus.filtersEnabled) {
+            return false;
+        }
         return this.state.filtersViewModel.matchesAny(true, this.sender, this.instance);
     }
 
@@ -369,25 +377,22 @@ export class ZgramViewModel {
     }
 
     private makeQueryOnSender() {
-        const queryText = `sender:${this.sender}`;
         const searchOrigin = SearchOrigin.ofZgramId(this.zgramId);
-        return new InitialQuery(queryText, searchOrigin);
+        return InitialQuery.ofSender(this.sender, searchOrigin);
     }
 
     private makeQueryOnInstance() {
-        const escaped = escapeQuotes(this.instance);
-        const queryText = `instance:^literally("${escaped}")`;
         const searchOrigin = SearchOrigin.ofZgramId(this.zgramId);
-        return new InitialQuery(queryText, searchOrigin);
+        return InitialQuery.ofInstance(this.instance, searchOrigin);
     }
 
     private makeQueryOnTimestamp() {
         const searchOrigin = SearchOrigin.ofTimestamp(this.zgram.timesecs);
-        return new InitialQuery("", searchOrigin);
+        return InitialQuery.ofDefault(searchOrigin);
     }
 
     private makeQueryOnZgramId() {
-        return new InitialQuery(`zgramid(${this.zgramId.raw})`, SearchOrigin.ofEnd());
+        return InitialQuery.ofId(this.zgramId);
     }
 
     addRevision(newZgc: ZgramCore) {

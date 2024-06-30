@@ -174,6 +174,26 @@ private:
   DECLARE_TYPICAL_JSON(PlusPlusUpdate);
 };
 
+class FiltersUpdate {
+public:
+  FiltersUpdate();
+  FiltersUpdate(uint64_t version, std::vector<Filter> filters);
+  DISALLOW_COPY_AND_ASSIGN(FiltersUpdate);
+  DECLARE_MOVE_COPY_AND_ASSIGN(FiltersUpdate);
+  ~FiltersUpdate();
+
+  uint64_t version() const { return version_; }
+  std::vector<Filter> &filters() { return filters_; }
+  const std::vector<Filter> &filters() const { return filters_; }
+
+private:
+  uint64_t version_ = 0;
+  std::vector<Filter> filters_;
+
+  friend std::ostream &operator<<(std::ostream &s, const FiltersUpdate &o);
+  DECLARE_TYPICAL_JSON(FiltersUpdate);
+};
+
 class AckPing {
   typedef kosak::coding::FailFrame FailFrame;
   typedef kosak::coding::ParseContext ParseContext;
@@ -210,12 +230,12 @@ private:
 
 typedef std::variant<AckSyntaxCheck, AckSubscribe, AckMoreZgrams,
     EstimatesUpdate, MetadataUpdate, AckSpecificZgrams, PlusPlusUpdate,
-    AckPing, GeneralError> payload_t;
+    FiltersUpdate, AckPing, GeneralError> payload_t;
 
 DECLARE_VARIANT_JSON(PayloadHolder, payload_t,
     ("AckSyntaxCheck", "AckSubscribe", "AckMoreZgrams",
         "EstimatesUpdate", "MetadataUpdate", "AckSpecificZgrams", "PlusPlusUpdate",
-        "AckPing", "GeneralError"));
+        "FiltersUpdate", "AckPing", "GeneralError"));
 }  // namespace dresponses
 
 class DResponse {
@@ -228,6 +248,7 @@ public:
   explicit DResponse(dresponses::MetadataUpdate o);
   explicit DResponse(dresponses::AckSpecificZgrams o);
   explicit DResponse(dresponses::PlusPlusUpdate o);
+  explicit DResponse(dresponses::FiltersUpdate o);
   explicit DResponse(dresponses::AckPing o);
   explicit DResponse(dresponses::GeneralError o);
   DISALLOW_COPY_AND_ASSIGN(DResponse);

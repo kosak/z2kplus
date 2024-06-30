@@ -112,7 +112,10 @@ export class ZgramEditorViewModel {
         this.onSubmitOrClose(undefined);
     }
 
-    doReset() {
+    guiReset() {
+        if (!window.confirm("Are you sure you want to reset?")) {
+            return;
+        }
         this.reset();
     }
 

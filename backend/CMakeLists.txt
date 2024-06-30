@@ -194,7 +194,8 @@ set(TEST_FILES
         test/util/client_endpoint.cc
         test/util/fake_frontend.cc
         test/util/test_util.cc
-        )
+        test/test_filters.cc
+)
 
 add_executable(test_backend ${COMMON_FILES} ${TEST_FILES})
 add_executable(backend ${COMMON_FILES} src/backend_main.cc)

@@ -40,6 +40,7 @@ using kosak::coding::text::trim;
 using kosak::coding::toString;
 using kosak::coding::Unit;
 using z2kplus::backend::coordinator::Subscription;
+using z2kplus::backend::coordinator::internal::CachedFilters;
 using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::LogLocation;
@@ -304,6 +305,39 @@ void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
   responses->emplace_back(sub, dresponses::AckSpecificZgrams(std::move(zgrams)));
 }
 
+void Coordinator::proposeFilters(Subscription *sub, ProposeFilters &&o, std::vector<response_t> *responses) {
+  const auto &userId = sub->profile()->userId();
+  auto filterp = filters_.find(userId);
+  if (filterp != filters_.end()) {
+    auto yourVersion = o.basedOnVersion();
+    auto myVersion = filterp->second.version();
+    if (myVersion > yourVersion || (myVersion == yourVersion && !o.theseFiltersAreNew())) {
+      // In either case I'm going to send you my filter, either as update or just as confirmation
+      dresponses::FiltersUpdate update(filterp->second.version(), filterp->second.filters());
+      responses->emplace_back(sub, DResponse(std::move(update)));
+      return;
+    }
+  }
+
+  // Either I don't have a filter, or my filter lease is older than yours, or
+  // it's the same age but you've specified the "new" flag.
+  uint64_t versionToUse = o.basedOnVersion();
+  if (o.theseFiltersAreNew()) {
+    versionToUse = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  }
+
+  for (const auto &destSub : subscriptions_) {
+    if (userId != destSub->profile()->userId()) {
+      continue;
+    }
+    dresponses::FiltersUpdate update(versionToUse, o.filters());
+    responses->emplace_back(destSub.get(), DResponse(std::move(update)));
+  }
+
+  CachedFilters cachedFilters(versionToUse, std::move(o.filters()));
+  filters_.insert_or_assign(userId, std::move(cachedFilters));
+}
+
 void Coordinator::ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses) {
   responses->emplace_back(sub, dresponses::AckPing(o.cookie()));
 }
@@ -550,5 +584,14 @@ bool Coordinator::trySanitize(const Profile &profile, std::vector<MetadataRecord
   }
   records->erase(destIt, records->end());
   return true;
+}
+
+namespace internal {
+CachedFilters::CachedFilters() = default;
+CachedFilters::CachedFilters(uint64_t version, std::vector<Filter> filters) :
+  version_(version), filters_(std::move(filters)) {}
+CachedFilters::CachedFilters(CachedFilters &&) noexcept = default;
+CachedFilters &CachedFilters::operator=(CachedFilters &&) noexcept = default;
+CachedFilters::~CachedFilters() = default;
 }
 }  // namespace z2kplus::backend::server

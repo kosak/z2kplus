@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Estimates} from "../misc";
+import {Estimates, Filter} from "../misc";
 import {MetadataRecord, Zephyrgram, ZgramId} from "../zephyrgram";
 import {
   assertAndDestructure1, assertAndDestructure2, assertAndDestructure3,
   assertArray, assertArrayOfLength, assertBoolean, assertEnum, assertNumber, assertString
 } from "../../json_util";
-import {staticFail} from "../../utility";
+import {intercalate, staticFail} from "../../utility";
 
 export namespace dresponses {
   export class AckSyntaxCheck {
@@ -173,6 +173,26 @@ export namespace dresponses {
     }
   }
 
+  export class FiltersUpdate {
+    constructor(readonly version: number, readonly filters: Filter[]) {
+    }
+
+    toJson() {
+      return [this.version, this.filters.map(f => f.toJson())];
+    }
+
+    static tryParseJson(item: any) {
+      const [v, fs] = assertAndDestructure2(item, assertNumber, assertArray);
+      const filters = fs.map(Filter.tryParseJson);
+      return new FiltersUpdate(v, filters);
+    }
+
+    toString() {
+      var text = intercalate(", ", x => x.toString(), this.filters);
+      return `FiltersUpdate(${this.version}, ${text})`;
+    }
+  }
+
   export class GeneralError {
     constructor(readonly message: string) {
     }
@@ -208,6 +228,8 @@ export namespace dresponseInfo {
     AckSpecificZgrams = "AckSpecificZgrams",
     // Plusplus values
     PlusPlusUpdate = "PlusPlusUpdate",
+    // Setting filters
+    FiltersUpdate = "FiltersUpdate",
     // For debugging. An acknowledgement of a Ping.
     AckPing = "AckPing",
     // When the server wants to complain about something but has nowhere else to say it.
@@ -217,7 +239,7 @@ export namespace dresponseInfo {
   export type payload_t =
       dresponses.AckSyntaxCheck | dresponses.AckSubscribe | dresponses.EstimatesUpdate |
       dresponses.AckMoreZgrams | dresponses.MetadataUpdate | dresponses.AckSpecificZgrams |
-      dresponses.PlusPlusUpdate | dresponses.AckPing | dresponses.GeneralError;
+      dresponses.PlusPlusUpdate | dresponses.FiltersUpdate | dresponses.AckPing | dresponses.GeneralError;
 
   export interface IAckSyntaxCheck {
     readonly tag: Tag.AckSyntaxCheck;
@@ -254,6 +276,11 @@ export namespace dresponseInfo {
     readonly payload: dresponses.PlusPlusUpdate;
   }
 
+  export interface IFiltersUpdate {
+    readonly tag: Tag.FiltersUpdate;
+    readonly payload: dresponses.FiltersUpdate;
+  }
+
   export interface IAckPing {
     readonly tag: Tag.AckPing;
     readonly payload: dresponses.AckPing;
@@ -279,6 +306,8 @@ export namespace dresponseInfo {
 
     visitPlusPlusUpdate(payload: dresponses.PlusPlusUpdate): TResult;
 
+    visitFiltersUpdate(payload: dresponses.FiltersUpdate): TResult;
+
     visitAckPing(payload: dresponses.AckPing): TResult;
 
     visitGeneralError(o: dresponses.GeneralError): TResult;
@@ -290,7 +319,8 @@ export type IDResponse =
     dresponseInfo.IEstimatesUpdate | dresponseInfo.IAckMoreZgrams |
     dresponseInfo.IAckSpecificZgrams |
     dresponseInfo.IMetadataUpdate | dresponseInfo.IPlusPlusUpdate |
-    dresponseInfo.IAckPing | dresponseInfo.IGeneralError;
+    dresponseInfo.IFiltersUpdate | dresponseInfo.IAckPing |
+    dresponseInfo.IGeneralError;
 
 export class DResponse {
   static createAckSyntaxCheck(query: string, valid: boolean, result: string) {
@@ -309,7 +339,11 @@ export class DResponse {
     return new DResponse(dresponseInfo.Tag.PlusPlusUpdate,
         new dresponses.PlusPlusUpdate(entries));
   }
-  static createMoreZgrams(forBackSide: boolean, zgrams: Zephyrgram[], estimates: Estimates) {
+  static createFiltersUpdate(version: number, filters: Filter[]) {
+    return new DResponse(dresponseInfo.Tag.FiltersUpdate,
+        new dresponses.FiltersUpdate(version, filters));
+  }
+  static createAckMoreZgrams(forBackSide: boolean, zgrams: Zephyrgram[], estimates: Estimates) {
     return new DResponse(dresponseInfo.Tag.AckMoreZgrams,
         new dresponses.AckMoreZgrams(forBackSide, zgrams, estimates));
   }
@@ -340,6 +374,8 @@ export class DResponse {
         return visitor.visitAckSpecificZgrams(idresp.payload);
       case dresponseInfo.Tag.PlusPlusUpdate:
         return visitor.visitPlusPlusUpdate(idresp.payload);
+      case dresponseInfo.Tag.FiltersUpdate:
+        return visitor.visitFiltersUpdate(idresp.payload);
       case dresponseInfo.Tag.AckPing:
         return visitor.visitAckPing(idresp.payload);
       case dresponseInfo.Tag.GeneralError:
@@ -366,6 +402,7 @@ export class DResponse {
       case dresponseInfo.Tag.MetadataUpdate: payload = dresponses.MetadataUpdate.tryParseJson(item1); break;
       case dresponseInfo.Tag.AckSpecificZgrams: payload = dresponses.AckSpecificZgrams.tryParseJson(item1); break;
       case dresponseInfo.Tag.PlusPlusUpdate: payload = dresponses.PlusPlusUpdate.tryParseJson(item1); break;
+      case dresponseInfo.Tag.FiltersUpdate: payload = dresponses.FiltersUpdate.tryParseJson(item1); break;
       case dresponseInfo.Tag.AckPing: payload = dresponses.AckPing.tryParseJson(item1); break;
       case dresponseInfo.Tag.GeneralError: payload = dresponses.GeneralError.tryParseJson(item1); break;
       default: throw staticFail(tag);

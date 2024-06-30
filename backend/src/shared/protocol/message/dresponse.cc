@@ -110,8 +110,20 @@ std::ostream &operator<<(std::ostream &s, const PlusPlusUpdate &o) {
 }
 DEFINE_TYPICAL_JSON(PlusPlusUpdate, updates_);
 
+FiltersUpdate::FiltersUpdate() = default;
+FiltersUpdate::FiltersUpdate(uint64_t version, std::vector<Filter> filters) :
+  version_(version), filters_(std::move(filters)) {}
+FiltersUpdate::FiltersUpdate(FiltersUpdate &&other) noexcept = default;
+FiltersUpdate &FiltersUpdate::operator=(FiltersUpdate &&other) noexcept = default;
+FiltersUpdate::~FiltersUpdate() = default;
+
+std::ostream &operator<<(std::ostream &s, const FiltersUpdate &o) {
+  return streamf(s, "FiltersUpdate(%o, %o)", o.version_, o.filters_);
+}
+DEFINE_TYPICAL_JSON(FiltersUpdate, version_, filters_);
+
 std::ostream &operator<<(std::ostream &s, const AckPing &o) {
-  return streamf(s, "Ack(%o)", o.cookie_);
+  return streamf(s, "AckPing(%o)", o.cookie_);
 }
 
 DEFINE_TYPICAL_JSON(AckPing, cookie_);
@@ -130,6 +142,7 @@ DResponse::DResponse(dresponses::EstimatesUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::MetadataUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckSpecificZgrams o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::PlusPlusUpdate o) : payload_(std::move(o)) {}
+DResponse::DResponse(dresponses::FiltersUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckPing o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::GeneralError o) : payload_(std::move(o)) {}
 DResponse::DResponse(DResponse &&) noexcept = default;

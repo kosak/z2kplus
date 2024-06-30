@@ -29,4 +29,6 @@ export namespace magicConstants {
   export const pingIntervalMs = 30 * 1000;
 
   export const z2kVirtualMediaPrefix = "z2kplusmedia://";
+
+  export const filtersLocalStorageKey = "filters";
 }

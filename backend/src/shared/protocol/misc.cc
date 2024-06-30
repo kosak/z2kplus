@@ -45,4 +45,22 @@ std::ostream &operator<<(std::ostream &s, const Estimates &o) {
 }
 
 DEFINE_TYPICAL_JSON(Estimates, front_, back_);
+
+Filter::Filter() = default;
+Filter::Filter(
+    std::optional<std::string> sender, std::optional<std::string> instanceExact,
+    std::optional<std::string> instancePrefix, bool strong) :
+    sender_(std::move(sender)), instanceExact_(std::move(instanceExact)),
+    instancePrefix_(std::move(instancePrefix)), strong_(strong) {}
+Filter::Filter(const Filter &other) = default;
+Filter::Filter(Filter &&other) noexcept = default;
+Filter &Filter::operator=(const Filter &other) = default;
+Filter &Filter::operator=(Filter &&other) noexcept = default;
+Filter::~Filter() = default;
+
+std::ostream &operator<<(std::ostream &s, const Filter &o) {
+  return streamf(s, "Filter(%o,%o,%o,%o)", o.sender_, o.instanceExact_, o.instancePrefix_, o.strong_);
+}
+
+DEFINE_TYPICAL_JSON(Filter, sender_, instanceExact_, instancePrefix_, strong_);
 }  // namespace z2kplus::backend::shared::protocol

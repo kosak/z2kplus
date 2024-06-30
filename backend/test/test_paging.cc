@@ -128,6 +128,7 @@ struct Pager {
   void operator()(dresponses::MetadataUpdate &&) {}
   void operator()(dresponses::AckSpecificZgrams &&) {}
   void operator()(dresponses::PlusPlusUpdate &&) {}
+  void operator()(dresponses::FiltersUpdate &&) {}
   void operator()(dresponses::AckPing &&) {}
   void operator()(dresponses::GeneralError &&o);
 

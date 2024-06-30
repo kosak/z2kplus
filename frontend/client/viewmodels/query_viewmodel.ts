@@ -48,7 +48,7 @@ export class QueryViewModel {
     }
 
     resetToIq(iq: InitialQuery) {
-        class MyHandler {
+        class SearchOriginVisitor {
             constructor(readonly owner: QueryViewModel) {}
             visitEnd() {
                 this.owner.startAt = StartAt.End;
@@ -64,8 +64,8 @@ export class QueryViewModel {
             }
         }
         this.reset();
-        this.query = iq.query;
-        iq.searchOrigin.acceptVisitor(new MyHandler(this));
+        this.query = iq.toQueryString();
+        iq.searchOrigin.acceptVisitor(new SearchOriginVisitor(this));
     }
 
     onFocused() {
@@ -78,7 +78,7 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        const query = new InitialQuery(sub.query, sub.searchOrigin);
+        const query = InitialQuery.ofGeneralQuery(sub.query, sub.searchOrigin);
         this.owner.openNewQuery(query);
     }
 

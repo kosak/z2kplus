@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as URI from "urijs";
-
 import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
-import {Estimates} from "../shared/protocol/misc";
+import {Estimates, Filter, LocalStorageFilters} from "../shared/protocol/misc";
 import {
     MetadataRecord,
-    RenderStyle,
     searchOriginInfo,
     userMetadata,
     zgMetadata,
@@ -64,6 +61,7 @@ export class Z2kState {
     // TODO: fix type
     readonly textSelection: any;
     private ackPingTimer: number | undefined;
+    private localStorageFilters: LocalStorageFilters;
 
     constructor() {
         this.host = window.location.host;
@@ -76,7 +74,7 @@ export class Z2kState {
         this.queryViewModel = new QueryViewModel(this);
         this.zmojisEditorViewModel = new ZmojisEditorViewModel(this);
         this.speechViewModel = new SpeechViewmodel();
-        this.filtersViewModel = new FiltersViewModel();
+        this.filtersViewModel = new FiltersViewModel(this);
         this.frontStreamStatus = new StreamStatusViewModel("ss-front", this, false);
         this.backStreamStatus = new StreamStatusViewModel("ss-back", this, true);
         this.currentlyHoveringZgram = undefined;
@@ -140,9 +138,9 @@ export class Z2kState {
             }
         };
 
-        this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
+        this.sessionManager.start(s => this.handleStateChange(s), d => this.handleDresponse(d));
         this.sessionStatus.queryOutstanding = true;
-        const iq = InitialQuery.createFromLocationOrDefault(document.location);
+        const iq = InitialQuery.createFromLocationOrDefault(window.location);
         this.queryViewModel.resetToIq(iq);
         if (iq.searchOrigin.tag === searchOriginInfo.Tag.End) {
             this.frontStreamStatus.setAppetite(magicConstants.initialQuerySize);
@@ -152,10 +150,24 @@ export class Z2kState {
             this.frontStreamStatus.setAppetite(half);
             this.backStreamStatus.setAppetite(half);
         }
-        const sub = DRequest.createSubscribe(iq.query, iq.searchOrigin, magicConstants.pageSize,
+        const queryString = iq.toQueryString();
+        const sub = DRequest.createSubscribe(queryString, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
+        // Need to send the first ping to start the keepalive process
         this.sendPing();
+
+        const localStorageFiltersAsText = window.localStorage.getItem(magicConstants.filtersLocalStorageKey);
+        if (localStorageFiltersAsText === null) {
+            this.localStorageFilters = new LocalStorageFilters(0, []);
+        } else {
+            const asObj = JSON.parse(localStorageFiltersAsText);
+            this.localStorageFilters = LocalStorageFilters.tryParseJson(asObj);
+        }
+
+        const proposal = DRequest.createProposeFilters(this.localStorageFilters.version, false,
+            this.localStorageFilters.filters);
+        this.sessionManager.sendDRequest(proposal);
     }
 
     loadNewPageWithDefaultQuery() {
@@ -189,6 +201,10 @@ export class Z2kState {
         this.sessionManager.reconnect();
     }
 
+    toggleFilters() {
+        this.sessionStatus.filtersEnabled = !this.sessionStatus.filtersEnabled;
+    }
+
     postZgram(zgram: ZgramCore, refersTo: ZgramId | undefined) {
         const zgPairs = [Pair.create(zgram, Optional.create(refersTo))];
         const post = DRequest.createPostZgrams(zgPairs);
@@ -217,11 +233,8 @@ export class Z2kState {
     }
 
     makeUriFor(query: InitialQuery) {
-        const iqJson = JSON.stringify(query.toJson());
-        // Surgically modify my current URL and put query=XXX in the search section.
-        const uri = new URI(document.location);
-        uri.search({query: iqJson});
-        return uri.toString();
+        const l = window.location;
+        return query.toUrl(l.origin + l.pathname);
     }
 
     private handleStateChange(state: SessionManagerState) {
@@ -257,7 +270,7 @@ export class Z2kState {
         if (resp.zgrams.length === 0) {
             return;
         }
-        const wrappedZgrams = resp.zgrams.map(zg => new ZgramViewModel(this, zg));
+        const wrappedZgrams = resp.zgrams.map(zg => new ZgramViewModel(this, this.sessionStatus, zg));
         for (const zvm of wrappedZgrams) {
             this.zgramDict[zvm.zgramId.raw] = zvm;
         }
@@ -289,6 +302,27 @@ export class Z2kState {
                 zg.doSpeak();
             }
         }
+    }
+
+    visitFiltersUpdate(resp: dresponses.FiltersUpdate) {
+        this.filtersViewModel.reset(resp.filters);
+        this.sessionStatus.hasFilters = resp.filters.length > 0;
+        this.localStorageFilters = new LocalStorageFilters(resp.version, resp.filters);
+        const ftext = JSON.stringify(this.localStorageFilters.toJson());
+        window.localStorage.setItem(magicConstants.filtersLocalStorageKey, ftext);
+    }
+
+    addFilter(newFilter: Filter) {
+        this.sessionStatus.filtersEnabled = true;
+        var newFilters = this.filtersViewModel.allFilters.concat(newFilter);
+        var proposal = DRequest.createProposeFilters(this.localStorageFilters.version, true, newFilters);
+        this.sessionManager.sendDRequest(proposal);
+    }
+
+    removeFilter(filterToRemove: Filter) {
+        var newFilters = this.filtersViewModel.allFilters.filter(f => f !== filterToRemove);
+        var proposal = DRequest.createProposeFilters(this.localStorageFilters.version, true, newFilters);
+        this.sessionManager.sendDRequest(proposal);
     }
 
     updateLastReadZgram(zgramId: ZgramId) {
@@ -335,7 +369,7 @@ export class Z2kState {
             if (this.zgramDict[raw] !== undefined) {
                 continue;
             }
-            this.zgramDict[raw] = new ZgramViewModel(this, zg);
+            this.zgramDict[raw] = new ZgramViewModel(this, this.sessionStatus, zg);
         }
     }
 
@@ -350,7 +384,6 @@ export class Z2kState {
     }
 
     private sendPing() {
-        console.log("sendPing");
         this.sessionManager.sendDRequest(DRequest.createPing(1));
         this.ackPingTimer = window.setTimeout(() => {
             this.sessionStatus.haveRecentPing = false;
@@ -358,7 +391,6 @@ export class Z2kState {
     }
 
     visitAckPing(resp: dresponses.AckPing) {
-        console.log("ackPing");
         window.clearTimeout(this.ackPingTimer);
         this.sessionStatus.haveRecentPing = true;
         window.setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
