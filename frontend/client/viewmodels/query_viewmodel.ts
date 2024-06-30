@@ -31,6 +31,7 @@ export class QueryViewModel {
     startAt: StartAt;
     specifiedZgramId: string;
     specifiedTimestamp: string;
+    inheritFilters: boolean;
     lastValidation: AckSyntaxCheck;
     private readonly rateLimiter: RateLimiter;
 
@@ -44,11 +45,12 @@ export class QueryViewModel {
         this.startAt = StartAt.End;
         this.specifiedZgramId = "";
         this.specifiedTimestamp = "";
+        this.inheritFilters = true;
         this.lastValidation = new AckSyntaxCheck("", true, "");
     }
 
     resetToIq(iq: InitialQuery) {
-        class MyHandler {
+        class SearchOriginVisitor {
             constructor(readonly owner: QueryViewModel) {}
             visitEnd() {
                 this.owner.startAt = StartAt.End;
@@ -64,8 +66,8 @@ export class QueryViewModel {
             }
         }
         this.reset();
-        this.query = iq.query;
-        iq.searchOrigin.acceptVisitor(new MyHandler(this));
+        this.query = iq.toQueryString();
+        iq.searchOrigin.acceptVisitor(new SearchOriginVisitor(this));
     }
 
     onFocused() {
@@ -78,7 +80,8 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        const query = new InitialQuery(sub.query, sub.searchOrigin);
+        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters : [];
+        const query = InitialQuery.ofGeneralQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }
 

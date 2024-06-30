@@ -369,25 +369,22 @@ export class ZgramViewModel {
     }
 
     private makeQueryOnSender() {
-        const queryText = `sender:${this.sender}`;
         const searchOrigin = SearchOrigin.ofZgramId(this.zgramId);
-        return new InitialQuery(queryText, searchOrigin);
+        return InitialQuery.ofSender(this.sender, searchOrigin, this.state.filtersViewModel.allFilters);
     }
 
     private makeQueryOnInstance() {
-        const escaped = escapeQuotes(this.instance);
-        const queryText = `instance:^literally("${escaped}")`;
         const searchOrigin = SearchOrigin.ofZgramId(this.zgramId);
-        return new InitialQuery(queryText, searchOrigin);
+        return InitialQuery.ofInstance(this.instance, searchOrigin, this.state.filtersViewModel.allFilters);
     }
 
     private makeQueryOnTimestamp() {
         const searchOrigin = SearchOrigin.ofTimestamp(this.zgram.timesecs);
-        return new InitialQuery("", searchOrigin);
+        return InitialQuery.ofDefault(searchOrigin, this.state.filtersViewModel.allFilters);
     }
 
     private makeQueryOnZgramId() {
-        return new InitialQuery(`zgramid(${this.zgramId.raw})`, SearchOrigin.ofEnd());
+        return InitialQuery.ofId(this.zgramId, this.state.filtersViewModel.allFilters);
     }
 
     addRevision(newZgc: ZgramCore) {
