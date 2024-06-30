@@ -82,7 +82,7 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters.map(fvm => fvm.filter) : [];
+        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters9 : [];
         const query = new InitialQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }
