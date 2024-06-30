@@ -42,7 +42,7 @@ export class AddFilterViewModel {
             new WhichDuration(Duration.OneHour, "One Hour"),
             new WhichDuration(Duration.OneDay, "One Day"),
             new WhichDuration(Duration.OneWeek, "One Week"),
-            new WhichDuration(Duration.FortySevenYears, "Forty Seven Years")
+            new WhichDuration(Duration.FortySevenYears, "Forty-seven Years")
         ];
     }
 

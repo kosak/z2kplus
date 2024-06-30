@@ -20,6 +20,8 @@ import {magicConstants} from "../../shared/magic_constants";
 import {dresponses} from "../../shared/protocol/message/dresponse";
 import AckSyntaxCheck = dresponses.AckSyntaxCheck;
 import {InitialQuery} from "../InitialQuery";
+import {Filter} from "../../shared/protocol/misc";
+import {FiltersViewModel} from "./filters_viewmodel";
 const moment = require("moment")
 
 // Strings because these are accessed by the HTML
@@ -31,10 +33,11 @@ export class QueryViewModel {
     startAt: StartAt;
     specifiedZgramId: string;
     specifiedTimestamp: string;
+    inheritFilters: boolean;
     lastValidation: AckSyntaxCheck;
     private readonly rateLimiter: RateLimiter;
 
-    constructor(private readonly owner: Z2kState) {
+    constructor(private readonly owner: Z2kState, private readonly filtersViewModel: FiltersViewModel) {
         this.rateLimiter = new RateLimiter(magicConstants.parseCheckIntervalMsec);
         this.reset();
     }
@@ -44,6 +47,7 @@ export class QueryViewModel {
         this.startAt = StartAt.End;
         this.specifiedZgramId = "";
         this.specifiedTimestamp = "";
+        this.inheritFilters = true;
         this.lastValidation = new AckSyntaxCheck("", true, "");
     }
 
@@ -78,7 +82,8 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        const query = new InitialQuery(sub.query, sub.searchOrigin);
+        var filters = this.inheritFilters ? this.filtersViewModel.allFilters.map(fvm => fvm.filter) : [];
+        const query = new InitialQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }
 

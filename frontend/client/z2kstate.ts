@@ -73,10 +73,10 @@ export class Z2kState {
         this.lastReadZgramId = undefined;
         this.composeViewModel = undefined;
         this.composeVisible = false;
-        this.queryViewModel = new QueryViewModel(this);
         this.zmojisEditorViewModel = new ZmojisEditorViewModel(this);
         this.speechViewModel = new SpeechViewmodel();
         this.filtersViewModel = new FiltersViewModel();
+        this.queryViewModel = new QueryViewModel(this, this.filtersViewModel);
         this.frontStreamStatus = new StreamStatusViewModel("ss-front", this, false);
         this.backStreamStatus = new StreamStatusViewModel("ss-back", this, true);
         this.currentlyHoveringZgram = undefined;

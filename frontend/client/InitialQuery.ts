@@ -13,11 +13,12 @@
 // limitations under the License.
 
 import {SearchOrigin} from "../shared/protocol/zephyrgram";
-import {assertAndDestructure2, assertString} from "../shared/json_util";
+import {Filter} from "../shared/protocol/misc"
+import {assertAndDestructure3, assertArray, assertArrayOfLength, assertString} from "../shared/json_util";
 
 export class InitialQuery {
     static createFromLocationOrDefault(location: Location) {
-        const defaultQuery = new InitialQuery("", SearchOrigin.ofEnd());
+        const defaultQuery = new InitialQuery("", SearchOrigin.ofEnd(), []);
         const search = new URLSearchParams(location.search.substring(1));
         const query = search.get("query");
         if (!query) {
@@ -32,15 +33,16 @@ export class InitialQuery {
         }
     }
 
-    constructor(readonly query: string, readonly searchOrigin: SearchOrigin) {
+    constructor(readonly query: string, readonly searchOrigin: SearchOrigin, readonly filters: Filter[]) {
     }
 
     toJson() {
-        return [this.query, this.searchOrigin.toJson()];
+        return [this.query, this.searchOrigin.toJson(), this.filters.map(f => f.toJson())];
     }
 
     static tryParseJson(item: any) {
-        const [q, so] = assertAndDestructure2(item, assertString, SearchOrigin.tryParseJson);
-        return new InitialQuery(q, so);
+        const [q, so, fs] = assertAndDestructure3(item, assertString, SearchOrigin.tryParseJson, assertArray);
+        const filters = fs.map(Filter.tryParseJson);
+        return new InitialQuery(q, so, filters);
     }
 }
