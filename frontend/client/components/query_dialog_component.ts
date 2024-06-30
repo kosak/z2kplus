@@ -91,9 +91,8 @@ export const queryDialogComponent = {
               <div class="col-sm-2">Inherit filters</div>
               <div class="col-sm-10">
                 <div class="form-check">
+                  <input tabIndex="-1" class="form-check-input" type="checkbox" v-model="self.inheritFilters">
                   <label class="form-check-label">
-                    <input tabIndex="-1" class="form-check-input" type="checkbox" v-model="self.inheritFilters">
-                    beginning
                   </label>
                 </div>
               </div>
