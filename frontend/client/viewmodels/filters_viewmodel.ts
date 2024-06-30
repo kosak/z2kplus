@@ -16,7 +16,7 @@ import {Filter} from "../../shared/protocol/misc";
 const moment = require("moment");
 
 export class FiltersViewModel {
-    private readonly filters: {[uniqueId: string]: Filter}
+    private filters: {[uniqueId: string]: Filter}
 
     constructor() {
         this.filters = {};
@@ -43,6 +43,13 @@ export class FiltersViewModel {
         delete this.filters[id];
     }
 
+    reset(filters: Filter[]) {
+        this.filters = {};
+        for (const filter of filters) {
+            this.add(filter);
+        }
+    }
+
     matchesAny(strongOnly: boolean, sender: string, instance: string) {
         // Because there are so few filters, we don't bother to be efficient
         for (const [key, filter] of Object.entries(this.filters)) {
@@ -54,10 +61,10 @@ export class FiltersViewModel {
     }
 
     get allFilterViewModels() {
-        return this.allFilters9.map(f => new FilterViewModel(this, f));
+        return this.allFilters.map(f => new FilterViewModel(this, f));
     }
 
-    get allFilters9() {
+    get allFilters() {
         return Object.values(this.filters);
     }
 }

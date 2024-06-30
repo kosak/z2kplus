@@ -20,8 +20,6 @@ import {magicConstants} from "../../shared/magic_constants";
 import {dresponses} from "../../shared/protocol/message/dresponse";
 import AckSyntaxCheck = dresponses.AckSyntaxCheck;
 import {InitialQuery} from "../InitialQuery";
-import {Filter} from "../../shared/protocol/misc";
-import {FiltersViewModel} from "./filters_viewmodel";
 const moment = require("moment")
 
 // Strings because these are accessed by the HTML
@@ -82,7 +80,7 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters9 : [];
+        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters : [];
         const query = new InitialQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }
