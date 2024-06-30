@@ -124,7 +124,7 @@ class ReactionViewModel {
         const escaped = escapeQuotes(this.text);
         const queryText = `hasreaction("${escaped}")`;
         const searchOrigin = SearchOrigin.ofZgramId(this.owner.zgramId);
-        const query = new InitialQuery(queryText, searchOrigin);
+        const query = new InitialQuery(queryText, searchOrigin, this.state.filtersViewModel.allFilters);
         this.state.openNewQuery(query);
     }
 

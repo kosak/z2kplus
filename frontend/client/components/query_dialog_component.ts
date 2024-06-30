@@ -74,20 +74,29 @@ export const queryDialogComponent = {
                   </div>
                 </div>
               </div>
-              <div  v-if="self.startAt === 'ZgramId'" class="row">
+              <div v-if="self.startAt === 'ZgramId'" class="row">
                 <div class="col-sm-2">Zgram ID</div>
                 <div class="col-sm-10">
                 <input tabIndex="-1" type="text" v-model="self.specifiedZgramId" placeholder="ZgramId">
                 </div>
               </div>
-              <div  v-if="self.startAt === 'Timestamp'" class="row">
+              <div v-if="self.startAt === 'Timestamp'" class="row">
                 <div class="col-sm-2">Timestamp</div>
                 <div class="col-sm-10">
                   <input tabIndex="-1" type="text" v-model="self.specifiedTimestamp" placeholder="Timestamp">
                 </div>
               </div>
             </div>
-
+            <div class="row">
+              <div class="col-sm-2">Inherit filters</div>
+              <div class="col-sm-10">
+                <div class="form-check">
+                  <input tabIndex="-1" class="form-check-input" type="checkbox" v-model="self.inheritFilters">
+                  <label class="form-check-label">
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
             <button tabIndex="-1" type="reset" class="btn btn-sm btn-outline-dark" @click="self.reset()">

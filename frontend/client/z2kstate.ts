@@ -144,6 +144,7 @@ export class Z2kState {
         this.sessionStatus.queryOutstanding = true;
         const iq = InitialQuery.createFromLocationOrDefault(document.location);
         this.queryViewModel.resetToIq(iq);
+        this.filtersViewModel.reset(iq.filters);
         if (iq.searchOrigin.tag === searchOriginInfo.Tag.End) {
             this.frontStreamStatus.setAppetite(magicConstants.initialQuerySize);
             this.backStreamStatus.setAppetite(undefined);

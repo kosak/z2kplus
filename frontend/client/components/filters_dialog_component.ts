@@ -35,7 +35,7 @@ export const filtersDialogComponent = {
                 <div class="col-sm-5"><b>Expiration</b></div>
               </div>
 
-              <div v-for="item in self.allFilters" class="row">
+              <div v-for="item in self.allFilterViewModels" class="row">
                 <div class="col-sm-2">
                   <button type="button" class="btn-close" @click="item.removeSelf()"></button>
                 </div>
