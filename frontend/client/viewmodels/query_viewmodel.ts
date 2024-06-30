@@ -37,7 +37,7 @@ export class QueryViewModel {
     lastValidation: AckSyntaxCheck;
     private readonly rateLimiter: RateLimiter;
 
-    constructor(private readonly owner: Z2kState, private readonly filtersViewModel: FiltersViewModel) {
+    constructor(private readonly owner: Z2kState) {
         this.rateLimiter = new RateLimiter(magicConstants.parseCheckIntervalMsec);
         this.reset();
     }
@@ -82,7 +82,7 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        var filters = this.inheritFilters ? this.filtersViewModel.allFilters.map(fvm => fvm.filter) : [];
+        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters.map(fvm => fvm.filter) : [];
         const query = new InitialQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }

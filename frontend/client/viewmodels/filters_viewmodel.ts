@@ -53,8 +53,12 @@ export class FiltersViewModel {
         return false;
     }
 
-    get allFilters() {
-        return Object.values(this.filters).map(f => new FilterViewModel(this, f));
+    get allFilterViewModels() {
+        return this.allFilters9.map(f => new FilterViewModel(this, f));
+    }
+
+    get allFilters9() {
+        return Object.values(this.filters);
     }
 }
 
