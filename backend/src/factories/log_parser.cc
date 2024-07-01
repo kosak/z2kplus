@@ -38,33 +38,36 @@ using z2kplus::backend::shared::ZgramCore;
 
 #define HERE KOSAK_CODING_HERE
 
-bool LogParser::tryParseLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
+bool LogParser::tryParseLogFile(const PathMaster &pm, const IntraFileRange<FileKeyKind::Either> &ifr,
     std::vector<logRecordAndLocation_t> *logRecordsAndLocations, const FailFrame &ff) {
-  auto fileName = pm.getPlaintextPath(fileKey);
+  auto fileName = pm.getPlaintextPath(ifr.fileKey());
   MappedFile<char> mf;
-  if (!mf.tryMap(fileName, false, ff.nest(HERE)) ||
-      !tryParseLogRecords(std::string_view(mf.get(), mf.byteSize()), fileKey,
-          logRecordsAndLocations, ff.nest(HERE))) {
+  if (!mf.tryMap(fileName, false, ff.nest(HERE))) {
+    return false;
+  }
+  if (ifr.end() > mf.byteSize()) {
+    return ff.failf(HERE, "ifr.end() > mf.byteSize() (%o > %o)", ifr.end(), mf.byteSize());
+  }
+  auto text = std::string_view(mf.get() + ifr.begin(), ifr.end() - ifr.begin());
+  if (!tryParseLogRecords(text, ifr.fileKey(), ifr.begin(), logRecordsAndLocations, ff.nest(HERE))) {
     return false;
   }
   return true;
 }
 
 bool LogParser::tryParseLogRecords(std::string_view text, FileKey<FileKeyKind::Either> fileKey,
-    std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
+    size_t startingOffset, std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
     const FailFrame &ff) {
   auto splitter = Splitter::ofRecords(text, '\n');
-  size_t nextIndex = 0;
-  size_t offset = 0;
+  size_t offset = startingOffset;
   std::string_view line;
   while (splitter.moveNext(&line)) {
     LogRecord logRecord;
     if (!tryParseLogRecord(line, &logRecord, ff.nest(HERE))) {
-      return ff.failf(HERE, "...at record %o (offset %o, size %o)", nextIndex, offset, line.size());
+      return ff.failf(HERE, "...at (offset %o, size %o)", offset, line.size());
     }
-    LogLocation location(fileKey, offset, line.size(), "approved");
+    LogLocation location(fileKey, offset, line.size());
     logRecordsAndLocations->emplace_back(std::move(logRecord), location);
-    ++nextIndex;
     offset += line.size() + 1;
   }
   return true;

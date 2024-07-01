@@ -172,7 +172,7 @@ FileKey<Kind> FileKey<Kind>::infinity = FileKey<Kind>::createUnsafe(9999, 12, 31
 class LogLocation {
 public:
   LogLocation() = default;
-  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t offset, uint32_t size, const char *zamboniTime) :
+  LogLocation(FileKey<FileKeyKind::Either> fileKey, uint32_t offset, uint32_t size) :
       fileKey_(fileKey), offset_(offset), size_(size) {}
 
   const FileKey<FileKeyKind::Either> &fileKey() const { return fileKey_; }

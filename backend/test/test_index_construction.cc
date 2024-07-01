@@ -111,8 +111,8 @@ TEST_CASE("index_construction: Build Dynamic Index", "[index_construction]") {
   FrozenIndex empty;
   DynamicIndex di;
   std::vector<LogParser::logRecordAndLocation_t> items;
-  if (!LogParser::tryParseLogRecords(simpleText0, simpleKey0, &items, fr.nest(HERE)) ||
-      !LogParser::tryParseLogRecords(simpleText1, simpleKey1, &items, fr.nest(HERE)) ||
+  if (!LogParser::tryParseLogRecords(simpleText0, simpleKey0, 0, &items, fr.nest(HERE)) ||
+      !LogParser::tryParseLogRecords(simpleText1, simpleKey1, 0, &items, fr.nest(HERE)) ||
       !di.tryAddLogRecords(empty, items, fr.nest(HERE))) {
     FAIL(fr);
   }

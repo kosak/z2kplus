@@ -278,7 +278,7 @@ bool Server::tryManageReindexing(std::chrono::system_clock::time_point now,
     // ...and it's time to reindex!
     const char *message = "Starting the reindex process in the background. This part probably won't crash.";
     streamf(std::cerr, "%o\n", message);
-    statusMessages->push_back(message);
+    statusMessages->emplace_back(message);
 
     // 1. The logged start position is zero.
     // 2. Checkpoint the server. This will give us the logged end position and the unlogged end position
