@@ -39,17 +39,19 @@ struct LogParser {
 
   template<FileKeyKind Kind>
   using FileKey = z2kplus::backend::files::FileKey<Kind>;
+  template<FileKeyKind Kind>
+  using IntraFileRange = z2kplus::backend::files::IntraFileRange<Kind>;
 
   LogParser() = delete;
 
   typedef std::pair<LogRecord, LogLocation> logRecordAndLocation_t;
 
-  static bool tryParseLogFile(const PathMaster &pm, FileKey<FileKeyKind::Either> fileKey,
+  static bool tryParseLogFile(const PathMaster &pm, const IntraFileRange<FileKeyKind::Either> &ifr,
       std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
       const FailFrame &ff);
 
   static bool tryParseLogRecords(std::string_view text, FileKey<FileKeyKind::Either> fileKey,
-      std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
+      size_t startingOffset, std::vector<logRecordAndLocation_t> *logRecordsAndLocations,
       const FailFrame &ff);
 
   static bool tryParseLogRecord(std::string_view text, LogRecord *result, const FailFrame &ff);

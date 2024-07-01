@@ -318,7 +318,7 @@ ConsolidatedIndex::tryAddZgramsHelper(std::chrono::system_clock::time_point now,
     buf->push_back('\n');
     auto bufSizeAfter = buf->size();
     auto size = bufSizeAfter - bufSizeBefore;
-    LogLocation location(fileKey, fileSize + bufSizeBefore, size, "approved");
+    LogLocation location(fileKey, fileSize + bufSizeBefore, size);
 
     cooked.emplace_back(std::move(logRecord), location);
   }
@@ -912,7 +912,7 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
   // We have an ordering problem. For a given DateAndPartKey, zgrams might be arbitrarily
   // distributed between logged and unlogged. For example zgram 100 might be logged, and zgram 101
   // might be unlogged, then zgram 102 might be logged again. But we need to add them to the index
-  // sequential: we simply can't add all the logged then all the unlogged, for example.
+  // sequentially: we simply can't add all the logged then all the unlogged, for example.
   // To deal with this, we pull them all in and then sort them using a stable sort.
   struct extractor_t {
     void operator()(const Zephyrgram &zg) { zg_ = &zg; }
@@ -955,8 +955,7 @@ bool tryReadAllDynamicFiles(const PathMaster &pm,
   allIfrs.insert(allIfrs.end(), unloggedKeys.begin(), unloggedKeys.end());
 
   for (const auto &ifr : allIfrs) {
-    auto path = pm.getPlaintextPath(ifr.fileKey());
-    if (!LogParser::tryParseLogFile(pm, ifr.fileKey(), result, ff.nest(HERE))) {
+    if (!LogParser::tryParseLogFile(pm, ifr, result, ff.nest(HERE))) {
       return false;
     }
   }
