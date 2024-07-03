@@ -29,7 +29,7 @@ export const zgramComponent = {
         zg: ZgramViewModel
     },
     template: `
-      <div v-if="!zg.stronglyHidden" v-on:mouseenter="zg.mouseenter()" v-on:mouseleave="zg.mouseleave()">
+      <div v-if="!zg.stronglyHidden">
       <div class="row">
         <div class="col-12">
           <zgram-header-component :zg="zg">
@@ -44,7 +44,7 @@ export const zgramComponent = {
       </div>
       <div class="row" style="max-width:1024px">
         <div class="col-12">
-          <zgram-body-component :zg="zg">
+          <zgram-body-component :zg="zg" v-on:mouseenter="zg.mouseenter()">
           </zgram-body-component>
         </div>
       </div>
