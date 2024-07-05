@@ -216,6 +216,9 @@ export class Z2kState {
     }
 
     makeUriFor(query: InitialQuery) {
+        console.log("origin is " + window.location.origin);
+        console.log("pathname is " + window.location.pathname);
+        console.log("href is " + window.location.href);
         return query.toUrl(window.location.origin);
     }
 
