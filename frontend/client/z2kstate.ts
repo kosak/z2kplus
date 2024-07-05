@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as URI from "urijs";
-
 import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
@@ -21,7 +19,6 @@ import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
 import {Estimates} from "../shared/protocol/misc";
 import {
     MetadataRecord,
-    RenderStyle,
     searchOriginInfo,
     userMetadata,
     zgMetadata,
@@ -142,7 +139,7 @@ export class Z2kState {
 
         this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
         this.sessionStatus.queryOutstanding = true;
-        const iq = InitialQuery.createFromLocationOrDefault(document.location);
+        const iq = InitialQuery.createFromLocationOrDefault(window.location);
         this.queryViewModel.resetToIq(iq);
         this.filtersViewModel.reset(iq.filters);
         if (iq.searchOrigin.tag === searchOriginInfo.Tag.End) {
@@ -218,11 +215,7 @@ export class Z2kState {
     }
 
     makeUriFor(query: InitialQuery) {
-        const iqJson = JSON.stringify(query.toJson());
-        // Surgically modify my current URL and put query=XXX in the search section.
-        const uri = new URI(document.location);
-        uri.search({query: iqJson});
-        return uri.toString();
+        return query.toUrl(window.location.origin);
     }
 
     private handleStateChange(state: SessionManagerState) {
