@@ -211,7 +211,8 @@ export class Z2kState {
     openNewQuery(query: InitialQuery) {
         const uri = this.makeUriFor(query);
         // _blank is the special target which means new (tab or window, but I think always tab).
-        window.open(uri, "_blank");
+        // window.open(uri, "_blank");
+        console.log(`would open ${uri}`);
     }
 
     makeUriFor(query: InitialQuery) {
