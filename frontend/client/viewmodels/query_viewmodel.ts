@@ -50,7 +50,7 @@ export class QueryViewModel {
     }
 
     resetToIq(iq: InitialQuery) {
-        class MyHandler {
+        class SearchOriginVisitor {
             constructor(readonly owner: QueryViewModel) {}
             visitEnd() {
                 this.owner.startAt = StartAt.End;
@@ -66,8 +66,8 @@ export class QueryViewModel {
             }
         }
         this.reset();
-        this.query = iq.query;
-        iq.searchOrigin.acceptVisitor(new MyHandler(this));
+        this.query = iq.makeQueryString();
+        iq.searchOrigin.acceptVisitor(new SearchOriginVisitor(this));
     }
 
     onFocused() {
@@ -81,7 +81,7 @@ export class QueryViewModel {
             return;
         }
         var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters : [];
-        const query = new InitialQuery(sub.query, sub.searchOrigin, filters);
+        const query = InitialQuery.ofGeneralQuery(sub.query, sub.searchOrigin, filters);
         this.owner.openNewQuery(query);
     }
 

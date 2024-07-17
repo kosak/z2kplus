@@ -12,64 +12,152 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {SearchOrigin, searchOriginInfo} from "../shared/protocol/zephyrgram";
+import {SearchOrigin, searchOriginInfo, ZgramId} from "../shared/protocol/zephyrgram";
 import {Filter} from "../shared/protocol/misc"
-import {assertAndDestructure3, assertArray, assertArrayOfLength, assertString} from "../shared/json_util";
-
+import {assertArray, assertString} from "../shared/json_util";
+import {escapeQuotes} from "../shared/utility";
 
 enum QueryKeys {
-    Query = "q",
-    SearchOrigin = "so",
+    ZgramId = "id",
+    Sender = "s",
+    Instance = "i",
+    General = "q",
+}
+
+enum SearchOriginKeys {
+    ZgramId = "soid",
+    Timestamp = "sots",
+}
+
+enum FilterKeys  {
     Filters = "fs"
 }
 
 export class InitialQuery {
-    static createFromLocationOrDefault(location: Location) {
-        let query = "";
-        let searchOrigin = SearchOrigin.ofEnd();
-        let filters: Filter[] = [];
+    static ofDefault(searchOrigin: SearchOrigin, filters: Filter[]) {
+        return new InitialQuery(searchOrigin, filters);
+    }
 
+    static ofGeneralQuery(query: string, searchOrigin: SearchOrigin, filters: Filter[]) {
+        var result = new InitialQuery(searchOrigin, filters);
+        result.query = query;
+        return result;
+    }
+
+    static ofId(id: ZgramId, filters: Filter[]) {
+        var result = new InitialQuery(SearchOrigin.ofEnd(), filters);
+        result.zgramId = id.raw;
+        return result;
+    }
+
+    static ofSender(sender: string, searchOrigin: SearchOrigin, filters: Filter[]) {
+        var result = new InitialQuery(searchOrigin, filters);
+        result.sender = sender;
+        return result;
+    }
+
+    static ofInstance(instance: string, searchOrigin: SearchOrigin, filters: Filter[]) {
+        var result = new InitialQuery(searchOrigin, filters);
+        result.instance = instance;
+        return result;
+    }
+
+    static createFromLocationOrDefault(location: Location) {
+        var result = new InitialQuery(SearchOrigin.ofEnd(), []);
         const searchParams = new URLSearchParams(location.search);
         for (const [key, value] of searchParams) {
-            const valueAsObject = JSON.parse(value);
             switch (key) {
-                case QueryKeys.Query: {
-                    query = assertString(valueAsObject);
+                case QueryKeys.ZgramId: {
+                    result.zgramId = parseInt(value);
                     break;
                 }
-                case QueryKeys.SearchOrigin: {
-                    searchOrigin = SearchOrigin.tryParseJson(valueAsObject);
+                case QueryKeys.Sender: {
+                    result.sender = value;
                     break;
                 }
-                case QueryKeys.Filters: {
-                    const fs = assertArray(valueAsObject);
-                    filters = fs.map(Filter.tryParseJson);
+                case QueryKeys.Instance: {
+                    result.instance = value;
+                    break;
+                }
+                case QueryKeys.General: {
+                    result.query = value;
                     break
+                }
+                case SearchOriginKeys.ZgramId: {
+                    const id = parseInt(value);
+                    result.searchOrigin = SearchOrigin.ofZgramId(new ZgramId(id));
+                    break;
+                }
+                case SearchOriginKeys.Timestamp: {
+                    const ts = parseInt(value);
+                    result.searchOrigin = SearchOrigin.ofTimestamp(ts);
+                    break;
+                }
+                case FilterKeys.Filters: {
+                    const object = JSON.parse(value);
+                    const array = assertArray(object);
+                    result.filters = array.map(Filter.tryParseJson);
+                    break;
                 }
                 default: {
                     console.log(`Unrecognized key ${key}`);
                 }
             }
         }
-        return new InitialQuery(query, searchOrigin, filters);
+        return result;
+    }
+
+    private zgramId?: number = undefined;
+    private sender?: string = undefined;
+    private instance?: string = undefined;
+    private query?: string = undefined;
+
+    private constructor(private searchOrigin: SearchOrigin, private filters: Filter[]) {
+    }
+
+    toQueryString() {
+        if (this.zgramId !== undefined) {
+            return `zgramid(${this.zgramId}`;
+        }
+
+        if (this.sender !== undefined) {
+            return `sender:${this.sender}`;
+        }
+
+        if (this.instance !== undefined) {
+            const escaped = escapeQuotes(this.instance);
+            return `instance:^literally("${escaped}")`;
+        }
+
+        return this.query === undefined ? "" : this.query;
     }
 
     toUrl(location: string) {
         const url = new URL(location);
-        if (this.query !== "") {
-            url.searchParams.append(QueryKeys.Query, this.query);
+        const sp = url.searchParams;
+        if (this.zgramId !== undefined) {
+            sp.append(QueryKeys.ZgramId, this.zgramId.toString());
         }
-        if (this.searchOrigin.tag !== searchOriginInfo.Tag.End) {
-            const asJson = JSON.stringify(this.searchOrigin.toJson());
-            url.searchParams.append(QueryKeys.SearchOrigin, asJson);
+        if (this.sender !== undefined) {
+            sp.append(QueryKeys.Sender, this.sender);
+        }
+        if (this.instance !== undefined) {
+            sp.append(QueryKeys.Instance, this.instance);
+        }
+        if (this.query !== undefined && this.query !== "") {
+            sp.append(QueryKeys.General, this.query);
+        }
+        if (this.searchOrigin.tag === searchOriginInfo.Tag.ZgramId) {
+            sp.append(SearchOriginKeys.ZgramId, (this.searchOrigin.payload as ZgramId).raw.toString());
+        }
+        if (this.searchOrigin.tag === searchOriginInfo.Tag.Timestamp) {
+            sp.append(SearchOriginKeys.ZgramId, (this.searchOrigin.payload as number).toString());
         }
         if (this.filters.length !== 0) {
             const asJson = JSON.stringify(this.filters.map(f => f.toJson()));
-            url.searchParams.append(QueryKeys.Filters, asJson);
+            url.searchParams.append(FilterKeys.Filters, asJson);
         }
         return url.toString();
     }
 
-    constructor(readonly query: string, readonly searchOrigin: SearchOrigin, readonly filters: Filter[]) {
-    }
 }
