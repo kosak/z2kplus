@@ -220,7 +220,7 @@ export class Z2kState {
         console.log("origin is " + window.location.origin);
         console.log("pathname is " + window.location.pathname);
         console.log("href is " + window.location.href);
-        return query.toUrl(window.location.origin);
+        return query.toUrl(window.location.href);
     }
 
     private handleStateChange(state: SessionManagerState) {
