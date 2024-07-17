@@ -66,7 +66,7 @@ export class QueryViewModel {
             }
         }
         this.reset();
-        this.query = iq.makeQueryString();
+        this.query = iq.toQueryString();
         iq.searchOrigin.acceptVisitor(new SearchOriginVisitor(this));
     }
 

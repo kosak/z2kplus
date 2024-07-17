@@ -14,13 +14,14 @@
 
 import {SearchOrigin, searchOriginInfo, ZgramId} from "../shared/protocol/zephyrgram";
 import {Filter} from "../shared/protocol/misc"
-import {assertArray, assertString} from "../shared/json_util";
+import {assertArray} from "../shared/json_util";
 import {escapeQuotes} from "../shared/utility";
 
 enum QueryKeys {
     ZgramId = "id",
     Sender = "s",
     Instance = "i",
+    Reaction = "rx",
     General = "q",
 }
 
@@ -33,70 +34,94 @@ enum FilterKeys  {
     Filters = "fs"
 }
 
+class Builder {
+    zgramId: number | undefined = undefined;
+    sender: string | undefined = undefined;
+    instance: string | undefined = undefined;
+    reaction: string | undefined = undefined;
+    query: string | undefined = undefined;
+
+    constructor(public searchOrigin: SearchOrigin, public filters: Filter[]) {
+    }
+
+    toInitialQuery() {
+        return new InitialQuery(this.zgramId, this.sender, this.instance, this.reaction,
+            this.query, this.searchOrigin, this.filters);
+    }
+}
+
+
 export class InitialQuery {
     static ofDefault(searchOrigin: SearchOrigin, filters: Filter[]) {
-        return new InitialQuery(searchOrigin, filters);
+        const builder = new Builder(searchOrigin, filters);
+        return builder.toInitialQuery();
     }
 
     static ofGeneralQuery(query: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        var result = new InitialQuery(searchOrigin, filters);
-        result.query = query;
-        return result;
+        const builder = new Builder(searchOrigin, filters);
+        builder.query = query;
+        return builder.toInitialQuery();
     }
 
     static ofId(id: ZgramId, filters: Filter[]) {
-        var result = new InitialQuery(SearchOrigin.ofEnd(), filters);
-        result.zgramId = id.raw;
-        return result;
+        const builder = new Builder(SearchOrigin.ofEnd(), filters);
+        builder.zgramId = id.raw;
+        return builder.toInitialQuery();
     }
 
     static ofSender(sender: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        var result = new InitialQuery(searchOrigin, filters);
-        result.sender = sender;
-        return result;
+        const builder = new Builder(searchOrigin, filters);
+        builder.sender = sender;
+        return builder.toInitialQuery();
     }
 
     static ofInstance(instance: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        var result = new InitialQuery(searchOrigin, filters);
-        result.instance = instance;
-        return result;
+        const builder = new Builder(searchOrigin, filters);
+        builder.instance = instance;
+        return builder.toInitialQuery();
+    }
+
+    static ofReaction(reaction: string, searchOrigin: SearchOrigin, filters: Filter[]) {
+        const builder = new Builder(searchOrigin, filters);
+        builder.reaction = reaction;
+        return builder.toInitialQuery();
     }
 
     static createFromLocationOrDefault(location: Location) {
-        var result = new InitialQuery(SearchOrigin.ofEnd(), []);
+        const builder = new Builder(SearchOrigin.ofEnd(), []);
         const searchParams = new URLSearchParams(location.search);
         for (const [key, value] of searchParams) {
             switch (key) {
                 case QueryKeys.ZgramId: {
-                    result.zgramId = parseInt(value);
+                    builder.zgramId = parseInt(value);
                     break;
                 }
                 case QueryKeys.Sender: {
-                    result.sender = value;
+                    builder.sender = value;
                     break;
                 }
                 case QueryKeys.Instance: {
-                    result.instance = value;
+                    builder.instance = value;
                     break;
                 }
                 case QueryKeys.General: {
-                    result.query = value;
+                    builder.query = value;
                     break
                 }
                 case SearchOriginKeys.ZgramId: {
                     const id = parseInt(value);
-                    result.searchOrigin = SearchOrigin.ofZgramId(new ZgramId(id));
+                    builder.searchOrigin = SearchOrigin.ofZgramId(new ZgramId(id));
                     break;
                 }
                 case SearchOriginKeys.Timestamp: {
                     const ts = parseInt(value);
-                    result.searchOrigin = SearchOrigin.ofTimestamp(ts);
+                    builder.searchOrigin = SearchOrigin.ofTimestamp(ts);
                     break;
                 }
                 case FilterKeys.Filters: {
                     const object = JSON.parse(value);
                     const array = assertArray(object);
-                    result.filters = array.map(Filter.tryParseJson);
+                    builder.filters = array.map(Filter.tryParseJson);
                     break;
                 }
                 default: {
@@ -104,15 +129,16 @@ export class InitialQuery {
                 }
             }
         }
-        return result;
+        return builder.toInitialQuery();
     }
 
-    private zgramId?: number = undefined;
-    private sender?: string = undefined;
-    private instance?: string = undefined;
-    private query?: string = undefined;
-
-    private constructor(private searchOrigin: SearchOrigin, private filters: Filter[]) {
+    public constructor(private readonly zgramId: number | undefined,
+        private readonly sender: string | undefined,
+        private readonly instance: string | undefined,
+        private readonly reaction: string | undefined,
+        private readonly query: string | undefined,
+        public readonly searchOrigin: SearchOrigin,
+        public readonly filters: Filter[]) {
     }
 
     toQueryString() {
@@ -127,6 +153,11 @@ export class InitialQuery {
         if (this.instance !== undefined) {
             const escaped = escapeQuotes(this.instance);
             return `instance:^literally("${escaped}")`;
+        }
+
+        if (this.reaction !== undefined) {
+            const escaped = escapeQuotes(this.reaction);
+            return `hasreaction("${escaped}")`;
         }
 
         return this.query === undefined ? "" : this.query;
@@ -144,6 +175,9 @@ export class InitialQuery {
         if (this.instance !== undefined) {
             sp.append(QueryKeys.Instance, this.instance);
         }
+        if (this.reaction !== undefined) {
+            sp.append(QueryKeys.Reaction, this.reaction);
+        }
         if (this.query !== undefined && this.query !== "") {
             sp.append(QueryKeys.General, this.query);
         }
@@ -159,5 +193,4 @@ export class InitialQuery {
         }
         return url.toString();
     }
-
 }

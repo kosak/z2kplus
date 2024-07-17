@@ -375,7 +375,7 @@ export class ZgramViewModel {
 
     private makeQueryOnInstance() {
         const searchOrigin = SearchOrigin.ofZgramId(this.zgramId);
-        return InitialQuery.ofInstance(this.instance, searchOrigin, this.state.filtersViewModel.allFilters);    w
+        return InitialQuery.ofInstance(this.instance, searchOrigin, this.state.filtersViewModel.allFilters);
     }
 
     private makeQueryOnTimestamp() {

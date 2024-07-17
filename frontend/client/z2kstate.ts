@@ -150,7 +150,8 @@ export class Z2kState {
             this.frontStreamStatus.setAppetite(half);
             this.backStreamStatus.setAppetite(half);
         }
-        const sub = DRequest.createSubscribe(iq.query, iq.searchOrigin, magicConstants.pageSize,
+        const queryString = iq.toQueryString();
+        const sub = DRequest.createSubscribe(queryString, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
         this.sendPing();
