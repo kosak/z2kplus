@@ -143,7 +143,7 @@ export class InitialQuery {
 
     toQueryString() {
         if (this.zgramId !== undefined) {
-            return `zgramid(${this.zgramId}`;
+            return `zgramid(${this.zgramId})`;
         }
 
         if (this.sender !== undefined) {
