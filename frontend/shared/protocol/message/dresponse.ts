@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Estimates} from "../misc";
+import {Estimates, Filter} from "../misc";
 import {MetadataRecord, Zephyrgram, ZgramId} from "../zephyrgram";
 import {
   assertAndDestructure1, assertAndDestructure2, assertAndDestructure3,
   assertArray, assertArrayOfLength, assertBoolean, assertEnum, assertNumber, assertString
 } from "../../json_util";
-import {staticFail} from "../../utility";
+import {intercalate, staticFail} from "../../utility";
 
 export namespace dresponses {
   export class AckSyntaxCheck {
@@ -170,6 +170,26 @@ export namespace dresponses {
 
     toString() {
       return `Ack(${this.cookie})`;
+    }
+  }
+
+  export class FiltersUpdate {
+    constructor(readonly version: number, readonly filters: Filter[]) {
+    }
+
+    toJson() {
+      return [this.version, this.filters.map(f => f.toJson())];
+    }
+
+    static tryParseJson(item: any) {
+      const [v, fs] = assertAndDestructure2(item, assertNumber, assertArray);
+      const filters = fs.map(Filter.tryParseJson);
+      return new FiltersUpdate(v, filters);
+    }
+
+    toString() {
+      var text = intercalate(", ", x => x.toString(), this.filters);
+      return `FiltersUpdate(${this.version}, ${text})`;
     }
   }
 
