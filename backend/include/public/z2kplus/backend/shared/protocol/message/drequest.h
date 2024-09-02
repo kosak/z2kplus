@@ -152,6 +152,27 @@ private:
   DECLARE_TYPICAL_JSON(GetSpecificZgrams);
 };
 
+class ProposeFilters {
+public:
+  ProposeFilters();
+  ProposeFilters(uint64_t basedOnVersion, bool theseFiltersAreNew, std::vector<Filter> filters);
+  DISALLOW_COPY_AND_ASSIGN(ProposeFilters);
+  DECLARE_MOVE_COPY_AND_ASSIGN(ProposeFilters);
+  ~ProposeFilters();
+
+private:
+  uint64_t basedOnVersion_ = 0;
+  /**
+   * False means existing filters, i.e. saved in the browser session.
+   * True means new filters, i.e. just entered by the user
+   */
+  bool theseFiltersAreNew_ = false;
+  std::vector<Filter> filters_;
+
+  friend std::ostream &operator<<(std::ostream &s, const ProposeFilters &o);
+  DECLARE_TYPICAL_JSON(ProposeFilters);
+};
+
 class Ping {
 public:
   Ping() = default;
@@ -169,10 +190,12 @@ private:
   DECLARE_TYPICAL_JSON(Ping);
 };
 
-typedef std::variant<CheckSyntax, Subscribe, GetMoreZgrams, PostZgrams, PostMetadata, GetSpecificZgrams, Ping> payload_t;
+typedef std::variant<CheckSyntax, Subscribe, GetMoreZgrams, PostZgrams, PostMetadata, GetSpecificZgrams,
+  ProposeFilters, Ping> payload_t;
 
 DECLARE_VARIANT_JSON(DRequestPayloadHolder, payload_t,
-    ("CheckSyntax", "Subscribe", "GetMoreZgrams", "PostZgrams", "PostMetadata", "GetSpecificZgrams", "Ping"));
+    ("CheckSyntax", "Subscribe", "GetMoreZgrams", "PostZgrams", "PostMetadata", "GetSpecificZgrams",
+        "ProposeFilters", "Ping"));
 }  // namespace drequests
 
 class DRequest {
@@ -180,13 +203,14 @@ class DRequest {
 
 public:
   DRequest();
-  explicit DRequest(drequests::CheckSyntax &&o);
-  explicit DRequest(drequests::Subscribe &&o);
-  explicit DRequest(drequests::GetMoreZgrams &&o);
-  explicit DRequest(drequests::PostZgrams &&o);
-  explicit DRequest(drequests::PostMetadata &&o);
-  explicit DRequest(drequests::GetSpecificZgrams &&o);
-  explicit DRequest(drequests::Ping &&o);
+  explicit DRequest(drequests::CheckSyntax o);
+  explicit DRequest(drequests::Subscribe o);
+  explicit DRequest(drequests::GetMoreZgrams o);
+  explicit DRequest(drequests::PostZgrams o);
+  explicit DRequest(drequests::PostMetadata o);
+  explicit DRequest(drequests::GetSpecificZgrams o);
+  explicit DRequest(drequests::ProposeFilters o);
+  explicit DRequest(drequests::Ping o);
   DISALLOW_COPY_AND_ASSIGN(DRequest);
   DECLARE_MOVE_COPY_AND_ASSIGN(DRequest);
   ~DRequest();
