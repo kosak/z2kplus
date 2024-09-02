@@ -64,12 +64,7 @@ namespace z2kplus::backend::test {
 namespace {
 bool tryGetPathMaster(std::shared_ptr<PathMaster> *result, const FailFrame &ff);
 
-struct Reactor {
-  Reactor();
-  ~Reactor();
-
-  void processResponses(std::vector<Coordinator::response_t> *responses);
-
+struct SubState {
   void operator()(dresponses::AckSubscribe &&o);
   void operator()(dresponses::FiltersUpdate &&o);
 
@@ -78,16 +73,23 @@ struct Reactor {
     // ignore other responses.
   }
 
+  bool valid_ = false;
+  std::optional<uint64_t> filterVersion_ = {};
+  std::vector<Filter> filters_;
+};
+
+struct Reactor {
+  Reactor();
+  ~Reactor();
+
+  void processResponses(std::vector<Coordinator::response_t> *responses);
+
   bool tryExpect(std::initializer_list<uint64_t> newIds, bool forBackSide, size_t front,
       size_t back, const FailFrame &ff);
 
   std::shared_ptr<PathMaster> pm_;
   Coordinator c_;
-  std::shared_ptr<Subscription> sub_;
-  bool valid_ = false;
-
-  std::optional<uint64_t> filterVersion_ = 0;
-  std::vector<Filter> filters_;
+  std::map<std::shared_ptr<Subscription>, SubState> map_;
 };
 }  // namespace
 
@@ -103,26 +105,101 @@ TEST_CASE("filters: propose the empty filter", "[filters]") {
       !Coordinator::tryCreate(rx.pm_, std::move(ci), &rx.c_, fr.nest(HERE))) {
     FAIL(fr);
   }
+
+  std::shared_ptr<Subscription> sub;
   {
     std::vector<Coordinator::response_t> responses;
-    rx.c_.subscribe(std::move(profile), std::move(subReq), &responses, &rx.sub_);
+    rx.c_.subscribe(std::move(profile), std::move(subReq), &responses, &sub);
     rx.processResponses(&responses);
   }
 
-  if (!rx.valid_) {
+  if (sub == nullptr) {
     FAIL("Subscription failed apparently (probably a bad query)");
   }
 
   {
     drequests::ProposeFilters pf(0, false, {});
     std::vector<Coordinator::response_t> responses;
-    rx.c_.proposeFilters(rx.sub_.get(), std::move(pf), &responses);
+    rx.c_.proposeFilters(sub.get(), std::move(pf), &responses);
     rx.processResponses(&responses);
 
-    REQUIRE(0 == rx.filterVersion_);
-    REQUIRE(rx.filters_.empty());
+    REQUIRE(1 == rx.map_.size());
+
+    const auto &ss = rx.map_.rbegin()->second;
+    REQUIRE(ss.valid_);
+    REQUIRE(0 == ss.filterVersion_);
+    REQUIRE(ss.filters_.empty());
   }
 }
+
+TEST_CASE("filters: filter sharing", "[filters]") {
+  FailRoot fr;
+
+  ConsolidatedIndex ci;
+  Reactor rx;
+  if (!tryGetPathMaster(&rx.pm_, fr.nest(HERE)) ||
+      !TestUtil::trySetupConsolidatedIndex(rx.pm_, &ci, fr.nest(HERE)) ||
+      !Coordinator::tryCreate(rx.pm_, std::move(ci), &rx.c_, fr.nest(HERE))) {
+    FAIL(fr);
+  }
+
+  std::shared_ptr<Subscription> sub1a;
+  std::shared_ptr<Subscription> sub1b;
+  std::shared_ptr<Subscription> sub2;
+
+  {
+    auto profile1 = std::make_shared<Profile>("kosak", "Corey Kosak");
+    auto profile2 = std::make_shared<Profile>("spock", "Spock");
+
+    drequests::Subscribe subReq1a("", SearchOrigin(Unit()), 10, 25);
+    drequests::Subscribe subReq1b("", SearchOrigin(Unit()), 10, 25);
+    drequests::Subscribe subReq2("", SearchOrigin(Unit()), 10, 25);
+
+    std::vector<Coordinator::response_t> responses;
+    rx.c_.subscribe(profile1, std::move(subReq1a), &responses, &sub1a);
+    rx.c_.subscribe(profile1, std::move(subReq1b), &responses, &sub1b);
+    rx.c_.subscribe(profile2, std::move(subReq2), &responses, &sub2);
+    rx.processResponses(&responses);
+  }
+
+  if (sub1a == nullptr || sub1b == nullptr || sub2 == nullptr) {
+    FAIL("Subscription failed apparently (probably a bad query)");
+  }
+
+  {
+    // kosak filters spock and all things Vulcan
+    Filter filter1("spock", {}, {}, true, 999999999);
+    Filter filter2({}, {}, "vulcana", true, 999999999);
+    std::vector<Filter> myFilters = { std::move(filter1), std::move(filter2) };
+    drequests::ProposeFilters pf(20, true, std::move(myFilters));
+
+    std::vector<Coordinator::response_t> responses;
+    rx.c_.proposeFilters(sub1a.get(), std::move(pf), &responses);
+    rx.processResponses(&responses);
+
+    auto s1ap = rx.map_.find(sub1a);
+    auto s1bp = rx.map_.find(sub1b);
+    auto s2 = rx.map_.find(sub2);
+
+    if (s1ap == rx.map_.end() || s1bp == rx.map_.end() || s2 == rx.map_.end()) {
+      FAIL("subs didn't get stored");
+    }
+
+    const auto &ss1a = s1ap->second;
+    const auto &ss1b = s1bp->second;
+    const auto &ss2 = s2->second;
+
+    // filterVersion should be set to the current time
+    REQUIRE(20 < ss1a.filterVersion_);
+    REQUIRE(20 < ss1b.filterVersion_);
+
+    REQUIRE(2 ==  ss1a.filters_.size());
+    REQUIRE(2 ==  ss1b.filters_.size());
+
+    REQUIRE(!ss2.filterVersion_.has_value());
+  }
+}
+
 
 namespace {
 bool tryGetPathMaster(std::shared_ptr<PathMaster> *result, const FailFrame &ff) {
@@ -134,15 +211,17 @@ Reactor::~Reactor() = default;
 
 void Reactor::processResponses(std::vector<Coordinator::response_t> *responses) {
   for (auto &resp : *responses) {
-    std::visit(*this, std::move(resp.second.payload()));
+    auto sp = resp.first->shared_from_this();
+    auto &substate = map_[sp];
+    std::visit(substate, std::move(resp.second.payload()));
   }
 }
 
-void Reactor::operator()(dresponses::AckSubscribe &&o) {
+void SubState::operator()(dresponses::AckSubscribe &&o) {
   valid_ = o.valid();
 }
 
-void Reactor::operator()(dresponses::FiltersUpdate &&o) {
+void SubState::operator()(dresponses::FiltersUpdate &&o) {
   filterVersion_ = o.version();
   filters_ = std::move(o.filters());
 }

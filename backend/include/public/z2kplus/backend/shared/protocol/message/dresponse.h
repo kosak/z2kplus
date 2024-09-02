@@ -183,6 +183,7 @@ public:
   ~FiltersUpdate();
 
   uint64_t version() const { return version_; }
+  std::vector<Filter> &filters() { return filters_; }
   const std::vector<Filter> &filters() const { return filters_; }
 
 private:

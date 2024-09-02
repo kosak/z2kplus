@@ -81,7 +81,7 @@ struct SubscriptionIdTag {
 }  // namespace internal
 typedef kosak::coding::StrongInt<uint64_t, internal::SubscriptionIdTag> subscriptionId_t;
 
-class Subscription {
+class Subscription : public std::enable_shared_from_this<Subscription> {
   struct Private {};
   typedef kosak::coding::FailFrame FailFrame;
   typedef z2kplus::backend::reverse_index::index::ConsolidatedIndex ConsolidatedIndex;
