@@ -182,6 +182,9 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(FiltersUpdate);
   ~FiltersUpdate();
 
+  uint64_t version() const { return version_; }
+  const std::vector<Filter> &filters() const { return filters_; }
+
 private:
   uint64_t version_ = 0;
   std::vector<Filter> filters_;
