@@ -142,6 +142,7 @@ DResponse::DResponse(dresponses::EstimatesUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::MetadataUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckSpecificZgrams o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::PlusPlusUpdate o) : payload_(std::move(o)) {}
+DResponse::DResponse(dresponses::FiltersUpdate o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::AckPing o) : payload_(std::move(o)) {}
 DResponse::DResponse(dresponses::GeneralError o) : payload_(std::move(o)) {}
 DResponse::DResponse(DResponse &&) noexcept = default;

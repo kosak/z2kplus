@@ -583,4 +583,13 @@ bool Coordinator::trySanitize(const Profile &profile, std::vector<MetadataRecord
   records->erase(destIt, records->end());
   return true;
 }
+
+namespace internal {
+CachedFilters::CachedFilters() = default;
+CachedFilters::CachedFilters(uint64_t version, std::vector<Filter> filters) :
+  version_(version), filters_(std::move(filters)) {}
+CachedFilters::CachedFilters(CachedFilters &&) noexcept = default;
+CachedFilters &CachedFilters::operator=(CachedFilters &&) noexcept = default;
+CachedFilters::~CachedFilters() = default;
+}
 }  // namespace z2kplus::backend::server

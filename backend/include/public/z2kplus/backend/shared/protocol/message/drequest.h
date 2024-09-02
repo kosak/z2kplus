@@ -137,7 +137,7 @@ private:
 class GetSpecificZgrams {
 public:
   GetSpecificZgrams();
-  GetSpecificZgrams(std::vector<ZgramId> zgramIds);
+  explicit GetSpecificZgrams(std::vector<ZgramId> zgramIds);
   DISALLOW_COPY_AND_ASSIGN(GetSpecificZgrams);
   DECLARE_MOVE_COPY_AND_ASSIGN(GetSpecificZgrams);
   ~GetSpecificZgrams();
