@@ -16,10 +16,10 @@ import {Filter} from "../../shared/protocol/misc";
 const moment = require("moment");
 
 export class FiltersViewModel {
-    private filters: {[uniqueId: string]: Filter}
+    private filters: Filter[];
 
     constructor() {
-        this.filters = {};
+        this.filters = [];
     }
 
     add(filter: Filter) {
@@ -29,30 +29,24 @@ export class FiltersViewModel {
             return;
         }
         const delay = expirationMillis - nowMillis;
-        const id = filter.id;
-        this.filters[id] = filter;
-        console.log("Adding filter: " + filter);
-        console.log(filter);
-        console.log(delay);
+        this.filters.push(filter);
         if (delay < 2147483647) {
-            setTimeout(() => { delete this.filters[id]; }, delay);
+            setTimeout(() => this.remove(filter), delay);
         }
     }
 
-    remove(id: string) {
-        delete this.filters[id];
+    remove(filter: Filter) {
+        // O(n) but small
+        this.filters = this.filters.filter(f => f !== filter);
     }
 
     reset(filters: Filter[]) {
-        this.filters = {};
-        for (const filter of filters) {
-            this.add(filter);
-        }
+        this.filters = filters;
     }
 
     matchesAny(strongOnly: boolean, sender: string, instance: string) {
         // Because there are so few filters, we don't bother to be efficient
-        for (const [key, filter] of Object.entries(this.filters)) {
+        for (const filter of this.filters) {
             if (matches(filter, sender, instance, strongOnly)) {
                 return true;
             }
@@ -65,7 +59,7 @@ export class FiltersViewModel {
     }
 
     get allFilters() {
-        return Object.values(this.filters);
+        return this.filters;
     }
 }
 
@@ -87,10 +81,6 @@ function matches(filter: Filter, sender: string, instance: string, strongOnly: b
 
 export class FilterViewModel {
     constructor(readonly owner: FiltersViewModel, readonly filter: Filter) {}
-
-    get id() {
-        return this.filter.id;
-    }
 
     get sender() {
         return this.filter.sender;
@@ -137,6 +127,6 @@ export class FilterViewModel {
     }
 
     removeSelf() {
-        this.owner.remove(this.id);
+        this.owner.remove(this.filter);
     }
 }

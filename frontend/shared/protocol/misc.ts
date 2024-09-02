@@ -1,4 +1,4 @@
-// Copyright 2023 The Z2K Plus+ Authors
+// Copyright 2023-2024 The Z2K Plus+ Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {
-  assertAndDestructure2, assertAndDestructure6, assertArrayOfLength,
+  assertAndDestructure2, assertAndDestructure5, assertArrayOfLength,
   assertBoolean, assertEnum, assertNumber, assertString, optionalToJson, optionalTryParseJson,
 } from "../json_util";
 import {booleanCompare, IComparable} from "../utility";
@@ -98,7 +98,6 @@ export class Estimates {
 
 export class Filter {
   constructor(
-      readonly id: string,
       readonly sender: string | undefined, readonly instanceExact: string | undefined,
       readonly instancePrefix: string | undefined, readonly strong: boolean,
       readonly expirationSecs: number) {
@@ -106,7 +105,6 @@ export class Filter {
 
   toJson() {
     return [
-        this.id,
         optionalToJson(this.sender, i => i),
         optionalToJson(this.instanceExact, i => i),
         optionalToJson(this.instancePrefix, i => i),
@@ -115,18 +113,17 @@ export class Filter {
   }
 
   static tryParseJson(item: any) {
-    let [id, sd, ix, ip, st, ex] = assertAndDestructure6(item,
-        assertString,
+    let [sd, ix, ip, st, ex] = assertAndDestructure5(item,
         i => optionalTryParseJson(i, assertString),
         i => optionalTryParseJson(i, assertString),
         i => optionalTryParseJson(i, assertString),
         assertBoolean,
         assertNumber);
-    return new Filter(id, sd, ix, ip, st, ex);
+    return new Filter(sd, ix, ip, st, ex);
   }
 
   toString() {
-    return `Filter(${this.id}, ${this.sender}, ${this.instanceExact}, ${this.instancePrefix}, ${this.strong}, ` +
+    return `Filter(${this.sender}, ${this.instanceExact}, ${this.instancePrefix}, ${this.strong}, ` +
       `${this.expirationSecs})`;
   }
 }

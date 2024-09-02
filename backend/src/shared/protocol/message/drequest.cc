@@ -124,6 +124,7 @@ DRequest::DRequest(drequests::GetMoreZgrams o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::PostZgrams o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::PostMetadata o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::GetSpecificZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::ProposeFilters o) : payload_(std::move(o)) {}
 DRequest::DRequest(drequests::Ping o) : payload_(std::move(o)) {}
 DRequest::DRequest(DRequest &&) noexcept = default;
 DRequest &DRequest::operator=(DRequest &&) noexcept = default;
