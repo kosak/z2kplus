@@ -154,7 +154,6 @@ export class Z2kState {
         const sub = DRequest.createSubscribe(queryString, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
-        this.sendPing();
     }
 
     loadNewPageWithDefaultQuery() {
@@ -346,7 +345,6 @@ export class Z2kState {
     }
 
     private sendPing() {
-        console.log("sendPing");
         this.sessionManager.sendDRequest(DRequest.createPing(1));
         this.ackPingTimer = window.setTimeout(() => {
             this.sessionStatus.haveRecentPing = false;
@@ -354,7 +352,6 @@ export class Z2kState {
     }
 
     visitAckPing(resp: dresponses.AckPing) {
-        console.log("ackPing");
         window.clearTimeout(this.ackPingTimer);
         this.sessionStatus.haveRecentPing = true;
         window.setTimeout(() => this.sendPing(), magicConstants.pingIntervalMs);
