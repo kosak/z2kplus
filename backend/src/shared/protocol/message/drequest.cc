@@ -106,13 +106,13 @@ DEFINE_VARIANT_JSON(DRequestPayloadHolder, drequestPayload_t);
 }  // namespace drequests
 
 DRequest::DRequest() = default;
-DRequest::DRequest(drequests::CheckSyntax &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::Subscribe &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::GetMoreZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::PostZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::PostMetadata &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::GetSpecificZgrams &&o) : payload_(std::move(o)) {}
-DRequest::DRequest(drequests::Ping &&o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::CheckSyntax o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::Subscribe o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::GetMoreZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::PostMetadata o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::GetSpecificZgrams o) : payload_(std::move(o)) {}
+DRequest::DRequest(drequests::Ping o) : payload_(std::move(o)) {}
 DRequest::DRequest(DRequest &&) noexcept = default;
 DRequest &DRequest::operator=(DRequest &&) noexcept = default;
 DRequest::~DRequest() = default;

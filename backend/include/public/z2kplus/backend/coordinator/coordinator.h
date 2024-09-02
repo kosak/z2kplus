@@ -72,6 +72,7 @@ public:
   typedef z2kplus::backend::shared::protocol::message::drequests::Ping Ping;
   typedef z2kplus::backend::shared::protocol::message::drequests::PostMetadata PostMetadata;
   typedef z2kplus::backend::shared::protocol::message::drequests::PostZgrams PostZgrams;
+  typedef z2kplus::backend::shared::protocol::message::drequests::ProposeFilters ProposeFilters;
   typedef z2kplus::backend::shared::protocol::message::drequests::Subscribe Subscribe;
   typedef z2kplus::backend::shared::LogRecord LogRecord;
   typedef z2kplus::backend::shared::MetadataRecord MetadataRecord;
@@ -127,6 +128,8 @@ public:
       const FailFrame &ff);
 
   void getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o, std::vector<response_t> *responses);
+
+  void proposeFilters(Subscription *sub, ProposeFilters &&o, std::vector<response_t> *responses);
 
   void ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses);
 

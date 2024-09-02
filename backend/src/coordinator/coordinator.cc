@@ -304,6 +304,26 @@ void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
   responses->emplace_back(sub, dresponses::AckSpecificZgrams(std::move(zgrams)));
 }
 
+void Coordinator::proposeFilters(Subscription *sub, ProposeFilters &&o, std::vector<response_t> *responses) {
+  const auto &userId = sub->profile()->userId();
+  auto filterp = userFilters_.find(userid);
+  if (filterp != nullptr && filterp->version() > o.basedOnVersion()) {
+    // reject
+    return;
+  }
+
+  for (const auto &destSub : subscriptions_) {
+    if (userId != destSub->profile()->userId()) {
+      continue;
+    }
+    dresponses::FiltersUpdate update(version, o.filters());
+    responses->emplace_back(destSub.get(), DResponse(std::move(update)));
+  }
+
+  UserFilters userFilters(getnubbinornow, std::move(o.filters()));
+  userFilters_.add(userId, std::move(userFilters));
+}
+
 void Coordinator::ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses) {
   responses->emplace_back(sub, dresponses::AckPing(o.cookie()));
 }
