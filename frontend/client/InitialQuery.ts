@@ -13,8 +13,6 @@
 // limitations under the License.
 
 import {SearchOrigin, searchOriginInfo, ZgramId} from "../shared/protocol/zephyrgram";
-import {Filter} from "../shared/protocol/misc"
-import {assertArray} from "../shared/json_util";
 import {escapeQuotes} from "../shared/utility";
 
 enum QueryKeys {
@@ -30,10 +28,6 @@ enum SearchOriginKeys {
     Timestamp = "sots",
 }
 
-enum FilterKeys  {
-    Filters = "fs"
-}
-
 class Builder {
     zgramId: number | undefined = undefined;
     sender: string | undefined = undefined;
@@ -41,54 +35,54 @@ class Builder {
     reaction: string | undefined = undefined;
     query: string | undefined = undefined;
 
-    constructor(public searchOrigin: SearchOrigin, public filters: Filter[]) {
+    constructor(public searchOrigin: SearchOrigin) {
     }
 
     toInitialQuery() {
         return new InitialQuery(this.zgramId, this.sender, this.instance, this.reaction,
-            this.query, this.searchOrigin, this.filters);
+            this.query, this.searchOrigin);
     }
 }
 
 
 export class InitialQuery {
-    static ofDefault(searchOrigin: SearchOrigin, filters: Filter[]) {
-        const builder = new Builder(searchOrigin, filters);
+    static ofDefault(searchOrigin: SearchOrigin) {
+        const builder = new Builder(searchOrigin);
         return builder.toInitialQuery();
     }
 
-    static ofGeneralQuery(query: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        const builder = new Builder(searchOrigin, filters);
+    static ofGeneralQuery(query: string, searchOrigin: SearchOrigin) {
+        const builder = new Builder(searchOrigin);
         builder.query = query;
         return builder.toInitialQuery();
     }
 
-    static ofId(id: ZgramId, filters: Filter[]) {
-        const builder = new Builder(SearchOrigin.ofEnd(), filters);
+    static ofId(id: ZgramId) {
+        const builder = new Builder(SearchOrigin.ofEnd());
         builder.zgramId = id.raw;
         return builder.toInitialQuery();
     }
 
-    static ofSender(sender: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        const builder = new Builder(searchOrigin, filters);
+    static ofSender(sender: string, searchOrigin: SearchOrigin) {
+        const builder = new Builder(searchOrigin);
         builder.sender = sender;
         return builder.toInitialQuery();
     }
 
-    static ofInstance(instance: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        const builder = new Builder(searchOrigin, filters);
+    static ofInstance(instance: string, searchOrigin: SearchOrigin) {
+        const builder = new Builder(searchOrigin);
         builder.instance = instance;
         return builder.toInitialQuery();
     }
 
-    static ofReaction(reaction: string, searchOrigin: SearchOrigin, filters: Filter[]) {
-        const builder = new Builder(searchOrigin, filters);
+    static ofReaction(reaction: string, searchOrigin: SearchOrigin) {
+        const builder = new Builder(searchOrigin);
         builder.reaction = reaction;
         return builder.toInitialQuery();
     }
 
     static createFromLocationOrDefault(location: Location) {
-        const builder = new Builder(SearchOrigin.ofEnd(), []);
+        const builder = new Builder(SearchOrigin.ofEnd());
         const searchParams = new URLSearchParams(location.search);
         for (const [key, value] of searchParams) {
             switch (key) {
@@ -118,12 +112,6 @@ export class InitialQuery {
                     builder.searchOrigin = SearchOrigin.ofTimestamp(ts);
                     break;
                 }
-                case FilterKeys.Filters: {
-                    const object = JSON.parse(value);
-                    const array = assertArray(object);
-                    builder.filters = array.map(Filter.tryParseJson);
-                    break;
-                }
                 default: {
                     console.log(`Unrecognized key ${key}`);
                 }
@@ -137,8 +125,7 @@ export class InitialQuery {
         private readonly instance: string | undefined,
         private readonly reaction: string | undefined,
         private readonly query: string | undefined,
-        public readonly searchOrigin: SearchOrigin,
-        public readonly filters: Filter[]) {
+        public readonly searchOrigin: SearchOrigin) {
     }
 
     toQueryString() {
@@ -186,10 +173,6 @@ export class InitialQuery {
         }
         if (this.searchOrigin.tag === searchOriginInfo.Tag.Timestamp) {
             sp.append(SearchOriginKeys.ZgramId, (this.searchOrigin.payload as number).toString());
-        }
-        if (this.filters.length !== 0) {
-            const asJson = JSON.stringify(this.filters.map(f => f.toJson()));
-            url.searchParams.append(FilterKeys.Filters, asJson);
         }
         return url.toString();
     }

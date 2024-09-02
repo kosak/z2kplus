@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import {
-  assertAndDestructure2, assertAndDestructure5, assertArrayOfLength,
-  assertBoolean, assertEnum, assertNumber, assertString, optionalToJson, optionalTryParseJson,
+  assertAndDestructure1, assertAndDestructure2, assertAndDestructure5, assertArray, assertArrayOfLength,
+  assertBoolean, assertNumber, assertString, optionalToJson, optionalTryParseJson,
 } from "../json_util";
-import {booleanCompare, IComparable} from "../utility";
+import {booleanCompare, IComparable, intercalate} from "../utility";
 
 export class Unit implements IComparable<Unit> {
   private static readonly instance = new Unit();
@@ -127,3 +127,22 @@ export class Filter {
       `${this.expirationSecs})`;
   }
 }
+//
+// export class Filters {
+//   constructor(readonly filters: Filter[]) {}
+//
+//   toJson() {
+//     return [this.filters.map(f => f.toJson())];
+//   }
+//
+//   static tryParseJson(item: any) {
+//     const [fs] = assertAndDestructure1(item, assertArray);
+//     const filters = fs.map(Filter.tryParseJson);
+//     return new Filters(filters);
+//   }
+//
+//   toString() {
+//     const text = intercalate(", ", x => x.toString(), this.filters);
+//     return `Filters(${text})`;
+//   }
+// }

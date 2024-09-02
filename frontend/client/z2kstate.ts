@@ -16,7 +16,7 @@ import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
-import {Estimates} from "../shared/protocol/misc";
+import {Estimates, Filters} from "../shared/protocol/misc";
 import {
     MetadataRecord,
     searchOriginInfo,
@@ -38,6 +38,8 @@ import {UploadableMediaUtil} from "../shared/uploadable_media_util";
 import {Renderer} from "./util/renderer";
 import {FiltersViewModel} from "./viewmodels/filters_viewmodel";
 import {Optional, Pair} from "../shared/utility";
+import FiltersUpdate = dresponses.FiltersUpdate;
+import ProposeFilters = drequests.ProposeFilters;
 
 export class Z2kState {
     readonly host: string;
@@ -137,11 +139,10 @@ export class Z2kState {
             }
         };
 
-        this.sessionManager.start( s => this.handleStateChange(s), d => this.handleDresponse(d));
+        this.sessionManager.start(s => this.handleStateChange(s), d => this.handleDresponse(d));
         this.sessionStatus.queryOutstanding = true;
         const iq = InitialQuery.createFromLocationOrDefault(window.location);
         this.queryViewModel.resetToIq(iq);
-        this.filtersViewModel.reset(iq.filters);
         if (iq.searchOrigin.tag === searchOriginInfo.Tag.End) {
             this.frontStreamStatus.setAppetite(magicConstants.initialQuerySize);
             this.backStreamStatus.setAppetite(undefined);
@@ -154,6 +155,18 @@ export class Z2kState {
         const sub = DRequest.createSubscribe(queryString, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
+
+        const storedFiltersAsText = window.localStorage.getItem(LocalStorageKeys.Filters);
+        var filterProposal: DRequest;
+        if (storedFiltersAsText === null) {
+            filterProposal = DRequest.createProposeFilters(0, false, []);
+        } else {
+            const storedFiltersAsObj = JSON.parse(storedFiltersAsText);
+            // Stored filters are just stored directly as a FiltersUpdate object
+            var storedFilters = FiltersUpdate.tryParseJson(storedFiltersAsObj);
+            filterProposal = DRequest.createProposeFilters(storedFilters.version, false, storedFilters.filters);
+        }
+        this.sessionManager.sendDRequest(filterProposal);
     }
 
     loadNewPageWithDefaultQuery() {
