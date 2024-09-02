@@ -56,6 +56,24 @@ struct SubComparer {
     return lhs < rhs.get();
   }
 };
+
+class CachedFilters {
+  typedef z2kplus::backend::shared::protocol::Filter Filter;
+
+public:
+  CachedFilters();
+  CachedFilters(uint64_t version, std::vector<Filter> filters);
+  DISALLOW_COPY_AND_ASSIGN(CachedFilters);
+  DECLARE_MOVE_COPY_AND_ASSIGN(CachedFilters);
+  ~CachedFilters();
+
+  uint64_t version() const { return version_; }
+  const std::vector<Filter> &filters() const { return filters_; }
+
+private:
+  uint64_t version_ = 0;
+  std::vector<Filter> filters_;
+};
 }  // namespace internal
 
 class Coordinator {
@@ -76,7 +94,6 @@ public:
   typedef z2kplus::backend::shared::protocol::message::drequests::Subscribe Subscribe;
   typedef z2kplus::backend::shared::LogRecord LogRecord;
   typedef z2kplus::backend::shared::MetadataRecord MetadataRecord;
-  typedef z2kplus::backend::shared::PlusPlusScanner PlusPlusScanner;
   typedef z2kplus::backend::shared::Profile Profile;
   typedef z2kplus::backend::shared::Zephyrgram Zephyrgram;
   typedef z2kplus::backend::shared::ZgramCore ZgramCore;
@@ -159,5 +176,6 @@ private:
   std::shared_ptr<PathMaster> pathMaster_;
   ConsolidatedIndex index_;
   std::set<std::shared_ptr<Subscription>, internal::SubComparer> subscriptions_;
+  std::map<std::string, internal::CachedFilters> filters_;
 };
 }  // namespace z2kplus::backend::coordinator

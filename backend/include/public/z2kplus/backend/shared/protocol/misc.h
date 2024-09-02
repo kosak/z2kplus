@@ -78,7 +78,7 @@ public:
   Filter();
   Filter(std::optional<std::string> sender, std::optional<std::string> instanceExact,
     std::optional<std::string> instancePrefix, bool strong, uint64_t expirationSecs);
-  DISALLOW_COPY_AND_ASSIGN(Filter);
+  DECLARE_COPY_AND_ASSIGN(Filter);
   DECLARE_MOVE_COPY_AND_ASSIGN(Filter);
   ~Filter();
 

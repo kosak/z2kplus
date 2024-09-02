@@ -160,6 +160,12 @@ public:
   DECLARE_MOVE_COPY_AND_ASSIGN(ProposeFilters);
   ~ProposeFilters();
 
+  uint64_t basedOnVersion() const { return basedOnVersion_; }
+  bool theseFiltersAreNew() const { return theseFiltersAreNew_; }
+
+  const std::vector<Filter> &filters() const { return filters_; }
+  std::vector<Filter> &filters() { return filters_; }
+
 private:
   uint64_t basedOnVersion_ = 0;
   /**

@@ -40,6 +40,7 @@ using kosak::coding::text::trim;
 using kosak::coding::toString;
 using kosak::coding::Unit;
 using z2kplus::backend::coordinator::Subscription;
+using z2kplus::backend::coordinator::internal::CachedFilters;
 using z2kplus::backend::files::FileKey;
 using z2kplus::backend::files::FileKeyKind;
 using z2kplus::backend::files::LogLocation;
@@ -306,22 +307,33 @@ void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
 
 void Coordinator::proposeFilters(Subscription *sub, ProposeFilters &&o, std::vector<response_t> *responses) {
   const auto &userId = sub->profile()->userId();
-  auto filterp = userFilters_.find(userid);
-  if (filterp != nullptr && filterp->version() > o.basedOnVersion()) {
-    // reject
+  auto filterp = filters_.find(userId);
+  if (filterp != filters_.end() && filterp->second.version() >= o.basedOnVersion()) {
+    // If my filter is newer (or the same age as) your filter, I will ignore your submission
+    // and send you (and you alone) back what I have. It is assumed that one second ticking
+    // clocks are good enough, and I don't even compare the value of the filter to see if
+    // it has changed. Ha!
+    dresponses::FiltersUpdate update(filterp->second.version(), filterp->second.filters());
+    responses->emplace_back(sub, DResponse(std::move(update)));
     return;
+  }
+
+  // I'm going to accept your filters, and I will send everyone (including you) your updated filter.
+  uint64_t versionToUse = o.basedOnVersion();
+  if (o.theseFiltersAreNew()) {
+    versionToUse = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   }
 
   for (const auto &destSub : subscriptions_) {
     if (userId != destSub->profile()->userId()) {
       continue;
     }
-    dresponses::FiltersUpdate update(version, o.filters());
+    dresponses::FiltersUpdate update(versionToUse, o.filters());
     responses->emplace_back(destSub.get(), DResponse(std::move(update)));
   }
 
-  UserFilters userFilters(getnubbinornow, std::move(o.filters()));
-  userFilters_.add(userId, std::move(userFilters));
+  CachedFilters cachedFilters(versionToUse, std::move(o.filters()));
+  filters_.insert_or_assign(userId, std::move(cachedFilters));
 }
 
 void Coordinator::ping(Subscription *sub, Ping &&o, std::vector<response_t> *responses) {
