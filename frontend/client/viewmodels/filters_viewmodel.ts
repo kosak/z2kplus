@@ -83,16 +83,16 @@ export class FilterViewModel {
     get humanReadableDescription() {
         const items: string[] = [];
         if (this.sender !== undefined) {
-            items.push(`sender:"${this.sender}"`);
+            items.push(this.sender);
         }
         if (this.instanceExact !== undefined) {
-            items.push(`instance:"${this.instanceExact}"`);
+            items.push(`"${this.instanceExact}"`);
         }
         if (this.instancePrefix !== undefined) {
-            items.push(`instance starts with:"${this.instancePrefix}"`);
+            items.push(`"${this.instancePrefix}"...`);
         }
         if (items.length === 0) {
-            return "(match all)";
+            return "[nothing]";
         }
         const joined = items.join(",");
         const weakOrStrong = this.strong ? "strong" : "weak";

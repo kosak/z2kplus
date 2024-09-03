@@ -40,7 +40,6 @@ export const filtersDialogComponent = {
                   <button type="button" class="btn-close" @click="item.removeSelf()"></button>
                 </div>
                 <div class="col-sm-5">{{ item.humanReadableDescription }}</div>
-                <div class="col-sm-5">{{ item.humanReadableExpiration }}</div>
               </div>
             </div>
           </div>

@@ -45,17 +45,12 @@ export class AddFilterViewModel {
     }
 
     addFilter() {
-        const [s, ix, ip] = this.calcFilterParams();
+        const s = this.senderFilter.selected ? this.sender : undefined;
+        const ix = this.instanceFilter.selected ? this.instance : undefined;
+        const ip = this.instancePrefixFilter.selected ? this.instance : undefined;
         const filter = new Filter(s, ix, ip, this.strong);
         this.state.addFilter(filter);
         this.owner.toggleAddFilterInteraction();
-    }
-
-    private calcFilterParams() {
-        const sender = this.senderFilter.valueIfSelected;
-        const instanceExact = this.instanceFilter.valueIfSelected;
-        const instancePrefix = this.instancePrefixFilter.valueIfSelected;
-        return [sender, instanceExact, instancePrefix];
     }
 }
 
@@ -64,10 +59,6 @@ class WhichFilter {
 
     constructor(readonly text: string) {
         this.selected = false;
-    }
-
-    get valueIfSelected() {
-        return this.selected ? this.text : undefined;
     }
 }
 
