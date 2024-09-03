@@ -301,10 +301,6 @@ export class Z2kState {
     }
 
     visitFiltersUpdate(resp: dresponses.FiltersUpdate) {
-        if (resp.version <= this.localStorageFilters.version) {
-            // Ignore filters older than the one we have
-            return;
-        }
         this.filtersViewModel.reset(resp.filters);
         this.localStorageFilters = new LocalStorageFilters(resp.version, resp.filters);
         const ftext = JSON.stringify(this.localStorageFilters.toJson());
