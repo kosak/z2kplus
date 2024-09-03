@@ -127,22 +127,22 @@ export class Filter {
       `${this.expirationSecs})`;
   }
 }
-//
-// export class Filters {
-//   constructor(readonly filters: Filter[]) {}
-//
-//   toJson() {
-//     return [this.filters.map(f => f.toJson())];
-//   }
-//
-//   static tryParseJson(item: any) {
-//     const [fs] = assertAndDestructure1(item, assertArray);
-//     const filters = fs.map(Filter.tryParseJson);
-//     return new Filters(filters);
-//   }
-//
-//   toString() {
-//     const text = intercalate(", ", x => x.toString(), this.filters);
-//     return `Filters(${text})`;
-//   }
-// }
+
+export class LocalStorageFilters {
+  constructor(readonly version: number, readonly filters: Filter[]) {}
+
+  toJson() {
+    return [this.version, this.filters.map(f => f.toJson())];
+  }
+
+  static tryParseJson(item: any) {
+    const [v, fs] = assertAndDestructure2(item, assertNumber, assertArray);
+    const filters = fs.map(Filter.tryParseJson);
+    return new LocalStorageFilters(v, filters);
+  }
+
+  toString() {
+    const text = intercalate(", ", x => x.toString(), this.filters);
+    return `LocalStorageFilters(${this.version}, ${text})`;
+  }
+}

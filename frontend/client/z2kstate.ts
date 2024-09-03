@@ -16,7 +16,7 @@ import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
-import {Estimates, Filters} from "../shared/protocol/misc";
+import {Estimates, LocalStorageFilters} from "../shared/protocol/misc";
 import {
     MetadataRecord,
     searchOriginInfo,
@@ -63,6 +63,7 @@ export class Z2kState {
     // TODO: fix type
     readonly textSelection: any;
     private ackPingTimer: number | undefined;
+    private localStorageFilters: LocalStorageFilters;
 
     constructor() {
         this.host = window.location.host;
@@ -156,17 +157,17 @@ export class Z2kState {
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
 
-        const storedFiltersAsText = window.localStorage.getItem(LocalStorageKeys.Filters);
-        var filterProposal: DRequest;
-        if (storedFiltersAsText === null) {
-            filterProposal = DRequest.createProposeFilters(0, false, []);
+        const localStorageFiltersAsText = window.localStorage.getItem(magicConstants.filtersLocalStorageKey);
+        if (localStorageFiltersAsText === null) {
+            this.localStorageFilters = new LocalStorageFilters(0, []);
         } else {
-            const storedFiltersAsObj = JSON.parse(storedFiltersAsText);
-            // Stored filters are just stored directly as a FiltersUpdate object
-            var storedFilters = FiltersUpdate.tryParseJson(storedFiltersAsObj);
-            filterProposal = DRequest.createProposeFilters(storedFilters.version, false, storedFilters.filters);
+            const asObj = JSON.parse(localStorageFiltersAsText);
+            this.localStorageFilters = LocalStorageFilters.tryParseJson(asObj);
         }
-        this.sessionManager.sendDRequest(filterProposal);
+
+        const proposal = DRequest.createProposeFilters(this.localStorageFilters.version, false,
+            this.localStorageFilters.filters);
+        this.sessionManager.sendDRequest(proposal);
     }
 
     loadNewPageWithDefaultQuery() {
@@ -297,6 +298,16 @@ export class Z2kState {
                 zg.doSpeak();
             }
         }
+    }
+
+    visitFilterUpdatesWhatever(resp: dresponses.FiltersUpdate) {
+        if (resp.version <= this.localStorageFilters.version) {
+            // Ignore filters older than the one we have
+            return;
+        }
+        this.filtersViewModel.reset(resp.filters);
+        const ftext = JSON.stringify(this.localStorageFilters.toJson());
+        window.localStorage.setItem(magicConstants.filtersLocalStorageKey, ftext);
     }
 
     updateLastReadZgram(zgramId: ZgramId) {
