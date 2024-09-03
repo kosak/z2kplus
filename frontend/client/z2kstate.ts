@@ -302,6 +302,7 @@ export class Z2kState {
 
     visitFiltersUpdate(resp: dresponses.FiltersUpdate) {
         this.filtersViewModel.reset(resp.filters);
+        this.sessionStatus.hasFilters = resp.filters.length > 0;
         this.localStorageFilters = new LocalStorageFilters(resp.version, resp.filters);
         const ftext = JSON.stringify(this.localStorageFilters.toJson());
         window.localStorage.setItem(magicConstants.filtersLocalStorageKey, ftext);
