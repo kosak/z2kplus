@@ -309,19 +309,12 @@ void Coordinator::proposeFilters(Subscription *sub, ProposeFilters &&o, std::vec
   const auto &userId = sub->profile()->userId();
   auto filterp = filters_.find(userId);
   if (filterp != filters_.end()) {
-    if (filterp->second.version() > o.basedOnVersion()) {
-      // If my filter is newer than your filter, then your lease is not valid, so
-      // I'm going to reject your request and send you (the specific requestor, not everyone
-      // logged in as you) updated filter information.
+    auto yourVersion = o.basedOnVersion();
+    auto myVersion = filterp->second.version();
+    if (myVersion > yourVersion || (myVersion == yourVersion && !o.theseFiltersAreNew())) {
+      // In either case I'm going to send you my filter, either as update or just as confirmation
       dresponses::FiltersUpdate update(filterp->second.version(), filterp->second.filters());
       responses->emplace_back(sub, DResponse(std::move(update)));
-      return;
-    }
-
-    if (filterp->second.version() == o.basedOnVersion() && !o.theseFiltersAreNew()) {
-      // If my filter is based on the same version as your filter, and you are not
-      // specifying the "theseFiltersAreNew" flag, then there is nothing new here,
-      // so I won't even respond.
       return;
     }
   }
