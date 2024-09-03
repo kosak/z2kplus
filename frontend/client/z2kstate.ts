@@ -201,6 +201,10 @@ export class Z2kState {
         this.sessionManager.reconnect();
     }
 
+    toggleFilters() {
+        this.sessionStatus.filtersEnabled = !this.sessionStatus.filtersEnabled;
+    }
+
     postZgram(zgram: ZgramCore, refersTo: ZgramId | undefined) {
         const zgPairs = [Pair.create(zgram, Optional.create(refersTo))];
         const post = DRequest.createPostZgrams(zgPairs);
@@ -266,7 +270,7 @@ export class Z2kState {
         if (resp.zgrams.length === 0) {
             return;
         }
-        const wrappedZgrams = resp.zgrams.map(zg => new ZgramViewModel(this, zg));
+        const wrappedZgrams = resp.zgrams.map(zg => new ZgramViewModel(this, this.sessionStatus, zg));
         for (const zvm of wrappedZgrams) {
             this.zgramDict[zvm.zgramId.raw] = zvm;
         }
@@ -309,6 +313,7 @@ export class Z2kState {
     }
 
     addFilter(newFilter: Filter) {
+        this.sessionStatus.filtersEnabled = true;
         var newFilters = this.filtersViewModel.allFilters.concat(newFilter);
         var proposal = DRequest.createProposeFilters(this.localStorageFilters.version, true, newFilters);
         this.sessionManager.sendDRequest(proposal);
@@ -364,7 +369,7 @@ export class Z2kState {
             if (this.zgramDict[raw] !== undefined) {
                 continue;
             }
-            this.zgramDict[raw] = new ZgramViewModel(this, zg);
+            this.zgramDict[raw] = new ZgramViewModel(this, this.sessionStatus, zg);
         }
     }
 

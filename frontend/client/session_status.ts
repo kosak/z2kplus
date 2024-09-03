@@ -21,6 +21,7 @@ export class SessionStatus {
     queryOutstanding: boolean = false;
     getMoreZgramsRequestOutstanding: boolean = false;
     hasFilters: boolean = false;
+    filtersEnabled: boolean = true;
 
     get isSessionHealthy() {
         return this.attachedToSession && this.haveRecentPing;

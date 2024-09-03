@@ -18,21 +18,23 @@ import {staticFail} from "../../shared/utility";
 import {ZgramViewModel} from "./zgram_viewmodel";
 
 export class AddFilterViewModel {
-    which: Which;
     strong: boolean;
+    senderFilter: WhichFilter;
+    instanceFilter: WhichFilter;
+    instancePrefixFilter: WhichFilter;
+    allFilters: WhichFilter[];
 
     constructor(readonly owner: ZgramViewModel, readonly state: Z2kState, readonly sender: string,
         readonly instance: string) {
-        this.which = Which.Sender;
         this.strong = false;
+        this.senderFilter = new WhichFilter(`sender "${this.sender}"`);
+        this.instanceFilter = new WhichFilter(`instance "${this.instance}"`);
+        this.instancePrefixFilter = new WhichFilter(`instance starts with "${this.instance}"`);
+        this.allFilters = [this.senderFilter, this.instanceFilter, this.instancePrefixFilter];
     }
 
-    get whichChoices() {
-        return [
-            new WhichChoice(Which.Sender, `sender "${this.sender}"`),
-            new WhichChoice(Which.InstanceExact, `instance "${this.instance}"`),
-            new WhichChoice(Which.InstancePrefix, `instance starts with "${this.instance}"`)
-            ];
+    get whichFilters() {
+        return this.allFilters;
     }
 
     get whichStrengths() {
@@ -50,29 +52,23 @@ export class AddFilterViewModel {
     }
 
     private calcFilterParams() {
-        let sender: string | undefined = undefined;
-        let instanceExact: string | undefined = undefined;
-        let instancePrefix: string | undefined = undefined;
-
-        switch (this.which) {
-            case Which.Sender: sender = this.sender; break;
-            case Which.InstanceExact: instanceExact = this.instance; break;
-            case Which.InstancePrefix: instancePrefix = this.instance; break;
-            default: staticFail(this.which);
-        }
-
+        const sender = this.senderFilter.valueIfSelected;
+        const instanceExact = this.instanceFilter.valueIfSelected;
+        const instancePrefix = this.instancePrefixFilter.valueIfSelected;
         return [sender, instanceExact, instancePrefix];
     }
 }
 
-enum Which {
-    Sender = "Sender",
-    InstanceExact = "InstanceExact",
-    InstancePrefix = "InstancePrefix"
-}
+class WhichFilter {
+    selected: boolean;
 
-class WhichChoice {
-    constructor(readonly tag: Which, readonly text: string) {}
+    constructor(readonly text: string) {
+        this.selected = false;
+    }
+
+    get valueIfSelected() {
+        return this.selected ? this.text : undefined;
+    }
 }
 
 class WhichStrength {

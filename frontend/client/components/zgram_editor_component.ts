@@ -103,7 +103,7 @@ export const zgramEditorComponent = {
     <!-- row of buttons -->
     <div>
     <!-- Reset -->
-    <button tabindex="-1" type="reset" class="btn btn-sm btn-outline-dark" @click="self.doReset()">
+    <button tabindex="-1" type="reset" class="btn btn-sm btn-outline-dark" @click="self.guiReset()">
       Reset
     </button>
 
