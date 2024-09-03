@@ -31,15 +31,14 @@ export const filtersDialogComponent = {
             <div class="container-fluid">
               <div class="row">
                 <div class="col-sm-2"><b>Remove</b></div>
-                <div class="col-sm-5"><b>Filter</b></div>
-                <div class="col-sm-5"><b>Expiration</b></div>
+                <div class="col-sm-10"><b>Filter</b></div>
               </div>
 
               <div v-for="item in self.allFilterViewModels" class="row">
                 <div class="col-sm-2">
                   <button type="button" class="btn-close" @click="item.removeSelf()"></button>
                 </div>
-                <div class="col-sm-5">{{ item.humanReadableDescription }}</div>
+                <div class="col-sm-10">{{ item.humanReadableDescription }}</div>
               </div>
             </div>
           </div>
