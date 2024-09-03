@@ -19,13 +19,11 @@ import {ZgramViewModel} from "./zgram_viewmodel";
 
 export class AddFilterViewModel {
     which: Which;
-    duration: Duration;
     strong: boolean;
 
     constructor(readonly owner: ZgramViewModel, readonly state: Z2kState, readonly sender: string,
         readonly instance: string) {
         this.which = Which.Sender;
-        this.duration = Duration.OneHour;
         this.strong = false;
     }
 
@@ -35,15 +33,6 @@ export class AddFilterViewModel {
             new WhichChoice(Which.InstanceExact, `instance "${this.instance}"`),
             new WhichChoice(Which.InstancePrefix, `instance starts with "${this.instance}"`)
             ];
-    }
-
-    get whichDurations() {
-        return [
-            new WhichDuration(Duration.OneHour, "One Hour"),
-            new WhichDuration(Duration.OneDay, "One Day"),
-            new WhichDuration(Duration.OneWeek, "One Week"),
-            new WhichDuration(Duration.FortySevenYears, "Forty-seven Years")
-        ];
     }
 
     get whichStrengths() {
@@ -56,26 +45,9 @@ export class AddFilterViewModel {
     addFilter() {
         const id = crypto.randomUUID();
         const [s, ix, ip] = this.calcFilterParams();
-        const expiration = this.calcExpirationSecs();
-        const filter = new Filter(id, s, ix, ip, this.strong, expiration);
-        this.state.filtersViewModel.add(filter);
+        const filter = new Filter(id, s, ix, ip, this.strong);
+        this.state.addFilter(filter);
         this.owner.toggleAddFilterInteraction();
-    }
-
-    private calcExpirationSecs() {
-        const oneHour = 60 * 60;
-        const oneDay = oneHour * 24;
-        const oneWeek = oneDay * 7;
-        const fortySevenYears = oneWeek * 52.25 * 47;  // approximate
-
-        const nowSecs = Date.now() / 1000;
-        switch (this.duration) {
-            case Duration.OneHour: return nowSecs + oneHour;
-            case Duration.OneDay: return nowSecs + oneDay;
-            case Duration.OneWeek: return nowSecs + oneWeek;
-            case Duration.FortySevenYears: return nowSecs + fortySevenYears;
-            default: staticFail(this.duration);
-        }
     }
 
     private calcFilterParams() {
@@ -100,19 +72,8 @@ enum Which {
     InstancePrefix = "InstancePrefix"
 }
 
-enum Duration {
-    OneHour = "OneHour",
-    OneDay = "OneDay",
-    OneWeek = "OneWeek",
-    FortySevenYears = "FortySevenYears"
-}
-
 class WhichChoice {
     constructor(readonly tag: Which, readonly text: string) {}
-}
-
-class WhichDuration {
-    constructor(readonly tag: Duration, readonly text: string) {}
 }
 
 class WhichStrength {

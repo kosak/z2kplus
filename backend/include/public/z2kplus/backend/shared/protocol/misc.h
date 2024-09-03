@@ -77,7 +77,7 @@ class Filter {
 public:
   Filter();
   Filter(std::optional<std::string> sender, std::optional<std::string> instanceExact,
-    std::optional<std::string> instancePrefix, bool strong, uint64_t expirationSecs);
+    std::optional<std::string> instancePrefix, bool strong);
   DECLARE_COPY_AND_ASSIGN(Filter);
   DECLARE_MOVE_COPY_AND_ASSIGN(Filter);
   ~Filter();
@@ -87,7 +87,6 @@ private:
   std::optional<std::string> instanceExact_;
   std::optional<std::string> instancePrefix_;
   bool strong_ = false;
-  uint64_t expirationSecs_ = 0;
 
   friend std::ostream &operator<<(std::ostream &s, const Filter &o);
   DECLARE_TYPICAL_JSON(Filter);

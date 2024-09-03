@@ -29,15 +29,6 @@ export const addFilterComponent = {
       </div>
 
       <div>
-      <div v-for="item in self.whichDurations" class="form-check form-check-inline">
-        <label class="form-check-label">
-          <input tabIndex="-1" class="form-check-input" type="radio" v-model="self.duration" :value="item.tag">
-          {{ item.text }}
-        </label>
-      </div>
-      </div>
-
-      <div>
       <div v-for="item in self.whichStrengths" class="form-check form-check-inline">
         <label class="form-check-label">
           <input tabIndex="-1" class="form-check-input" type="radio" v-model="self.strong" :value="item.tag">
