@@ -43,9 +43,8 @@ export class AddFilterViewModel {
     }
 
     addFilter() {
-        const id = crypto.randomUUID();
         const [s, ix, ip] = this.calcFilterParams();
-        const filter = new Filter(id, s, ix, ip, this.strong);
+        const filter = new Filter(s, ix, ip, this.strong);
         this.state.addFilter(filter);
         this.owner.toggleAddFilterInteraction();
     }

@@ -22,24 +22,6 @@ export class FiltersViewModel {
         this.filters = [];
     }
 
-    add(filter: Filter) {
-        const nowMillis = Date.now();
-        const expirationMillis = filter.expirationSecs * 1000;
-        if (nowMillis >= expirationMillis) {
-            return;
-        }
-        const delay = expirationMillis - nowMillis;
-        this.filters.push(filter);
-        if (delay < 2147483647) {
-            setTimeout(() => this.remove(filter), delay);
-        }
-    }
-
-    remove(filter: Filter) {
-        // O(n) but small
-        this.filters = this.filters.filter(f => f !== filter);
-    }
-
     reset(filters: Filter[]) {
         this.filters = filters;
     }
@@ -98,10 +80,6 @@ export class FilterViewModel {
         return this.filter.strong;
     }
 
-    get expirationSecs() {
-        return this.filter.expirationSecs;
-    }
-
     get humanReadableDescription() {
         const items: string[] = [];
         if (this.sender !== undefined) {
@@ -121,12 +99,7 @@ export class FilterViewModel {
         return `${joined} [${weakOrStrong}]`;
     }
 
-    get humanReadableExpiration() {
-        const m = moment.unix(this.expirationSecs);
-        return m.format("lll");
-    }
-
     removeSelf() {
-        this.owner.remove(this.filter);
+        this.state.removeFilter(this.filter);
     }
 }
