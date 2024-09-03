@@ -13,12 +13,12 @@
 // limitations under the License.
 
 import {Filter} from "../../shared/protocol/misc";
-const moment = require("moment");
+import {Z2kState} from "../z2kstate";
 
 export class FiltersViewModel {
     private filters: Filter[];
 
-    constructor() {
+    constructor(readonly state: Z2kState) {
         this.filters = [];
     }
 
@@ -37,7 +37,7 @@ export class FiltersViewModel {
     }
 
     get allFilterViewModels() {
-        return this.allFilters.map(f => new FilterViewModel(this, f));
+        return this.allFilters.map(f => new FilterViewModel(this, this.state, f));
     }
 
     get allFilters() {
@@ -62,7 +62,7 @@ function matches(filter: Filter, sender: string, instance: string, strongOnly: b
 }
 
 export class FilterViewModel {
-    constructor(readonly owner: FiltersViewModel, readonly filter: Filter) {}
+    constructor(readonly owner: FiltersViewModel, readonly state: Z2kState, readonly filter: Filter) {}
 
     get sender() {
         return this.filter.sender;

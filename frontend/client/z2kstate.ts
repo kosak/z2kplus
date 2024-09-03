@@ -16,7 +16,7 @@ import {DRequest, drequests} from "../shared/protocol/message/drequest";
 import {magicConstants} from "../shared/magic_constants";
 import {SessionManager, State as SessionManagerState} from "./session_manager";
 import {DResponse, dresponses} from "../shared/protocol/message/dresponse";
-import {Estimates, LocalStorageFilters} from "../shared/protocol/misc";
+import {Estimates, Filter, LocalStorageFilters} from "../shared/protocol/misc";
 import {
     MetadataRecord,
     searchOriginInfo,
@@ -38,8 +38,6 @@ import {UploadableMediaUtil} from "../shared/uploadable_media_util";
 import {Renderer} from "./util/renderer";
 import {FiltersViewModel} from "./viewmodels/filters_viewmodel";
 import {Optional, Pair} from "../shared/utility";
-import FiltersUpdate = dresponses.FiltersUpdate;
-import ProposeFilters = drequests.ProposeFilters;
 
 export class Z2kState {
     readonly host: string;
@@ -306,8 +304,21 @@ export class Z2kState {
             return;
         }
         this.filtersViewModel.reset(resp.filters);
+        this.localStorageFilters = new LocalStorageFilters(resp.version, resp.filters);
         const ftext = JSON.stringify(this.localStorageFilters.toJson());
         window.localStorage.setItem(magicConstants.filtersLocalStorageKey, ftext);
+    }
+
+    addFilter(newFilter: Filter) {
+        var newFilters = this.filtersViewModel.allFilters.concat(newFilter);
+        var proposal = DRequest.createProposeFilters(this.localStorageFilters.version, true, newFilters);
+        this.sessionManager.sendDRequest(proposal);
+    }
+
+    removeFilter(filterToRemove: Filter) {
+        var newFilters = this.filtersViewModel.allFilters.filter(f => f !== filterToRemove);
+        var proposal = DRequest.createProposeFilters(this.localStorageFilters.version, true, newFilters);
+        this.sessionManager.sendDRequest(proposal);
     }
 
     updateLastReadZgram(zgramId: ZgramId) {
