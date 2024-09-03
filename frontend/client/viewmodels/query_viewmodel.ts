@@ -31,7 +31,6 @@ export class QueryViewModel {
     startAt: StartAt;
     specifiedZgramId: string;
     specifiedTimestamp: string;
-    inheritFilters: boolean;
     lastValidation: AckSyntaxCheck;
     private readonly rateLimiter: RateLimiter;
 
@@ -45,7 +44,6 @@ export class QueryViewModel {
         this.startAt = StartAt.End;
         this.specifiedZgramId = "";
         this.specifiedTimestamp = "";
-        this.inheritFilters = true;
         this.lastValidation = new AckSyntaxCheck("", true, "");
     }
 
@@ -80,8 +78,7 @@ export class QueryViewModel {
             // If we can't format a subcribe message, something is wrong with our parameters.
             return;
         }
-        var filters = this.inheritFilters ? this.owner.filtersViewModel.allFilters : [];
-        const query = InitialQuery.ofGeneralQuery(sub.query, sub.searchOrigin, filters);
+        const query = InitialQuery.ofGeneralQuery(sub.query, sub.searchOrigin);
         this.owner.openNewQuery(query);
     }
 

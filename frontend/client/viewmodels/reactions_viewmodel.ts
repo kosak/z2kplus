@@ -122,7 +122,7 @@ class ReactionViewModel {
 
     doClick() {
         const searchOrigin = SearchOrigin.ofZgramId(this.owner.zgramId);
-        const query = InitialQuery.ofReaction(this.text, searchOrigin, this.state.filtersViewModel.allFilters);
+        const query = InitialQuery.ofReaction(this.text, searchOrigin);
         this.state.openNewQuery(query);
     }
 

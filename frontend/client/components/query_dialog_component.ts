@@ -87,16 +87,6 @@ export const queryDialogComponent = {
                 </div>
               </div>
             </div>
-            <div class="row">
-              <div class="col-sm-2">Inherit filters</div>
-              <div class="col-sm-10">
-                <div class="form-check">
-                  <input tabIndex="-1" class="form-check-input" type="checkbox" v-model="self.inheritFilters">
-                  <label class="form-check-label">
-                  </label>
-                </div>
-              </div>
-            </div>
           </div>
           <div class="modal-footer">
             <button tabIndex="-1" type="reset" class="btn btn-sm btn-outline-dark" @click="self.reset()">

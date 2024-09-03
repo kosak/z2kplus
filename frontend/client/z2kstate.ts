@@ -74,7 +74,7 @@ export class Z2kState {
         this.queryViewModel = new QueryViewModel(this);
         this.zmojisEditorViewModel = new ZmojisEditorViewModel(this);
         this.speechViewModel = new SpeechViewmodel();
-        this.filtersViewModel = new FiltersViewModel();
+        this.filtersViewModel = new FiltersViewModel(this);
         this.frontStreamStatus = new StreamStatusViewModel("ss-front", this, false);
         this.backStreamStatus = new StreamStatusViewModel("ss-back", this, true);
         this.currentlyHoveringZgram = undefined;
