@@ -308,17 +308,26 @@ void Coordinator::getSpecificZgrams(Subscription *sub, GetSpecificZgrams &&o,
 void Coordinator::proposeFilters(Subscription *sub, ProposeFilters &&o, std::vector<response_t> *responses) {
   const auto &userId = sub->profile()->userId();
   auto filterp = filters_.find(userId);
-  if (filterp != filters_.end() && filterp->second.version() >= o.basedOnVersion()) {
-    // If my filter is newer (or the same age as) your filter, I will ignore your submission
-    // and send you (and you alone) back what I have. It is assumed that one second ticking
-    // clocks are good enough, and I don't even compare the value of the filter to see if
-    // it has changed. Ha!
-    dresponses::FiltersUpdate update(filterp->second.version(), filterp->second.filters());
-    responses->emplace_back(sub, DResponse(std::move(update)));
-    return;
+  if (filterp != filters_.end()) {
+    if (filterp->second.version() > o.basedOnVersion()) {
+      // If my filter is newer than your filter, then your lease is not valid, so
+      // I'm going to reject your request and send you (the specific requestor, not everyone
+      // logged in as you) updated filter information.
+      dresponses::FiltersUpdate update(filterp->second.version(), filterp->second.filters());
+      responses->emplace_back(sub, DResponse(std::move(update)));
+      return;
+    }
+
+    if (filterp->second.version() == o.basedOnVersion() && !o.theseFiltersAreNew()) {
+      // If my filter is based on the same version as your filter, and you are not
+      // specifying the "theseFiltersAreNew" flag, then there is nothing new here,
+      // so I won't even respond.
+      return;
+    }
   }
 
-  // I'm going to accept your filters, and I will send everyone (including you) your updated filter.
+  // Either I don't have a filter, or my filter lease is older than yours, or
+  // it's the same age but you've specified the "new" flag.
   uint64_t versionToUse = o.basedOnVersion();
   if (o.theseFiltersAreNew()) {
     versionToUse = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
