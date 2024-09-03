@@ -172,7 +172,7 @@ export class InitialQuery {
             sp.append(SearchOriginKeys.ZgramId, (this.searchOrigin.payload as ZgramId).raw.toString());
         }
         if (this.searchOrigin.tag === searchOriginInfo.Tag.Timestamp) {
-            sp.append(SearchOriginKeys.ZgramId, (this.searchOrigin.payload as number).toString());
+            sp.append(SearchOriginKeys.Timestamp, (this.searchOrigin.payload as number).toString());
         }
         return url.toString();
     }
