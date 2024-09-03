@@ -298,7 +298,7 @@ export class Z2kState {
         }
     }
 
-    visitFilterUpdatesWhatever(resp: dresponses.FiltersUpdate) {
+    visitFiltersUpdate(resp: dresponses.FiltersUpdate) {
         if (resp.version <= this.localStorageFilters.version) {
             // Ignore filters older than the one we have
             return;
