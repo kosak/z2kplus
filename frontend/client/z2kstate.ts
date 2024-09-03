@@ -154,6 +154,8 @@ export class Z2kState {
         const sub = DRequest.createSubscribe(queryString, iq.searchOrigin, magicConstants.pageSize,
             magicConstants.queryMargin);
         this.sessionManager.sendDRequest(sub);
+        // Need to send the first ping to start the keepalive process
+        this.sendPing();
 
         const localStorageFiltersAsText = window.localStorage.getItem(magicConstants.filtersLocalStorageKey);
         if (localStorageFiltersAsText === null) {
