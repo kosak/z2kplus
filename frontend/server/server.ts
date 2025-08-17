@@ -146,7 +146,7 @@ class Server {
     this.installPassportAuthenticationStrategies(app, clientId, clientSecret);
 
     // Middleware to serve static resources that are in the 'static' directory.
-    // But divert any unauthenticated uses of chat.html back to the login page.
+    // But divert any unauthenticated uses back to the login page.
     app.get("/static/chat.html", (req, res, next) => {
       if (!passportUtil.isAuthenticated(req)) {
         return res.redirect("/static/login.html");
@@ -157,7 +157,7 @@ class Server {
     app.use("/dist", express.static("client/dist"));
 
     // Middleware to serve media resources that are in the 'media' directory.
-    // But divert any unauthenticated uses of chat.html back to the login page.
+    // But divert any unauthenticated uses back to the login page.
     app.use("/media", (req, res, next) => {
       if (!passportUtil.isAuthenticated(req)) {
         return res.redirect("/static/login.html");
