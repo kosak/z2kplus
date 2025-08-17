@@ -158,7 +158,7 @@ class Server {
 
     // Middleware to serve media resources that are in the 'media' directory.
     // But divert any unauthenticated uses of chat.html back to the login page.
-    app.get("/media", (req, res, next) => {
+    app.use("/media", (req, res, next) => {
       if (!passportUtil.isAuthenticated(req)) {
         return res.redirect("/static/login.html");
       }
